@@ -3,14 +3,14 @@
 #include "Object.h"
 #include "ObjectFactory.h"
 #include "Singleton.h"
-//#include "Player.h"
+#include <memory>
 #include <vector>
 
 class ObjectManager : public Singleton<ObjectManager>{
 private:
-	std::vector<Object*> Obj;
-	std::vector<Charactor*> Enemy;		//当たり判定計算しやすいかなって思って・・・
-	std::vector<Object*> Effe;
+	std::vector<std::unique_ptr<Object>> Obj;
+	std::vector<std::unique_ptr<Charactor>> Enemy;		//当たり判定計算しやすいかなって思って・・・
+	std::vector<std::unique_ptr<Object>> Effe;
 
 	bool CollAll(Object* ObjA,Object* ObjB);
 public:
