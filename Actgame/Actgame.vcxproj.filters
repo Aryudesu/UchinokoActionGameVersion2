@@ -1,0 +1,345 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="ソース ファイル">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="ヘッダー ファイル">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="リソース ファイル">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Sound">
+      <UniqueIdentifier>{27bd5256-98f9-454e-8504-0bf73148d625}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Sound">
+      <UniqueIdentifier>{db8d4e27-09db-455b-aa76-3df78bfc1103}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Function">
+      <UniqueIdentifier>{98a8b55f-2106-4885-8828-08d20d4ce9f6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Function">
+      <UniqueIdentifier>{872cc6dc-6332-400a-83bc-cd6f680bbeb0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Scene">
+      <UniqueIdentifier>{9836c0bb-f7ee-4c7a-b71d-4d1d54a61f8d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Scene">
+      <UniqueIdentifier>{d03f70aa-d0a4-4003-9401-88081984181f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Scene\Menu">
+      <UniqueIdentifier>{3468e460-cad3-4fe7-9aa5-b731491fb24e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Scene\Menu\GameSystem">
+      <UniqueIdentifier>{e55bdc2d-34dc-4ad1-829b-7000ef2ebe53}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Scene\Menu\GameSystem\Act">
+      <UniqueIdentifier>{25be6551-b7f4-43b8-bde5-df46ebce28c6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Scene\Menu\GameSystem\Act\Object">
+      <UniqueIdentifier>{54032328-9d77-4e93-afef-1b9bf3ac5cf9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Scene\Menu\GameSystem\Act\Object\Player">
+      <UniqueIdentifier>{61112f12-22ac-4ead-b333-ddc013624f6c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Scene\Menu\GameSystem\Act\Object\Enemy">
+      <UniqueIdentifier>{08f3d86f-728d-44b8-8c8c-93dbbc0d5489}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Scene\Menu\GameSystem\Act\Object\Item">
+      <UniqueIdentifier>{8c322716-c24a-4bff-a700-3c47aa65ceef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Scene\Menu\GameSystem\Act\Object\Gimmick">
+      <UniqueIdentifier>{7ad74ab6-47f3-4096-b599-b4c832919a87}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Scene\Menu\GameSystem\Act\Block">
+      <UniqueIdentifier>{1bd5cc9b-cc92-413d-a398-22f6192c223f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Scene\Menu\GameSystem\WorldMap">
+      <UniqueIdentifier>{7481d498-72b9-4077-9c9c-b6bf59d193c3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Scene\Menu">
+      <UniqueIdentifier>{f6dbee72-d2fb-4fa8-ab9d-4899cdd9124b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Scene\Menu\GameSystem">
+      <UniqueIdentifier>{695aece1-055e-4ae1-8607-242d8834feee}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Scene\Menu\GameSystem\Act">
+      <UniqueIdentifier>{69d0392f-4fe7-441c-baa4-6a264a15ba25}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Scene\Menu\GameSystem\Act\Object">
+      <UniqueIdentifier>{c5977fd3-b409-4097-bccc-98379d5339fd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Scene\Menu\GameSystem\Act\Object\Player">
+      <UniqueIdentifier>{1ef746ce-3699-4a90-b279-209c13f7df88}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Scene\Menu\GameSystem\Act\Object\Enemy">
+      <UniqueIdentifier>{dce0cf74-cadf-443e-977e-7cf6ae046ff1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Scene\Menu\GameSystem\Act\Object\item">
+      <UniqueIdentifier>{c144b427-b12b-423c-80db-796a47f326fa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Scene\Menu\GameSystem\Act\Object\Gimmick">
+      <UniqueIdentifier>{cf335a7e-29e7-4859-8bb5-eabd9ed005f7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Scene\Menu\GameSystem\Act\Block">
+      <UniqueIdentifier>{bb116b66-716d-4d87-a542-9a4190d3b90b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Scene\Menu\GameSystem\WorldMap">
+      <UniqueIdentifier>{7ca36e3b-abc6-4440-b10b-e660a2320dfb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Image">
+      <UniqueIdentifier>{ce8a6dcf-e0a3-4acb-9990-a4259a9b174e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Image">
+      <UniqueIdentifier>{a4551f17-ba4f-40b2-9810-95cdf213b87a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Scene\Menu\GameSystem\Act\Object\Effect">
+      <UniqueIdentifier>{603a504c-db1e-44a7-9c3c-ae96395990fd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Scene\Menu\MusicRoom">
+      <UniqueIdentifier>{79b29db4-3cb3-46cc-a090-9c941f337018}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Scene\Menu\MusicRoom">
+      <UniqueIdentifier>{f61045e6-86f0-4273-98eb-0a87981b99f4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Scene\Menu\GameSystem\GameOver">
+      <UniqueIdentifier>{39f52d2c-b5eb-46e3-871e-dfd199181a8c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Scene\Menu\GameSystem\Souko">
+      <UniqueIdentifier>{452935dd-17fb-425e-9b2a-a817bbf18acc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Scene\Menu\GameSystem\Souko">
+      <UniqueIdentifier>{e438e133-005f-4457-af33-39deffec8a5f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ヘッダー ファイル\Function\Cipher">
+      <UniqueIdentifier>{49f38781-6346-4a98-b0b2-3bc71a9f3de3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ソース ファイル\Function\Cipher">
+      <UniqueIdentifier>{395b1f10-e3c5-46a2-8fe3-492ea3f5e11a}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Main.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="Action.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\Act</Filter>
+    </ClCompile>
+    <ClCompile Include="Player.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\Act\Object\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="PlayerManager.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\Act\Object\Player</Filter>
+    </ClCompile>
+    <ClCompile Include="Object.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\Act\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="ObjectManager.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\Act\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="ObjectFactory.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\Act\Object</Filter>
+    </ClCompile>
+    <ClCompile Include="EnemyFactory.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\Act\Object\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="Enemy.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\Act\Object\Enemy</Filter>
+    </ClCompile>
+    <ClCompile Include="SoundManager.cpp">
+      <Filter>ソース ファイル\Sound</Filter>
+    </ClCompile>
+    <ClCompile Include="Item.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\Act\Object\item</Filter>
+    </ClCompile>
+    <ClCompile Include="Gimmick.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\Act\Object\Gimmick</Filter>
+    </ClCompile>
+    <ClCompile Include="Block.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\Act\Block</Filter>
+    </ClCompile>
+    <ClCompile Include="BlockFactory.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\Act\Block</Filter>
+    </ClCompile>
+    <ClCompile Include="ScreenInfo.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="Map.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\Act</Filter>
+    </ClCompile>
+    <ClCompile Include="WorldMap.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\WorldMap</Filter>
+    </ClCompile>
+    <ClCompile Include="function.cpp">
+      <Filter>ソース ファイル\Function</Filter>
+    </ClCompile>
+    <ClCompile Include="MainLoop.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="System.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="LevelChanger.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="GameCollection.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="StageSelect.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="SceneManager.cpp">
+      <Filter>ソース ファイル\Scene</Filter>
+    </ClCompile>
+    <ClCompile Include="Menu.cpp">
+      <Filter>ソース ファイル\Scene\Menu</Filter>
+    </ClCompile>
+    <ClCompile Include="ImageManager.cpp">
+      <Filter>ソース ファイル\Image</Filter>
+    </ClCompile>
+    <ClCompile Include="InputKey.cpp">
+      <Filter>ソース ファイル\Function</Filter>
+    </ClCompile>
+    <ClCompile Include="GameData.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem</Filter>
+    </ClCompile>
+    <ClCompile Include="Effect.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\Act\Object\Effect</Filter>
+    </ClCompile>
+    <ClCompile Include="SceneChanger.cpp">
+      <Filter>ソース ファイル\Scene\Menu</Filter>
+    </ClCompile>
+    <ClCompile Include="MusicRoom.cpp">
+      <Filter>ソース ファイル\Scene\Menu\MusicRoom</Filter>
+    </ClCompile>
+    <ClCompile Include="LoadIni.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
+    <ClCompile Include="Souko.cpp">
+      <Filter>ソース ファイル\Scene\Menu\GameSystem\Souko</Filter>
+    </ClCompile>
+    <ClCompile Include="Base64.cpp">
+      <Filter>ソース ファイル\Function\Cipher</Filter>
+    </ClCompile>
+    <ClCompile Include="Cipher.cpp">
+      <Filter>ソース ファイル\Function\Cipher</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Action.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\Act</Filter>
+    </ClInclude>
+    <ClInclude Include="Map.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\Act</Filter>
+    </ClInclude>
+    <ClInclude Include="System.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="PlayerManager.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\Act\Object\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Player.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\Act\Object\Player</Filter>
+    </ClInclude>
+    <ClInclude Include="Object.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\Act\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="ObjectFactory.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\Act\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="ObjectManager.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\Act\Object</Filter>
+    </ClInclude>
+    <ClInclude Include="Enemy.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\Act\Object\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="Block.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\Act\Block</Filter>
+    </ClInclude>
+    <ClInclude Include="BlockFactory.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\Act\Block</Filter>
+    </ClInclude>
+    <ClInclude Include="Item.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\Act\Object\Item</Filter>
+    </ClInclude>
+    <ClInclude Include="EnemyFactory.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\Act\Object\Enemy</Filter>
+    </ClInclude>
+    <ClInclude Include="SoundManager.h">
+      <Filter>ヘッダー ファイル\Sound</Filter>
+    </ClInclude>
+    <ClInclude Include="Gimmick.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\Act\Object\Gimmick</Filter>
+    </ClInclude>
+    <ClInclude Include="GameData.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="ScreenInfo.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="WorldMap.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\WorldMap</Filter>
+    </ClInclude>
+    <ClInclude Include="function.h">
+      <Filter>ヘッダー ファイル\Function</Filter>
+    </ClInclude>
+    <ClInclude Include="GameCollection.h">
+      <Filter>ヘッダー ファイル\Scene</Filter>
+    </ClInclude>
+    <ClInclude Include="Conf.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="MainLoop.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="LevelChanger.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="Menu.h">
+      <Filter>ヘッダー ファイル\Scene\Menu</Filter>
+    </ClInclude>
+    <ClInclude Include="Scene.h">
+      <Filter>ヘッダー ファイル\Scene\Menu</Filter>
+    </ClInclude>
+    <ClInclude Include="ImageManager.h">
+      <Filter>ヘッダー ファイル\Image</Filter>
+    </ClInclude>
+    <ClInclude Include="Singleton.h">
+      <Filter>ヘッダー ファイル\Function</Filter>
+    </ClInclude>
+    <ClInclude Include="StageSelect.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="Variable.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\Act</Filter>
+    </ClInclude>
+    <ClInclude Include="InputKey.h">
+      <Filter>ヘッダー ファイル\Function</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneManager.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem</Filter>
+    </ClInclude>
+    <ClInclude Include="SceneChanger.h">
+      <Filter>ヘッダー ファイル\Scene\Menu</Filter>
+    </ClInclude>
+    <ClInclude Include="MusicRoom.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\MusicRoom</Filter>
+    </ClInclude>
+    <ClInclude Include="LoadIni.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
+    <ClInclude Include="Souko.h">
+      <Filter>ヘッダー ファイル\Scene\Menu\GameSystem\Souko</Filter>
+    </ClInclude>
+    <ClInclude Include="Base64.h">
+      <Filter>ヘッダー ファイル\Function\Cipher</Filter>
+    </ClInclude>
+    <ClInclude Include="Cipher.h">
+      <Filter>ヘッダー ファイル\Function\Cipher</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
