@@ -1,4 +1,4 @@
-#include "SoundManager.h"
+﻿#include "SoundManager.h"
 #include "Dxlib.h"
 #include "InputKey.h"
 #include <vector>

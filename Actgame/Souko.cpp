@@ -1,4 +1,4 @@
-#include "Souko.h"
+﻿#include "Souko.h"
 #include "GameData.h"
 #include "SoundManager.h"
 #include "function.h"

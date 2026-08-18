@@ -1,4 +1,4 @@
-#include "System.h"
+﻿#include "System.h"
 #include "MainLoop.h"
 #include "DxLib.h"
 #include "Conf.h"

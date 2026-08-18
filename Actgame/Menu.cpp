@@ -1,4 +1,4 @@
-#include "DxLib.h"
+﻿#include "DxLib.h"
 #include "Menu.h"
 #include "Conf.h"
 #include "SceneChanger.h"

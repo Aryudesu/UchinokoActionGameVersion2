@@ -1,4 +1,4 @@
-#include "StageSelect.h"
+﻿#include "StageSelect.h"
 #include "function.h"
 #include "Action.h"
 #include "WorldMap.h"

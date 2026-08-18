@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Conf.h"
 #include "DxLib.h"
 #include "InputKey.h"

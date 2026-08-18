@@ -1,4 +1,4 @@
-#include "ImageManager.h"
+﻿#include "ImageManager.h"
 #include "Dxlib.h"
 #include <vector>
 #include <string>
@@ -14,24 +14,27 @@ void ImageManager::SetTrans(int R, int G, int B) { SetTransColor(R, G, B); }
 //sizex,sizey　縦横切り取るピクセルサイズ
 //CutX,CutY カット数
 //FileName　画像ファイル名
-void ImageManager::LoadImg(int ID, int sizex, int sizey, int CutX, int CutY, std::string FileName) {
+void ImageManager::LoadImg(int ID, int sizex, int sizey, int CutX, int CutY, const std::string& FileName) {
+	DestroyImg(ID);
 	img[ID].resize(CutX*CutY);
-	LoadDivGraph(FileName.c_str(), CutX*CutY, CutX, CutY, sizex, sizey, &img[ID][0]);
+	LoadDivGraph(FileName.c_str(), CutX*CutY, CutX, CutY, sizex, sizey, img[ID].data());
 }
 
 //画像読み込み
 //ID : オブジェクトID
 //CutX,CutY カット数
 //FileName　画像ファイル名
-void ImageManager::LoadImg(int ID, int CutX, int CutY, std::string FileName) {
+void ImageManager::LoadImg(int ID, int CutX, int CutY, const std::string& FileName) {
+	DestroyImg(ID);
 	img[ID].resize(CutX*CutY);
-	LoadDivGraph(FileName.c_str(), CutX*CutY, CutX, CutY, 32, 32, &img[ID][0]);
+	LoadDivGraph(FileName.c_str(), CutX*CutY, CutX, CutY, 32, 32, img[ID].data());
 }
 
 //画像読み込み
 //ID : オブジェクトID
 //FileName　画像ファイル名
-void ImageManager::LoadImg(int ID, std::string FileName) {
+void ImageManager::LoadImg(int ID, const std::string& FileName) {
+	DestroyImg(ID);
 	img[ID].resize(1);
 	img[ID][0] = LoadGraph(FileName.c_str());
 }
@@ -55,9 +58,10 @@ void ImageManager::GetSize(int ID,int &width, int &height) {
 
 //IDのオブジェクトの画像破棄
 void ImageManager::DestroyImg(int ID) {
-	for (int i = 0; i < img[ID].size(); i++) {
-		DeleteGraph(img[ID][i]);
+	for (const int handle : img[ID]) {
+		DeleteGraph(handle);
 	}
+	img[ID].clear();
 }
 
 //画像描画
@@ -80,12 +84,5 @@ void ImageManager::DrawImg(float x, float y, int ID, int TransFlag) { DrawGraph(
 
 void ImageManager::DeleteAll() {
 	InitGraph();
-	for (int i = 0; i < img.size(); i++) {
-		for (int j = 0; j < img[i].size(); j++) {
-			img[i].erase(img[i].begin() + j);
-			img[i].clear();
-		}
-	}
-	img.clear();
-	img.resize(32);
+	for (auto& images : img) images.clear();
 }

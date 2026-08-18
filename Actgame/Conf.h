@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 //ウィンドウサイズとかの変数設定
 

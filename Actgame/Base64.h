@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <string>
 
 std::string Base64Enc(std::string mes);

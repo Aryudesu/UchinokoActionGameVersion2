@@ -1,4 +1,4 @@
-#include "Cipher.h"
+﻿#include "Cipher.h"
 #include "Base64.h"
 #include <iostream>
 #include <fstream>

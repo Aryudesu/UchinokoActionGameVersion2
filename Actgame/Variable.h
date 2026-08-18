@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 //重力加速度
 #define GRAVITY 0.5

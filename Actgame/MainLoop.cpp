@@ -1,4 +1,4 @@
-#include "MainLoop.h"
+﻿#include "MainLoop.h"
 #include "Action.h"
 #include "InputKey.h"
 #include "SoundManager.h"

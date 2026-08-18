@@ -1,4 +1,4 @@
-#include "ObjectFactory.h"
+﻿#include "ObjectFactory.h"
 #include "Gimmick.h"
 #include "Item.h"
 #include "function.h"

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 //シングルトンクラス
 
@@ -13,10 +13,10 @@ public:
 	}
 
 protected:
-	Singleton() {} // 外部でのインスタンス作成は禁止
-	virtual ~Singleton() {}
+	Singleton() = default; // 外部でのインスタンス作成は禁止
+	virtual ~Singleton() = default;
 
 private:
-	void operator=(const Singleton& obj) {} // 代入演算子禁止
-	Singleton(const Singleton &obj) {} // コピーコンストラクタ禁止
+	Singleton& operator=(const Singleton&) = delete;
+	Singleton(const Singleton&) = delete;
 };

@@ -1,76 +1,64 @@
-#include "ObjectManager.h"
+﻿#include "ObjectManager.h"
 #include "ObjectFactory.h"
 #include "EnemyFactory.h"
 #include "PlayerManager.h"
 #include "Conf.h"
 #include "Map.h"
 #include "function.h"
+#include <algorithm>
+
+namespace {
+template <class T>
+void RemoveDead(std::vector<std::unique_ptr<T>>& objects) {
+	objects.erase(
+		std::remove_if(objects.begin(), objects.end(), [](const std::unique_ptr<T>& object) {
+			return !object->GetAlive();
+		}),
+		objects.end());
+}
+}
 
 void ObjectManager::MakeObject(int num, int x, int y) {
-	Obj.push_back(ObjectFactory::GetInstance().Factory(num,x,y));
+	if (Object* object = ObjectFactory::GetInstance().Factory(num, x, y)) Obj.emplace_back(object);
 }
 
 void ObjectManager::MakeEnemy(int num, int x, int y) {
-	Enemy.push_back(EnemyFactory::GetInstance().Factory(num, x, y));
+	if (Charactor* enemy = EnemyFactory::GetInstance().Factory(num, x, y)) Enemy.emplace_back(enemy);
 }
 
 void ObjectManager::MakeEffect(int num, int x, int y) {
-	Effe.push_back(EffectFactory::GetInstance().Factory(num, x, y));
+	if (Object* effect = EffectFactory::GetInstance().Factory(num, x, y)) Effe.emplace_back(effect);
 }
 
 void ObjectManager::MakeEffectObj(int num, int x, int y) {
-	Effe.push_back(EffectObjFactory::GetInstance().Factory(num, x, y));
+	if (Object* effect = EffectObjFactory::GetInstance().Factory(num, x, y)) Effe.emplace_back(effect);
 }
 
 void ObjectManager::MakeScoreEffect(int num, int x, int y) {
-	Effe.push_back(ScoreEffectFactory::GetInstance().Factory(num, x, y));
+	if (Object* effect = ScoreEffectFactory::GetInstance().Factory(num, x, y)) Effe.emplace_back(effect);
 }
 
 void ObjectManager::MakeBlockFragment(int num, int x, int y) {
-	Effe.push_back(BlockFragmentFactory::GetInstance().Factory(num, x, y));
+	if (Object* effect = BlockFragmentFactory::GetInstance().Factory(num, x, y)) Effe.emplace_back(effect);
 }
 
 void ObjectManager::update(Map *M) {
-	for (Object* x : Obj) { x->update(M); }
-	for (Object* x : Enemy) { x->update(M); }
-	for (Object* x : Effe) { x->update(M); }
+	for (const auto& x : Obj) { x->update(M); }
+	for (const auto& x : Enemy) { x->update(M); }
+	for (const auto& x : Effe) { x->update(M); }
 	ObjDel();
 }
 
 void ObjectManager::draw(Map *M) {
-	for (Object* x: Obj) { x->draw(M); }
-	for (Object* x: Enemy) { x->draw(M); }
-	for (Object* x : Effe) { x->draw(M); }
+	for (const auto& x : Obj) { x->draw(M); }
+	for (const auto& x : Enemy) { x->draw(M); }
+	for (const auto& x : Effe) { x->draw(M); }
 }
 
 void ObjectManager::ObjDel() {
-	auto itr = Obj.begin();
-	while (itr != Obj.end()) {
-		if (!((*itr)->GetAlive())) {
-			itr = Obj.erase(itr);
-		} else {
-			itr++;
-		}
-	}
-	auto itr2 = Enemy.begin();
-	while (itr2 != Enemy.end()) {
-		if (!((*itr2)->GetAlive())) {
-			itr2 = Enemy.erase(itr2);
-		}
-		else {
-			itr2++;
-		}
-	}
-	auto itr3 = Effe.begin();
-	while (itr3 != Effe.end()) {
-		if (!((*itr3)->GetAlive())) {
-			itr3 = Effe.erase(itr3);
-		}
-		else {
-			itr3++;
-		}
-	}
-	return;
+	RemoveDead(Obj);
+	RemoveDead(Enemy);
+	RemoveDead(Effe);
 }
 
 bool RectAColl(float x1,float y1,float w1,float h1,float x2,float y2,float w2,float h2) {
@@ -96,7 +84,7 @@ void ObjectManager::CollisionObj() {
 	for (int i = 0; i < Enemy.size() - 1; i++) {
 		for (int j = i + 1; j < Enemy.size(); j++) {
 			if (Enemy[i]->GetOnField() && Enemy[j]->GetOnField()) {
-				CollAll(Enemy[i], Enemy[j]);
+				CollAll(Enemy[i].get(), Enemy[j].get());
 			}
 		}
 	}
@@ -116,7 +104,7 @@ void ObjectManager::CollPlyObj() {
 	for (int i = 0; i < Enemy.size(); i++) {
 		//主人公との衝突
 		//敵が画面内にいる時
-		if (Enemy[i]->GetOnField() && RectPCColl(Enemy[i])) {
+		if (Enemy[i]->GetOnField() && RectPCColl(Enemy[i].get())) {
 			//踏んだ時
 			if (Enemy[i]->getY() - PlayerManager::GetInstance().GetPlayerY() <= 32 && Enemy[i]->getY() - PlayerManager::GetInstance().GetPlayerY() >= 8 && (PlayerManager::GetInstance().GetGravDire() == 1)) {
 				//踏める敵だった時
@@ -144,7 +132,7 @@ void ObjectManager::CollPlyObj() {
 		//敵同士の衝突
 		if (Enemy[i]->GetOnField()) {
 			for (int j = i; j < Enemy.size(); j++) {
-				if (i != j && Enemy[j]->GetOnField() && CollAll(Enemy[i], Enemy[j]) && Enemy[i]->GetEDecision() != 0 && Enemy[j]->GetEDecision() != 0) {
+				if (i != j && Enemy[j]->GetOnField() && CollAll(Enemy[i].get(), Enemy[j].get()) && Enemy[i]->GetEDecision() != 0 && Enemy[j]->GetEDecision() != 0) {
 					if (Enemy[j]->GetEDecision() == 2)Enemy[i]->ColliSide2Obj(Enemy[j]->getX(), Enemy[j]->getY());	//当たり判定がある時
 					if (Enemy[i]->GetEDecision() == 2)Enemy[j]->ColliSide2Obj(Enemy[i]->getX(), Enemy[i]->getY());	//当たり判定がある時
 					if (Enemy[j]->GetEDecision() == 1) {

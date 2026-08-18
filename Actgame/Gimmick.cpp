@@ -1,4 +1,4 @@
-#include "Gimmick.h"
+﻿#include "Gimmick.h"
 #include "Conf.h"
 #include "ImageManager.h"
 

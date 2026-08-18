@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Singleton.h"
 #include "Dxlib.h"
 #include <vector>
@@ -44,18 +44,18 @@ public:
 	//sizex,sizey　縦横切り取るピクセルサイズ
 	//CutX,CutY カット数
 	//FileName　画像ファイル名
-	void LoadImg(int ID, int sizex, int sizey, int CutX, int CutY, std::string FileName);
+	void LoadImg(int ID, int sizex, int sizey, int CutX, int CutY, const std::string& FileName);
 
 	//画像読み込み
 	//ID : オブジェクトID
 	//CutX,CutY カット数
 	//FileName　画像ファイル名
-	void LoadImg(int ID, int CutX, int CutY, std::string FileName);
+	void LoadImg(int ID, int CutX, int CutY, const std::string& FileName);
 
 	//画像読み込み
 	//ID : オブジェクトID
 	//FileName　画像ファイル名
-	void LoadImg(int ID, std::string FileName);
+	void LoadImg(int ID, const std::string& FileName);
 
 	//画像サイズ
 	void GetSize(int ID, int num, int &width, int &height);

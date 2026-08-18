@@ -1,4 +1,4 @@
-#include "GameCollection.h"
+﻿#include "GameCollection.h"
 #include "SoundManager.h"
 #include "ImageManager.h"
 #include "ObjectManager.h"
