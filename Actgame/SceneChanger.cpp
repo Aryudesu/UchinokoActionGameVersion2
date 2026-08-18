@@ -1,4 +1,4 @@
-#include "SceneChanger.h"
+﻿#include "SceneChanger.h"
 
 void SceneChanger::Change(int n) { NowScene = n; };
 int SceneChanger::GetSceneNum() { return NowScene; };

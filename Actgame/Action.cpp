@@ -1,4 +1,4 @@
-#include "Action.h"
+﻿#include "Action.h"
 #include "Dxlib.h"
 #include "Conf.h"
 #include "Object.h"

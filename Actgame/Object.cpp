@@ -1,4 +1,4 @@
-#include "Object.h"
+﻿#include "Object.h"
 #include "DxLib.h"
 #include "InputKey.h"
 #include "Variable.h"

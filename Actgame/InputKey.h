@@ -1,4 +1,4 @@
-#include "Dxlib.h"
+﻿#include "Dxlib.h"
 #include "Singleton.h"
 #include <vector>
 #pragma once

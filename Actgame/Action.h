@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Player.h"
 #include "GameCollection.h"
 #include "LoadIni.h"

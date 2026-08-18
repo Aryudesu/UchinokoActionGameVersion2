@@ -1,4 +1,4 @@
-#include "WorldMap.h"
+﻿#include "WorldMap.h"
 #include "function.h"
 #include "ImageManager.h"
 #include "Conf.h"

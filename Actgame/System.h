@@ -1,4 +1,4 @@
-//ゲーム本体クラス
+﻿//ゲーム本体クラス
 #pragma once
 class System {
 private:

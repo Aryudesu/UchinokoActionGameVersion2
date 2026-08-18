@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Player.h"
 #include "Singleton.h"
 #include <vector>

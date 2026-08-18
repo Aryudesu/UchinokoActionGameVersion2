@@ -1,4 +1,4 @@
-#include "Object.h"
+﻿#include "Object.h"
 #include "ImageManager.h"
 #include "function.h"
 #include "Conf.h"

@@ -1,4 +1,4 @@
-#include "ImageManager.h"
+﻿#include "ImageManager.h"
 #include "Dxlib.h"
 #include <vector>
 #include <string>

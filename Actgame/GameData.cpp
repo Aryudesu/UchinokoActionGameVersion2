@@ -1,4 +1,4 @@
-#include "GameData.h"
+﻿#include "GameData.h"
 #include "ImageManager.h"
 #include "PlayerManager.h"
 #include "SoundManager.h"

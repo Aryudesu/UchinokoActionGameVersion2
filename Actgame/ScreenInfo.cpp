@@ -1,4 +1,4 @@
-#include "ScreenInfo.h"
+﻿#include "ScreenInfo.h"
 #include "Singleton.h"
 #include "Conf.h"
 #include "DxLib.h"

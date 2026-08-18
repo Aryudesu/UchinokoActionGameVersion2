@@ -1,4 +1,4 @@
-#include "Base64.h"
+﻿#include "Base64.h"
 #include <string>
 #include <vector>
 

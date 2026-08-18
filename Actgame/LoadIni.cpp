@@ -1,4 +1,4 @@
-#include "LoadIni.h"
+﻿#include "LoadIni.h"
 #include "function.h"
 
 void INIDat::DataInput(std::string FileName) {

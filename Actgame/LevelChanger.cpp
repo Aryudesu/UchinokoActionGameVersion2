@@ -1,4 +1,4 @@
-#include "LevelChanger.h"
+﻿#include "LevelChanger.h"
 
 
 void LevelChanger::Change(int n) { NowScene = n; };

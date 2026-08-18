@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "Block.h"
 #include "DxLib.h"
 #include "Singleton.h"
