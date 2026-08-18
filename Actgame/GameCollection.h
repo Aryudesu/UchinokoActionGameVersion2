@@ -8,6 +8,7 @@ protected:
 
 public:
 	GameCollection();
+	virtual ~GameCollection() = default;
 	virtual int GetBeatLevel() = 0;
 	virtual bool update() = 0;
 	virtual void draw() = 0;

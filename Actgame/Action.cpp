@@ -115,7 +115,7 @@ void Action::LoadBGM(INIDat *SDList) {
 	std::string BGMInfoPath = "dat/BGM/BGMinfo.inf";
 	std::string BGMNum = SDList->GetData("BGMData", "BGM")[0];
 	std::string BGMPath = "dat/BGM/";
-	INIDat*MusicDat = new INIDat(BGMInfoPath);
+	auto MusicDat = std::make_unique<INIDat>(BGMInfoPath);
 	double LoopPoint = 0;
 	if (MusicDat->CheckSec(BGMNum) && MusicDat->CheckElem(BGMNum,"BGM")) {
 		BGMPath += MusicDat->GetData(BGMNum, "BGM")[0];
@@ -162,8 +162,7 @@ void Action::LoadMapData(int StageNum, INIDat *SDList){
 
 	//LoadMapData
 	PlayerManager::GetInstance().InitPlayer();
-	if (M != nullptr)delete M;
-	M = new Map(Stage, StageImg);
+	M = std::make_unique<Map>(Stage, StageImg);
 
 	//Initialize Position
 	Appear = 0;
@@ -211,12 +210,10 @@ Action::Action(int StageNum,INIDat* STDat) {
 
 void Action::Move(int Num) {
 	DeleteAll();
-	M->DeleteAll();
 	PrevDetailNum = StageDetailNum;
 	StageDetailNum = Num;
-	INIDat *SDList = LoadStageData(StageNumber,StageDetailNum);
-	LoadMapData(StageNumber, SDList);
-	delete SDList;
+	std::unique_ptr<INIDat> SDList(LoadStageData(StageNumber, StageDetailNum));
+	LoadMapData(StageNumber, SDList.get());
 }
 
 int Action::GetMove() { return PlayerManager::GetInstance().GetMove(); }
@@ -229,7 +226,7 @@ void Action::MovingUpdate() {
 		Move(StageMove[tmp / (MAPSIZEX * 10)]);
 		Sleep(250);
 	} else {
-		PlayerManager::GetInstance().Move(M);
+		PlayerManager::GetInstance().Move(M.get());
 		if (GetMove() == -1) {
 			FadeOutF = true;
 			FadeTime = 255;
@@ -239,8 +236,8 @@ void Action::MovingUpdate() {
 
 //通常時更新
 void Action::NormalUpdate() {
-	PlayerManager::GetInstance().update(M);
-	if(!PlayerManager::GetInstance().GetDead())ObjectManager::GetInstance().update(M);
+	PlayerManager::GetInstance().update(M.get());
+	if(!PlayerManager::GetInstance().GetDead())ObjectManager::GetInstance().update(M.get());
 	//画面の設定
 	if (!PlayerManager::GetInstance().GetDead())M->SetScreenLU(PlayerManager::GetInstance().GetPlayerX(), PlayerManager::GetInstance().GetPlayerY());
 	if (!PlayerManager::GetInstance().GetDead())M->update();
@@ -250,7 +247,7 @@ void Action::NormalUpdate() {
 
 //死亡時更新
 void Action::DeadUpdate() {
-	PlayerManager::GetInstance().update(M);
+	PlayerManager::GetInstance().update(M.get());
 }
 
 bool Action::update() {
@@ -279,16 +276,15 @@ void Action::draw() {
 		ImageManager::GetInstance().DrawImg(-(((int)tmpx / 16) % Imx) + Imx * i, 0, HAIKEI, FALSE);		//背景
 	for (int i = 0; i < L; i++)
 		ImageManager::GetInstance().DrawImg(-(((int)tmpx / 8) % Imx) + Imx * i , 0, HAIKEI2, TRUE);		//背景
-	if (GetMove() != 0)PlayerManager::GetInstance().draw(M);									//主人公描画
+	if (GetMove() != 0)PlayerManager::GetInstance().draw(M.get());									//主人公描画
 	M->draw();																					//マップ描画
-	ObjectManager::GetInstance().draw(M);														//オブジェクト描画
-	if(GetMove() == 0)PlayerManager::GetInstance().draw(M);										//主人公描画
+	ObjectManager::GetInstance().draw(M.get());														//オブジェクト描画
+	if(GetMove() == 0)PlayerManager::GetInstance().draw(M.get());										//主人公描画
 	GameData::GetInstance().draw();
 }
 
 Action::~Action() {
 	DeleteAll();
-	M->DeleteAll();
 	InitSoundMem();
 }
 
@@ -331,7 +327,7 @@ int Action::GetBeatLevel() {
 		if (BeatLevelTime == 1) {
 			SoundManager::GetInstance().StopBGM(BGM1);
 			SoundManager::GetInstance().PlaySE(BEAT);
-			ObjectManager::GetInstance().KillAll(M);
+			ObjectManager::GetInstance().KillAll(M.get());
 		}
 		if (BeatLevelTime >= 128) {
 			LevelChanger::GetInstance().Change(WMAPS);

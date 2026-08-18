@@ -4,6 +4,7 @@
 #include "LoadIni.h"
 #include <vector>
 #include <string>
+#include <memory>
 
 class Action : public GameCollection{
 private:
@@ -20,7 +21,7 @@ private:
 	const int FadeTimeMax = 256;
 
 
-	Map *M;
+	std::unique_ptr<Map> M;
 	int ScrollMode;
 	int Appear;
 	int StageNumber;

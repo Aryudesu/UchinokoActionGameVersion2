@@ -15,6 +15,7 @@ protected:
 
 public:
 	Block();
+	virtual ~Block() = default;
 
 	virtual void SetImg(int n = 0);
 	int GetImg();

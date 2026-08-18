@@ -4,13 +4,14 @@
 #include "Singleton.h"
 #include <vector>
 #include <string>
+#include <memory>
 
 //ステージマップデータ
 class Map : Singleton<Map>{
 private:
 	VECTOR Size;
 	VECTOR ScreenLU;
-	std::vector<std::vector<Block*>> dat;
+	std::vector<std::vector<std::unique_ptr<Block>>> dat;
 	float SX, SY;
 	int ScrollMode;
 
@@ -66,5 +67,5 @@ public:
 
 	void DeleteAll();
 
-	~Map();
+	~Map() = default;
 };

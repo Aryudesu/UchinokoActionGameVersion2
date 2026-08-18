@@ -1,12 +1,13 @@
 ﻿#pragma once
 #include "Player.h"
 #include "Singleton.h"
+#include <memory>
 #include <vector>
 class Map;
 
 class PlayerManager : public Singleton <PlayerManager> {
 private:
-	Player * Ply;
+	std::unique_ptr<Player> Ply;
 	int Coin;
 	int HP = 3;
 	std::vector<int> BeatLevel;

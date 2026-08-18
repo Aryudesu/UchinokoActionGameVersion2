@@ -1,12 +1,12 @@
 ﻿#pragma once
 #include "Scene.h"
 #include "GameCollection.h"
+#include <memory>
 
 #define WMAP -1
 
 class StageSelect :public Scene {
-	GameCollection *Games;
-	GameCollection *WM;
+	std::unique_ptr<GameCollection> Games;
 	int NextLevel;
 public:
 	StageSelect();
