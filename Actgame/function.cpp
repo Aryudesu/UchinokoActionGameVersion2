@@ -89,8 +89,9 @@ std::vector<std::vector<std::string>> LoadStrArray(std::string FileName) {
 	std::vector<std::vector<std::string>> Data;
 	std::string str;
 	int fp = FileRead_open(FileName.c_str());
-	if (fp == 0) {
-		Message("LoadStrArray() Error");
+	if (fp < 0) {
+		const std::string ErrorMessage = "LoadStrArray() Error\n" + FileName;
+		Message(ErrorMessage.c_str());
 		exit(0);
 	}
 	char buf[STRMAX];
@@ -101,6 +102,7 @@ std::vector<std::vector<std::string>> LoadStrArray(std::string FileName) {
 		inner = split_mb(str.c_str(), ",");
 		Data.push_back(inner);
 	}
+	FileRead_close(fp);
 	return Data;
 }
 
