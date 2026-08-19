@@ -12,8 +12,7 @@ void PlayerManager::SetPlayer(float x, float y) {
 }
 
 void PlayerManager::InitPlayer() {
-	if (Ply != nullptr)delete Ply;
-	Ply = new Player();
+	Ply = std::make_unique<Player>();
 	Ply->SetHP(HP);
 }
 

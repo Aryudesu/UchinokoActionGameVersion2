@@ -11,24 +11,22 @@
 #include <iterator>
 
 StageSelect::StageSelect() {
-	Games = new WorldMap("dat/wmap/wmblock.ary","dat/wmap/wmlay.ary");
+	Games = std::make_unique<WorldMap>("dat/wmap/wmblock.ary","dat/wmap/wmlay.ary");
 	NextLevel = NONES;
 }
 
 
 void StageSelect::LoadData(int StageNum) {
-	INIDat* STDat = LoadStageData(StageNum);
+	std::unique_ptr<INIDat> STDat(LoadStageData(StageNum));
 	int GameMode = std::stoi(STDat->GetData("StageData","GameMode")[0]);
 	switch (GameMode) {
 	case -1:
 		break;
 	case 0:
-		Games = new Action(StageNum,STDat);
-		delete STDat;
+		Games = std::make_unique<Action>(StageNum, STDat.get());
 		break;
 	case 1:
-		Games = new Souko(StageNum, STDat);
-		delete STDat;
+		Games = std::make_unique<Souko>(StageNum, STDat.get());
 		break;
 	default:
 		exit(0);
@@ -39,9 +37,8 @@ void StageSelect::LoadData(int StageNum) {
 void StageSelect::update() {
 	LevelUpdate();
 	if (NextLevel != NONES) {
-		delete Games;
 		if (NextLevel == WMAPS) {
-			Games = new WorldMap("dat/wmap/wmblock.ary", "dat/wmap/wmlay.ary");
+			Games = std::make_unique<WorldMap>("dat/wmap/wmblock.ary", "dat/wmap/wmlay.ary");
 		} else {
 			LoadData(NextLevel);
 		}

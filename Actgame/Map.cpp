@@ -27,14 +27,14 @@ void Map::LoadMap(std::string FileName) {
 	for (int j = 0; j < Size.y; j++) {
 		for (int i = 0; i < Size.x; i++) {
 			if (i >= tmp[j].size() || j >= tmp.size()) {
-				dat[i][j] = BF.BlkFactory(0);
+				dat[i][j].reset(BF.BlkFactory(0));
 				dat[i][j]->SetPos(i * 32, j * 32);
 				continue;
 			}
 			if (tmp[j][i] >= 0 && tmp[j][i] <= 50) {
-				dat[i][j] = BF.BlkFactory(tmp[j][i]);
+				dat[i][j].reset(BF.BlkFactory(tmp[j][i]));
 			} else {
-				dat[i][j] = BF.BlkFactory(0);
+				dat[i][j].reset(BF.BlkFactory(0));
 				if (tmp[j][i] == -1)PlayerManager::GetInstance().SetInitPos(i * 32, j * 32);
 				if (tmp[j][i] == -2)ObjectManager::GetInstance().MakeEnemy(1, i * 32, j * 32);
 				if (tmp[j][i] == -3)ObjectManager::GetInstance().MakeEnemy(2, i * 32, j * 32);
@@ -172,8 +172,7 @@ void Map::Touched(int x, int y) {
 void Map::SetBlock(int num, int x, int y) {
 	BlockFactory BF;
 	int tmp = dat[x][y]->GetImg();
-	delete dat[x][y];
-	dat[x][y] = BF.BlkFactory(num);
+	dat[x][y].reset(BF.BlkFactory(num));
 	dat[x][y]->SetPos(x * 32, y * 32);
 	dat[x][y]->SetImg(tmp);
 }
@@ -183,13 +182,5 @@ void Map::SetScrollMode(int Num) { ScrollMode = Num; }
 int Map::GetScrollMode() { return ScrollMode; }
 
 void Map::DeleteAll() {
-	for (int i = 0; i < dat.size(); i++) {
-		for (int j = 0; j < dat[i].size(); j++)delete dat[i][j];
-		dat[i].clear();
-	}
 	dat.clear();
-}
-
-Map::~Map() {
-	DeleteAll();
 }

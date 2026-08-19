@@ -29,6 +29,7 @@
 class ImageManager : public Singleton<ImageManager> {
 private:
 	std::vector<std::vector<int>> img;
+	bool IsValidImage(int ID, int num) const;
 public:
 	friend class Singleton < ImageManager >;
 
