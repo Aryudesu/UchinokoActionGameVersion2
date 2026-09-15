@@ -136,7 +136,10 @@
     <ClCompile Include="Action.cpp" />
     <ClCompile Include="Foundation\AssetPaths.cpp" />
     <ClCompile Include="Foundation\GridDataLoader.cpp" />
+    <ClCompile Include="Foundation\LayeredMap.cpp" />
     <ClCompile Include="Foundation\StageDefinition.cpp" />
+    <ClCompile Include="Foundation\TerrainCollision.cpp" />
+    <ClCompile Include="Foundation\TileDefinition.cpp" />
     <ClCompile Include="Foundation\TileMap.cpp" />
     <ClCompile Include="Base64.cpp" />
     <ClCompile Include="Block.cpp" />
@@ -178,8 +181,11 @@
     <ClInclude Include="Foundation\AssetPaths.h" />
     <ClInclude Include="Foundation\Coordinates.h" />
     <ClInclude Include="Foundation\GridDataLoader.h" />
+    <ClInclude Include="Foundation\LayeredMap.h" />
     <ClInclude Include="Foundation\Result.h" />
     <ClInclude Include="Foundation\StageDefinition.h" />
+    <ClInclude Include="Foundation\TerrainCollision.h" />
+    <ClInclude Include="Foundation\TileDefinition.h" />
     <ClInclude Include="Foundation\TileMap.h" />
     <ClInclude Include="Base64.h" />
     <ClInclude Include="Block.h" />

@@ -33,7 +33,10 @@
     <ClCompile Include="FoundationTests.cpp" />
     <ClCompile Include="..\Actgame\Foundation\AssetPaths.cpp" />
     <ClCompile Include="..\Actgame\Foundation\GridDataLoader.cpp" />
+    <ClCompile Include="..\Actgame\Foundation\LayeredMap.cpp" />
     <ClCompile Include="..\Actgame\Foundation\StageDefinition.cpp" />
+    <ClCompile Include="..\Actgame\Foundation\TerrainCollision.cpp" />
+    <ClCompile Include="..\Actgame\Foundation\TileDefinition.cpp" />
     <ClCompile Include="..\Actgame\Foundation\TileMap.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
