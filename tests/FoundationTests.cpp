@@ -447,6 +447,68 @@ void TestCharacterDescendsSteepSlopeWithoutSidePushback() {
 	assert(Player.Body().Grounded);
 }
 
+void AssertCharacterDoesNotOverlapGround(
+	const CharacterController& Player, const TileMap& Map, const TileCatalog& Catalog) {
+	const float Bottom = Player.Body().Position.Y + Player.Body().Height;
+	for (float FootX : {Player.Body().Position.X + 0.01f,
+		Player.Body().Position.X + Player.Body().Width - 0.01f}) {
+		GroundHit Hit;
+		if (TerrainCollision::FindGround(
+			Map, Catalog, {FootX, Bottom}, Player.Body().Height, 0.0f, Hit)) {
+			assert(Bottom <= Hit.SurfaceY + 0.001f);
+		}
+	}
+}
+
+void TestCharacterDoesNotOverlapOppositeCornerAfterSteepSlope() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 9, 1, 10, 0},
+		{0, 8, 0, 11, 0},
+		{1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	Body.Position = {4.0f, 66.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	for (int Frame = 0; Frame < 35; ++Frame) {
+		Player.Step(1.0f, false, Map, Catalog);
+		AssertCharacterDoesNotOverlapGround(Player, Map, Catalog);
+	}
+	Body.Position = {132.0f, 66.0f};
+	Body.Velocity = {0.0f, 0.0f};
+	CharacterController ReversePlayer(Body);
+	for (int Frame = 0; Frame < 35; ++Frame) {
+		ReversePlayer.Step(-1.0f, false, Map, Catalog);
+		AssertCharacterDoesNotOverlapGround(ReversePlayer, Map, Catalog);
+	}
+
+	// 上り坂側の足だけが接地し、反対側が平地へ食い込んだ状態からも復帰する。
+	Body.Position = {52.0f, 27.0f};
+	Body.Velocity = {0.0f, 0.0f};
+	Body.Grounded = true;
+	CharacterController OverlappingPlayer(Body);
+	OverlappingPlayer.Step(0.0f, false, Map, Catalog);
+	assert(NearlyEqual(
+		OverlappingPlayer.Body().Position.Y + OverlappingPlayer.Body().Height, 32.0f));
+	AssertCharacterDoesNotOverlapGround(OverlappingPlayer, Map, Catalog);
+}
+
+void TestExternalStageWalkingDoesNotOverlapGround() {
+	Result<TerrainStageData> Loaded =
+		TerrainStageLoader::Load("dat/stage/slope-test/stage.ini");
+	assert(Loaded.IsSuccess());
+	CharacterBody Body;
+	Body.Position = Loaded.Value().PlayerSpawn;
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	for (int Frame = 0; Frame < 240; ++Frame) {
+		Player.Step(1.0f, false, Loaded.Value().Map, Loaded.Value().Catalog);
+		AssertCharacterDoesNotOverlapGround(Player, Loaded.Value().Map, Loaded.Value().Catalog);
+	}
+}
+
 } // namespace
 
 int main() {
@@ -469,6 +531,8 @@ int main() {
 	TestCharacterFollowsStairs();
 	TestCharacterCannotEnterSlopeHighSide();
 	TestCharacterDescendsSteepSlopeWithoutSidePushback();
+	TestCharacterDoesNotOverlapOppositeCornerAfterSteepSlope();
+	TestExternalStageWalkingDoesNotOverlapGround();
 	std::cout << "All foundation tests passed.\n";
 	return 0;
 }
