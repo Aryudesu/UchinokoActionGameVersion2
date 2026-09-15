@@ -24,17 +24,36 @@ bool CharacterController::IsSolid(
 	return Definition != nullptr && Definition->Collision == CollisionShape::Solid;
 }
 
+bool CharacterController::IsSideBlocked(
+	const TileMap& Map, const TileCatalog& Catalog,
+	int Column, int Row, bool TargetLeftSide, float MaxStepUp) const {
+	const int* Id = Map.TryGet({Column, Row});
+	const TileDefinition* Definition = Id == nullptr ? nullptr : Catalog.Find(*Id);
+	if (Definition == nullptr) return false;
+	float BlockTop = 0.0f;
+	float BlockBottom = 0.0f;
+	if (!TerrainCollision::TryGetSideBlock(
+		Definition->Collision, {Column, Row},
+		TargetLeftSide ? TerrainCollision::TileSide::Left : TerrainCollision::TileSide::Right,
+		Map.TileWidth(), Map.TileHeight(), BlockTop, BlockBottom)) return false;
+	const float BodyTop = Body_.Position.Y + ContactMargin;
+	const float BodyBottom = Body_.Position.Y + Body_.Height - ContactMargin;
+	if (BodyTop >= BlockBottom || BodyBottom <= BlockTop) return false;
+	// 接地中に斜面から同じ高さの床へ乗り移る程度の小さな差は、直後の接地補正へ任せる。
+	return BodyBottom - BlockTop > MaxStepUp;
+}
+
 void CharacterController::MoveHorizontal(
 	float Amount, const TileMap& Map, const TileCatalog& Catalog) {
 	if (Amount == 0.0f) return;
 	Body_.Position.X += Amount;
 	const int FirstRow = TileAt(Body_.Position.Y + ContactMargin, Map.TileHeight());
-	// 足元のタイルは床や坂の土台なので、側面衝突には上半身までを使う。
-	const int LastRow = TileAt(Body_.Position.Y + Body_.Height * 0.5f - ContactMargin, Map.TileHeight());
+	const int LastRow = TileAt(Body_.Position.Y + Body_.Height - ContactMargin, Map.TileHeight());
+	const float MaxStepUp = Body_.Grounded ? std::fabs(Amount) * 2.0f + 1.0f : 0.0f;
 	if (Amount > 0.0f) {
 		const int Column = TileAt(Body_.Position.X + Body_.Width, Map.TileWidth());
 		for (int Row = FirstRow; Row <= LastRow; ++Row) {
-			if (IsSolid(Map, Catalog, Column, Row)) {
+			if (IsSideBlocked(Map, Catalog, Column, Row, true, MaxStepUp)) {
 				Body_.Position.X = static_cast<float>(Column * Map.TileWidth()) - Body_.Width;
 				Body_.Velocity.X = 0.0f;
 				break;
@@ -43,7 +62,7 @@ void CharacterController::MoveHorizontal(
 	} else {
 		const int Column = TileAt(Body_.Position.X, Map.TileWidth());
 		for (int Row = FirstRow; Row <= LastRow; ++Row) {
-			if (IsSolid(Map, Catalog, Column, Row)) {
+			if (IsSideBlocked(Map, Catalog, Column, Row, false, MaxStepUp)) {
 				Body_.Position.X = static_cast<float>((Column + 1) * Map.TileWidth());
 				Body_.Velocity.X = 0.0f;
 				break;
