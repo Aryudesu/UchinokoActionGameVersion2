@@ -7,6 +7,10 @@ GameBody::GameBody() {
 	SceneMng = new SceneManager();
 }
 
+GameBody::~GameBody() {
+	delete SceneMng;
+}
+
 bool GameBody::loop() {
 	//メインの動きを書いていく
 	//キーボード状態更新

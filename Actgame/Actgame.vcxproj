@@ -135,6 +135,7 @@
   <ItemGroup>
     <ClCompile Include="Action.cpp" />
     <ClCompile Include="Foundation\AssetPaths.cpp" />
+    <ClCompile Include="Foundation\CharacterController.cpp" />
     <ClCompile Include="Foundation\GridDataLoader.cpp" />
     <ClCompile Include="Foundation\LayeredMap.cpp" />
     <ClCompile Include="Foundation\StageDefinition.cpp" />
@@ -169,6 +170,7 @@
     <ClCompile Include="PlayerManager.cpp" />
     <ClCompile Include="SceneChanger.cpp" />
     <ClCompile Include="SceneManager.cpp" />
+    <ClCompile Include="SlopeSandboxScene.cpp" />
     <ClCompile Include="ScreenInfo.cpp" />
     <ClCompile Include="Souko.cpp" />
     <ClCompile Include="SoundManager.cpp" />
@@ -179,6 +181,7 @@
   <ItemGroup>
     <ClInclude Include="Action.h" />
     <ClInclude Include="Foundation\AssetPaths.h" />
+    <ClInclude Include="Foundation\CharacterController.h" />
     <ClInclude Include="Foundation\Coordinates.h" />
     <ClInclude Include="Foundation\GridDataLoader.h" />
     <ClInclude Include="Foundation\LayeredMap.h" />
@@ -211,6 +214,7 @@
     <ClInclude Include="Scene.h" />
     <ClInclude Include="SceneChanger.h" />
     <ClInclude Include="SceneManager.h" />
+    <ClInclude Include="SlopeSandboxScene.h" />
     <ClInclude Include="Souko.h" />
     <ClInclude Include="SoundManager.h" />
     <ClInclude Include="LevelChanger.h" />

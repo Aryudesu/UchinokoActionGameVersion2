@@ -7,6 +7,6 @@ private:
 
 public:
 	GameBody();
-	~GameBody() = default;
+	~GameBody();
 	bool loop();
 };
