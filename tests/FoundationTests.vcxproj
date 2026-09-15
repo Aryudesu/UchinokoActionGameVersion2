@@ -26,6 +26,9 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <LocalDebuggerWorkingDirectory>$(SolutionDir)</LocalDebuggerWorkingDirectory>
+  </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile><WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck><ConformanceMode>true</ConformanceMode><LanguageStandard>stdcpp14</LanguageStandard></ClCompile>
   </ItemDefinitionGroup>
@@ -37,6 +40,7 @@
     <ClCompile Include="..\Actgame\Foundation\LayeredMap.cpp" />
     <ClCompile Include="..\Actgame\Foundation\StageDefinition.cpp" />
     <ClCompile Include="..\Actgame\Foundation\TerrainCollision.cpp" />
+    <ClCompile Include="..\Actgame\Foundation\TerrainStageLoader.cpp" />
     <ClCompile Include="..\Actgame\Foundation\TileDefinition.cpp" />
     <ClCompile Include="..\Actgame\Foundation\TileMap.cpp" />
   </ItemGroup>
