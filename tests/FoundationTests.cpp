@@ -144,6 +144,40 @@ void TestStairSurfaces() {
 	assert(NearlyEqual(SurfaceY, 48.0f));
 }
 
+void TestSlopeSideBlocks() {
+	float Top = 0.0f;
+	float Bottom = 0.0f;
+	using Side = TerrainCollision::TileSide;
+	assert(!TerrainCollision::TryGetSideBlock(
+		CollisionShape::SlopeUpRight, {0, 1}, Side::Left, 32, 32, Top, Bottom));
+	assert(TerrainCollision::TryGetSideBlock(
+		CollisionShape::SlopeUpRight, {0, 1}, Side::Right, 32, 32, Top, Bottom));
+	assert(NearlyEqual(Top, 32.0f));
+	assert(NearlyEqual(Bottom, 64.0f));
+	assert(TerrainCollision::TryGetSideBlock(
+		CollisionShape::SlopeUpLeft, {0, 1}, Side::Left, 32, 32, Top, Bottom));
+	assert(!TerrainCollision::TryGetSideBlock(
+		CollisionShape::SlopeUpLeft, {0, 1}, Side::Right, 32, 32, Top, Bottom));
+
+	assert(TerrainCollision::TryGetSideBlock(
+		CollisionShape::Stair2x1UpRightLow, {0, 1}, Side::Right, 32, 32, Top, Bottom));
+	assert(NearlyEqual(Top, 48.0f));
+	assert(TerrainCollision::TryGetSideBlock(
+		CollisionShape::Stair2x1UpLeftLow, {0, 1}, Side::Left, 32, 32, Top, Bottom));
+	assert(NearlyEqual(Top, 48.0f));
+
+	// 1x2 の下半分は、急斜面を越えた側がタイル全面で埋まる。
+	assert(TerrainCollision::TryGetSideBlock(
+		CollisionShape::Stair1x2UpRightBottom, {0, 2}, Side::Right, 32, 32, Top, Bottom));
+	assert(NearlyEqual(Top, 64.0f));
+	assert(!TerrainCollision::TryGetSideBlock(
+		CollisionShape::Stair1x2UpRightBottom, {0, 2}, Side::Left, 32, 32, Top, Bottom));
+	assert(TerrainCollision::TryGetSideBlock(
+		CollisionShape::Stair1x2UpLeftBottom, {0, 2}, Side::Left, 32, 32, Top, Bottom));
+	assert(!TerrainCollision::TryGetSideBlock(
+		CollisionShape::OneWay, {0, 1}, Side::Left, 32, 32, Top, Bottom));
+}
+
 void TestSlopeGroundSnap() {
 	TileCatalog Catalog;
 	TileDefinition Empty;
@@ -356,6 +390,40 @@ void TestCharacterFollowsStairs() {
 	assert(SteepPlayer.Body().Position.Y < 10.0f);
 }
 
+void TestCharacterCannotEnterSlopeHighSide() {
+	TileMap UpRightMap = MakeMap({
+		{0, 0, 0},
+		{0, 2, 0},
+		{1, 1, 1}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	Body.Position = {64.0f, 34.0f};
+	Body.Grounded = true;
+	CharacterController FromRight(Body);
+	FromRight.Step(-1.0f, false, UpRightMap, Catalog);
+	assert(NearlyEqual(FromRight.Body().Position.X, 64.0f));
+
+	// 低い側からは従来どおり坂へ進入して登れる。
+	Body.Position = {8.0f, 34.0f};
+	Body.Velocity = {0.0f, 0.0f};
+	CharacterController FromLeft(Body);
+	FromLeft.Step(1.0f, false, UpRightMap, Catalog);
+	assert(FromLeft.Body().Position.X > 8.0f);
+	assert(FromLeft.Body().Grounded);
+
+	TileMap UpLeftMap = MakeMap({
+		{0, 0, 0},
+		{0, 3, 0},
+		{1, 1, 1}
+	});
+	Body.Position = {8.0f, 34.0f};
+	Body.Velocity = {0.0f, 0.0f};
+	CharacterController LeftHighSide(Body);
+	LeftHighSide.Step(1.0f, false, UpLeftMap, Catalog);
+	assert(NearlyEqual(LeftHighSide.Body().Position.X, 8.0f));
+}
+
 } // namespace
 
 int main() {
@@ -367,6 +435,7 @@ int main() {
 	TestTileCatalog();
 	TestSlopeSurfaces();
 	TestStairSurfaces();
+	TestSlopeSideBlocks();
 	TestSlopeGroundSnap();
 	TestLayeredMap();
 	TestCharacterMovement();
@@ -375,6 +444,7 @@ int main() {
 	TestCharacterCeiling();
 	TestCharacterLandingAcrossSlope();
 	TestCharacterFollowsStairs();
+	TestCharacterCannotEnterSlopeHighSide();
 	std::cout << "All foundation tests passed.\n";
 	return 0;
 }
