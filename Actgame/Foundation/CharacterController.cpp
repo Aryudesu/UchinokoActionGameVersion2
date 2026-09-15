@@ -84,8 +84,10 @@ void CharacterController::MoveHorizontal(
 bool CharacterController::SnapToGround(
 	float MaxRise, float MaxDrop, const TileMap& Map, const TileCatalog& Catalog) {
 	GroundHit Hit;
+	// 片足が坂、反対側が高い平地に食い込んだ場合も、身体内の最上面まで戻す。
+	const float GroundSearchRise = std::max(MaxRise, Body_.Height + ContactMargin);
 	if (!FindGroundAtFeet(Body_.Position.Y + Body_.Height,
-		MaxRise, MaxDrop, Body_.Position.Y + Body_.Height - MaxRise - ContactMargin,
+		GroundSearchRise, MaxDrop, Body_.Position.Y - ContactMargin,
 		Map, Catalog, Hit)) return false;
 	Body_.Position.Y = Hit.SurfaceY - Body_.Height;
 	Body_.Velocity.Y = 0.0f;
