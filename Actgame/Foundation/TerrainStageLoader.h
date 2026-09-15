@@ -1,0 +1,25 @@
+﻿#pragma once
+
+#include "Coordinates.h"
+#include "Result.h"
+#include "TileDefinition.h"
+#include "TileMap.h"
+
+#include <string>
+
+namespace uchinoko {
+
+struct TerrainStageData {
+	TileMap Map;
+	TileCatalog Catalog;
+	WorldPosition PlayerSpawn;
+};
+
+class TerrainStageLoader {
+public:
+	// Manifest 内の terrain と tiles は ManifestFile からの相対パスで解決する。
+	static Result<TerrainStageData> Load(const std::string& ManifestFile);
+	static Result<TileCatalog> LoadCatalog(const std::string& FileName);
+};
+
+} // namespace uchinoko

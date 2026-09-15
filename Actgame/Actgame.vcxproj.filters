@@ -346,6 +346,9 @@
     <Filter Include="Foundation">
       <UniqueIdentifier>{7F89EC02-3281-49FB-A2A4-51C13E0CB1D9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Stage Data">
+      <UniqueIdentifier>{F52B5BB2-117F-48E6-A9E5-D17AF47B29F7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Foundation\AssetPaths.cpp"><Filter>Foundation</Filter></ClCompile>
@@ -355,6 +358,7 @@
     <ClCompile Include="Foundation\LayeredMap.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\StageDefinition.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\TerrainCollision.cpp"><Filter>Foundation</Filter></ClCompile>
+    <ClCompile Include="Foundation\TerrainStageLoader.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\TileDefinition.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\TileMap.cpp"><Filter>Foundation</Filter></ClCompile>
   </ItemGroup>
@@ -368,7 +372,13 @@
     <ClInclude Include="Foundation\Result.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\StageDefinition.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\TerrainCollision.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\TerrainStageLoader.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\TileDefinition.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\TileMap.h"><Filter>Foundation</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\dat\stage\slope-test\stage.ini"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\slope-test\terrain.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\slope-test\tiles.csv"><Filter>Stage Data</Filter></None>
   </ItemGroup>
 </Project>

@@ -140,6 +140,7 @@
     <ClCompile Include="Foundation\LayeredMap.cpp" />
     <ClCompile Include="Foundation\StageDefinition.cpp" />
     <ClCompile Include="Foundation\TerrainCollision.cpp" />
+    <ClCompile Include="Foundation\TerrainStageLoader.cpp" />
     <ClCompile Include="Foundation\TileDefinition.cpp" />
     <ClCompile Include="Foundation\TileMap.cpp" />
     <ClCompile Include="Base64.cpp" />
@@ -188,6 +189,7 @@
     <ClInclude Include="Foundation\Result.h" />
     <ClInclude Include="Foundation\StageDefinition.h" />
     <ClInclude Include="Foundation\TerrainCollision.h" />
+    <ClInclude Include="Foundation\TerrainStageLoader.h" />
     <ClInclude Include="Foundation\TileDefinition.h" />
     <ClInclude Include="Foundation\TileMap.h" />
     <ClInclude Include="Base64.h" />
@@ -227,6 +229,11 @@
     <ClInclude Include="Singleton.h" />
     <ClInclude Include="Variable.h" />
     <ClInclude Include="WorldMap.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\dat\stage\slope-test\stage.ini" />
+    <None Include="..\dat\stage\slope-test\terrain.csv" />
+    <None Include="..\dat\stage\slope-test\tiles.csv" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

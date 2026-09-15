@@ -1,0 +1,13 @@
+﻿# id, collision shape, image index, breakable, damaging
+0,None,0,0,0
+1,Solid,0,0,0
+2,SlopeUpRight,0,0,0
+3,SlopeUpLeft,0,0,0
+4,Stair2x1UpRightLow,0,0,0
+5,Stair2x1UpRightHigh,0,0,0
+6,Stair2x1UpLeftHigh,0,0,0
+7,Stair2x1UpLeftLow,0,0,0
+8,Stair1x2UpRightBottom,0,0,0
+9,Stair1x2UpRightTop,0,0,0
+10,Stair1x2UpLeftTop,0,0,0
+11,Stair1x2UpLeftBottom,0,0,0
