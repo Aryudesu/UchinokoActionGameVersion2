@@ -4,6 +4,7 @@
 #include "../Actgame/Foundation/LayeredMap.h"
 #include "../Actgame/Foundation/StageDefinition.h"
 #include "../Actgame/Foundation/TerrainCollision.h"
+#include "../Actgame/Foundation/TerrainStageLoader.h"
 #include "../Actgame/Foundation/TileDefinition.h"
 #include "../Actgame/Foundation/TileMap.h"
 
@@ -64,6 +65,21 @@ void TestGameModes() {
 
 bool NearlyEqual(float Left, float Right) {
 	return std::fabs(Left - Right) < 0.001f;
+}
+
+void TestExternalTerrainStage() {
+	Result<TerrainStageData> Loaded =
+		TerrainStageLoader::Load("dat/stage/slope-test/stage.ini");
+	assert(Loaded.IsSuccess());
+	assert(Loaded.Value().Map.Width() == 24);
+	assert(Loaded.Value().Map.Height() == 14);
+	assert(NearlyEqual(Loaded.Value().PlayerSpawn.X, 64.0f));
+	assert(NearlyEqual(Loaded.Value().PlayerSpawn.Y, 322.0f));
+	assert(Loaded.Value().Catalog.Find(4)->Collision ==
+		CollisionShape::Stair2x1UpRightLow);
+	assert(Loaded.Value().Catalog.Find(9)->Collision ==
+		CollisionShape::Stair1x2UpRightTop);
+	assert(*Loaded.Value().Map.TryGet({18, 9}) == 9);
 }
 
 TileMap MakeMap(IntegerGrid Tiles) {
@@ -345,6 +361,7 @@ void TestCharacterFollowsStairs() {
 int main() {
 	TestAssetPaths();
 	TestGridDataLoader();
+	TestExternalTerrainStage();
 	TestTileMapBounds();
 	TestGameModes();
 	TestTileCatalog();
