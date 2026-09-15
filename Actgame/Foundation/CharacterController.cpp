@@ -126,7 +126,8 @@ void CharacterController::Step(
 	Body_.Velocity.X = HorizontalInput * Motion_.MoveSpeed;
 	MoveHorizontal(Body_.Velocity.X, Map, Catalog);
 	if (Body_.Grounded) {
-		const float StepDistance = std::fabs(Body_.Velocity.X) + 1.0f;
+		// 1x2 の急勾配は横移動量の2倍だけ上下する。
+		const float StepDistance = std::fabs(Body_.Velocity.X) * 2.0f + 1.0f;
 		if (!SnapToGround(StepDistance, StepDistance, Map, Catalog)) Body_.Grounded = false;
 	}
 	if (JumpPressed && Body_.Grounded) {
