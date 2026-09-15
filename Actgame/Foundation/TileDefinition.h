@@ -11,7 +11,15 @@ enum class CollisionShape {
 	Solid,
 	OneWay,
 	SlopeUpRight,
-	SlopeUpLeft
+	SlopeUpLeft,
+	Stair2x1UpRightLow,
+	Stair2x1UpRightHigh,
+	Stair2x1UpLeftHigh,
+	Stair2x1UpLeftLow,
+	Stair1x2UpRightBottom,
+	Stair1x2UpRightTop,
+	Stair1x2UpLeftTop,
+	Stair1x2UpLeftBottom
 };
 
 struct TileDefinition {
