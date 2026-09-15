@@ -342,4 +342,23 @@
       <Filter>ヘッダー ファイル\Function\Cipher</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Foundation">
+      <UniqueIdentifier>{7F89EC02-3281-49FB-A2A4-51C13E0CB1D9}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Foundation\AssetPaths.cpp"><Filter>Foundation</Filter></ClCompile>
+    <ClCompile Include="Foundation\GridDataLoader.cpp"><Filter>Foundation</Filter></ClCompile>
+    <ClCompile Include="Foundation\StageDefinition.cpp"><Filter>Foundation</Filter></ClCompile>
+    <ClCompile Include="Foundation\TileMap.cpp"><Filter>Foundation</Filter></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Foundation\AssetPaths.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\Coordinates.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\GridDataLoader.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\Result.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\StageDefinition.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\TileMap.h"><Filter>Foundation</Filter></ClInclude>
+  </ItemGroup>
 </Project>

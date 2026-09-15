@@ -69,7 +69,9 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup />
+  <PropertyGroup>
+    <LocalDebuggerWorkingDirectory>$(SolutionDir)</LocalDebuggerWorkingDirectory>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -132,6 +134,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Action.cpp" />
+    <ClCompile Include="Foundation\AssetPaths.cpp" />
+    <ClCompile Include="Foundation\GridDataLoader.cpp" />
+    <ClCompile Include="Foundation\StageDefinition.cpp" />
+    <ClCompile Include="Foundation\TileMap.cpp" />
     <ClCompile Include="Base64.cpp" />
     <ClCompile Include="Block.cpp" />
     <ClCompile Include="BlockFactory.cpp" />
@@ -169,6 +175,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Action.h" />
+    <ClInclude Include="Foundation\AssetPaths.h" />
+    <ClInclude Include="Foundation\Coordinates.h" />
+    <ClInclude Include="Foundation\GridDataLoader.h" />
+    <ClInclude Include="Foundation\Result.h" />
+    <ClInclude Include="Foundation\StageDefinition.h" />
+    <ClInclude Include="Foundation\TileMap.h" />
     <ClInclude Include="Base64.h" />
     <ClInclude Include="Block.h" />
     <ClInclude Include="BlockFactory.h" />
