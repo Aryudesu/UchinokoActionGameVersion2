@@ -30,6 +30,34 @@ bool TerrainCollision::TryGetSurfaceY(
 	case CollisionShape::SlopeUpLeft:
 		SurfaceY = Top + static_cast<float>(TileHeight) * Ratio;
 		return true;
+	case CollisionShape::Stair2x1UpRightLow:
+		SurfaceY = Top + static_cast<float>(TileHeight) * (1.0f - Ratio * 0.5f);
+		return true;
+	case CollisionShape::Stair2x1UpRightHigh:
+		SurfaceY = Top + static_cast<float>(TileHeight) * (0.5f - Ratio * 0.5f);
+		return true;
+	case CollisionShape::Stair2x1UpLeftHigh:
+		SurfaceY = Top + static_cast<float>(TileHeight) * Ratio * 0.5f;
+		return true;
+	case CollisionShape::Stair2x1UpLeftLow:
+		SurfaceY = Top + static_cast<float>(TileHeight) * (0.5f + Ratio * 0.5f);
+		return true;
+	case CollisionShape::Stair1x2UpRightBottom:
+		if (Ratio > 0.5f) return false;
+		SurfaceY = Top + static_cast<float>(TileHeight) * (1.0f - Ratio * 2.0f);
+		return true;
+	case CollisionShape::Stair1x2UpRightTop:
+		if (Ratio < 0.5f) return false;
+		SurfaceY = Top + static_cast<float>(TileHeight) * (2.0f - Ratio * 2.0f);
+		return true;
+	case CollisionShape::Stair1x2UpLeftTop:
+		if (Ratio > 0.5f) return false;
+		SurfaceY = Top + static_cast<float>(TileHeight) * Ratio * 2.0f;
+		return true;
+	case CollisionShape::Stair1x2UpLeftBottom:
+		if (Ratio < 0.5f) return false;
+		SurfaceY = Top + static_cast<float>(TileHeight) * (Ratio * 2.0f - 1.0f);
+		return true;
 	case CollisionShape::None:
 		return false;
 	}
