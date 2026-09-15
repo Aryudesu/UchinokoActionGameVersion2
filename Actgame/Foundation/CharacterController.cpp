@@ -46,26 +46,34 @@ bool CharacterController::IsSideBlocked(
 void CharacterController::MoveHorizontal(
 	float Amount, const TileMap& Map, const TileCatalog& Catalog) {
 	if (Amount == 0.0f) return;
+	const float OldX = Body_.Position.X;
 	Body_.Position.X += Amount;
 	const int FirstRow = TileAt(Body_.Position.Y + ContactMargin, Map.TileHeight());
 	const int LastRow = TileAt(Body_.Position.Y + Body_.Height - ContactMargin, Map.TileHeight());
 	const float MaxStepUp = Body_.Grounded ? std::fabs(Amount) * 2.0f + 1.0f : 0.0f;
 	if (Amount > 0.0f) {
-		const int Column = TileAt(Body_.Position.X + Body_.Width, Map.TileWidth());
-		for (int Row = FirstRow; Row <= LastRow; ++Row) {
-			if (IsSideBlocked(Map, Catalog, Column, Row, true, MaxStepUp)) {
-				Body_.Position.X = static_cast<float>(Column * Map.TileWidth()) - Body_.Width;
-				Body_.Velocity.X = 0.0f;
-				break;
+		const int OldColumn = TileAt(OldX + Body_.Width - ContactMargin, Map.TileWidth());
+		const int Column = TileAt(Body_.Position.X + Body_.Width - ContactMargin, Map.TileWidth());
+		// タイル内を進んでいる間に、入口側の壁を繰り返し判定しない。
+		if (Column != OldColumn) {
+			for (int Row = FirstRow; Row <= LastRow; ++Row) {
+				if (IsSideBlocked(Map, Catalog, Column, Row, true, MaxStepUp)) {
+					Body_.Position.X = static_cast<float>(Column * Map.TileWidth()) - Body_.Width;
+					Body_.Velocity.X = 0.0f;
+					break;
+				}
 			}
 		}
 	} else {
-		const int Column = TileAt(Body_.Position.X, Map.TileWidth());
-		for (int Row = FirstRow; Row <= LastRow; ++Row) {
-			if (IsSideBlocked(Map, Catalog, Column, Row, false, MaxStepUp)) {
-				Body_.Position.X = static_cast<float>((Column + 1) * Map.TileWidth());
-				Body_.Velocity.X = 0.0f;
-				break;
+		const int OldColumn = TileAt(OldX + ContactMargin, Map.TileWidth());
+		const int Column = TileAt(Body_.Position.X + ContactMargin, Map.TileWidth());
+		if (Column != OldColumn) {
+			for (int Row = FirstRow; Row <= LastRow; ++Row) {
+				if (IsSideBlocked(Map, Catalog, Column, Row, false, MaxStepUp)) {
+					Body_.Position.X = static_cast<float>((Column + 1) * Map.TileWidth());
+					Body_.Velocity.X = 0.0f;
+					break;
+				}
 			}
 		}
 	}
