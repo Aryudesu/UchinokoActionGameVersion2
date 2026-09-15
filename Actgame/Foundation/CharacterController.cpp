@@ -57,15 +57,33 @@ void CharacterController::MoveHorizontal(
 bool CharacterController::SnapToGround(
 	float MaxRise, float MaxDrop, const TileMap& Map, const TileCatalog& Catalog) {
 	GroundHit Hit;
-	const WorldPosition Foot = {
-		Body_.Position.X + Body_.Width * 0.5f,
-		Body_.Position.Y + Body_.Height
-	};
-	if (!TerrainCollision::FindGround(Map, Catalog, Foot, MaxRise, MaxDrop, Hit)) return false;
+	if (!FindGroundAtFeet(Body_.Position.Y + Body_.Height,
+		MaxRise, MaxDrop, Map, Catalog, Hit)) return false;
 	Body_.Position.Y = Hit.SurfaceY - Body_.Height;
 	Body_.Velocity.Y = 0.0f;
 	Body_.Grounded = true;
 	return true;
+}
+
+bool CharacterController::FindGroundAtFeet(
+	float FootY, float MaxRise, float MaxDrop,
+	const TileMap& Map, const TileCatalog& Catalog, GroundHit& Hit) const {
+	const float FootXs[] = {
+		Body_.Position.X + ContactMargin,
+		Body_.Position.X + Body_.Width - ContactMargin
+	};
+	bool Found = false;
+	for (float FootX : FootXs) {
+		GroundHit Candidate;
+		if (!TerrainCollision::FindGround(
+			Map, Catalog, {FootX, FootY}, MaxRise, MaxDrop, Candidate)) continue;
+		// 矩形の左右どちらも地形へ入らないよう、最も高い接地面を採用する。
+		if (!Found || Candidate.SurfaceY < Hit.SurfaceY) {
+			Hit = Candidate;
+			Found = true;
+		}
+	}
+	return Found;
 }
 
 void CharacterController::MoveVertical(
@@ -75,9 +93,8 @@ void CharacterController::MoveVertical(
 	if (Amount >= 0.0f) {
 		const float NewBottom = Body_.Position.Y + Body_.Height;
 		GroundHit Hit;
-		const WorldPosition Foot = {Body_.Position.X + Body_.Width * 0.5f, NewBottom};
-		if (TerrainCollision::FindGround(
-			Map, Catalog, Foot, NewBottom - OldBottom + ContactMargin, 0.0f, Hit) &&
+		if (FindGroundAtFeet(NewBottom, NewBottom - OldBottom + ContactMargin,
+			0.0f, Map, Catalog, Hit) &&
 			Hit.SurfaceY >= OldBottom - ContactMargin) {
 			Body_.Position.Y = Hit.SurfaceY - Body_.Height;
 			Body_.Velocity.Y = 0.0f;

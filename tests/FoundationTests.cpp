@@ -197,10 +197,30 @@ void TestCharacterSlopeFollow() {
 	Body.Position = {4.0f, 34.0f};
 	Body.Grounded = true;
 	CharacterController Player(Body);
-	for (int Frame = 0; Frame < 17; ++Frame) Player.Step(1.0f, false, Map, Catalog);
+	for (int Frame = 0; Frame < 17; ++Frame) {
+		Player.Step(1.0f, false, Map, Catalog);
+		const float Bottom = Player.Body().Position.Y + Player.Body().Height;
+		for (float FootX : {Player.Body().Position.X + 0.01f,
+			Player.Body().Position.X + Player.Body().Width - 0.01f}) {
+			GroundHit Hit;
+			if (TerrainCollision::FindGround(Map, Catalog, {FootX, Bottom}, 32.0f, 32.0f, Hit)) {
+				assert(Bottom <= Hit.SurfaceY + 0.001f);
+			}
+		}
+	}
 	assert(Player.Body().Grounded);
 	assert(Player.Body().Position.Y < 34.0f);
-	for (int Frame = 0; Frame < 25; ++Frame) Player.Step(1.0f, false, Map, Catalog);
+	for (int Frame = 0; Frame < 25; ++Frame) {
+		Player.Step(1.0f, false, Map, Catalog);
+		const float Bottom = Player.Body().Position.Y + Player.Body().Height;
+		for (float FootX : {Player.Body().Position.X + 0.01f,
+			Player.Body().Position.X + Player.Body().Width - 0.01f}) {
+			GroundHit Hit;
+			if (TerrainCollision::FindGround(Map, Catalog, {FootX, Bottom}, 32.0f, 32.0f, Hit)) {
+				assert(Bottom <= Hit.SurfaceY + 0.001f);
+			}
+		}
+	}
 	assert(Player.Body().Grounded);
 	assert(NearlyEqual(Player.Body().Position.Y, 34.0f));
 }
