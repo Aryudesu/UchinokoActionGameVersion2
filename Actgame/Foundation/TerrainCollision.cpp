@@ -64,6 +64,65 @@ bool TerrainCollision::TryGetSurfaceY(
 	return false;
 }
 
+bool TerrainCollision::TryGetSideBlock(
+	CollisionShape Shape,
+	TilePosition Tile,
+	TileSide Side,
+	int TileWidth,
+	int TileHeight,
+	float& BlockTop,
+	float& BlockBottom) {
+	if (TileWidth <= 0 || TileHeight <= 0 ||
+		Shape == CollisionShape::None || Shape == CollisionShape::OneWay) return false;
+	const float Top = static_cast<float>(Tile.Row * TileHeight);
+	const float Bottom = Top + static_cast<float>(TileHeight);
+	BlockBottom = Bottom;
+	if (Shape == CollisionShape::Solid) {
+		BlockTop = Top;
+		return true;
+	}
+
+	const bool Left = Side == TileSide::Left;
+	switch (Shape) {
+	case CollisionShape::SlopeUpRight:
+		BlockTop = Left ? Bottom : Top;
+		break;
+	case CollisionShape::SlopeUpLeft:
+		BlockTop = Left ? Top : Bottom;
+		break;
+	case CollisionShape::Stair2x1UpRightLow:
+		BlockTop = Left ? Bottom : Top + TileHeight * 0.5f;
+		break;
+	case CollisionShape::Stair2x1UpRightHigh:
+		BlockTop = Left ? Top + TileHeight * 0.5f : Top;
+		break;
+	case CollisionShape::Stair2x1UpLeftHigh:
+		BlockTop = Left ? Top : Top + TileHeight * 0.5f;
+		break;
+	case CollisionShape::Stair2x1UpLeftLow:
+		BlockTop = Left ? Top + TileHeight * 0.5f : Bottom;
+		break;
+	case CollisionShape::Stair1x2UpRightBottom:
+		// 斜面がタイル中央を横切った後の右半分は全面が地形になる。
+		BlockTop = Left ? Bottom : Top;
+		break;
+	case CollisionShape::Stair1x2UpRightTop:
+		BlockTop = Left ? Bottom : Top;
+		break;
+	case CollisionShape::Stair1x2UpLeftTop:
+		BlockTop = Left ? Top : Bottom;
+		break;
+	case CollisionShape::Stair1x2UpLeftBottom:
+		BlockTop = Left ? Top : Bottom;
+		break;
+	case CollisionShape::None:
+	case CollisionShape::Solid:
+	case CollisionShape::OneWay:
+		return false;
+	}
+	return BlockTop < BlockBottom;
+}
+
 bool TerrainCollision::FindGround(
 	const TileMap& Map,
 	const TileCatalog& Catalog,
