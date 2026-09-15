@@ -17,9 +17,18 @@ uchinoko::TileMap CreateTestMap() {
 	Tiles[10][7] = 1;
 	Tiles[10][8] = 1;
 	Tiles[10][9] = 3;
-	Tiles[8][13] = 1;
-	Tiles[8][14] = 1;
-	Tiles[8][15] = 1;
+	// 2x1（横2タイル・高さ1タイル）の緩い階段。
+	Tiles[10][11] = 4;
+	Tiles[10][12] = 5;
+	Tiles[10][13] = 1;
+	Tiles[10][14] = 6;
+	Tiles[10][15] = 7;
+	// 1x2（横1タイル・高さ2タイル）の急な階段。
+	Tiles[10][18] = 8;
+	Tiles[9][18] = 9;
+	Tiles[9][19] = 1;
+	Tiles[9][20] = 10;
+	Tiles[10][20] = 11;
 	return uchinoko::TileMap::Create(std::move(Tiles)).Value();
 }
 
@@ -37,6 +46,22 @@ uchinoko::TileCatalog CreateCatalog() {
 	UpLeft.Id = 3;
 	UpLeft.Collision = uchinoko::CollisionShape::SlopeUpLeft;
 	Catalog.Register(UpLeft);
+	const uchinoko::CollisionShape StairShapes[] = {
+		uchinoko::CollisionShape::Stair2x1UpRightLow,
+		uchinoko::CollisionShape::Stair2x1UpRightHigh,
+		uchinoko::CollisionShape::Stair2x1UpLeftHigh,
+		uchinoko::CollisionShape::Stair2x1UpLeftLow,
+		uchinoko::CollisionShape::Stair1x2UpRightBottom,
+		uchinoko::CollisionShape::Stair1x2UpRightTop,
+		uchinoko::CollisionShape::Stair1x2UpLeftTop,
+		uchinoko::CollisionShape::Stair1x2UpLeftBottom
+	};
+	for (int Index = 0; Index < 8; ++Index) {
+		uchinoko::TileDefinition Stair;
+		Stair.Id = 4 + Index;
+		Stair.Collision = StairShapes[Index];
+		Catalog.Register(Stair);
+	}
 	return Catalog;
 }
 
@@ -66,6 +91,8 @@ void SlopeSandboxScene::update() {
 void SlopeSandboxScene::draw() {
 	const unsigned int SolidColor = GetColor(70, 130, 190);
 	const unsigned int SlopeColor = GetColor(90, 180, 120);
+	const unsigned int GentleColor = GetColor(110, 170, 220);
+	const unsigned int SteepColor = GetColor(220, 140, 90);
 	for (int Row = 0; Row < Map_.Height(); ++Row) {
 		for (int Column = 0; Column < Map_.Width(); ++Column) {
 			const int* Id = Map_.TryGet({Column, Row});
@@ -85,6 +112,38 @@ void SlopeSandboxScene::draw() {
 			case uchinoko::CollisionShape::SlopeUpLeft:
 				DrawTriangle(Left, Top, Left, Bottom, Right, Bottom, SlopeColor, TRUE);
 				break;
+			case uchinoko::CollisionShape::Stair2x1UpRightLow:
+				DrawTriangle(Left, Bottom, Right, Top + Map_.TileHeight() / 2,
+					Right, Bottom, GentleColor, TRUE);
+				break;
+			case uchinoko::CollisionShape::Stair2x1UpRightHigh:
+				DrawQuadrangle(Left, Top + Map_.TileHeight() / 2, Right, Top,
+					Right, Bottom, Left, Bottom, GentleColor, TRUE);
+				break;
+			case uchinoko::CollisionShape::Stair2x1UpLeftHigh:
+				DrawQuadrangle(Left, Top, Right, Top + Map_.TileHeight() / 2,
+					Right, Bottom, Left, Bottom, GentleColor, TRUE);
+				break;
+			case uchinoko::CollisionShape::Stair2x1UpLeftLow:
+				DrawTriangle(Left, Top + Map_.TileHeight() / 2, Left, Bottom,
+					Right, Bottom, GentleColor, TRUE);
+				break;
+			case uchinoko::CollisionShape::Stair1x2UpRightBottom:
+				DrawTriangle(Left, Bottom, Left + Map_.TileWidth() / 2, Top,
+					Left + Map_.TileWidth() / 2, Bottom, SteepColor, TRUE);
+				break;
+			case uchinoko::CollisionShape::Stair1x2UpRightTop:
+				DrawTriangle(Left + Map_.TileWidth() / 2, Bottom, Right, Top,
+					Right, Bottom, SteepColor, TRUE);
+				break;
+			case uchinoko::CollisionShape::Stair1x2UpLeftTop:
+				DrawTriangle(Left, Top, Left, Bottom,
+					Left + Map_.TileWidth() / 2, Bottom, SteepColor, TRUE);
+				break;
+			case uchinoko::CollisionShape::Stair1x2UpLeftBottom:
+				DrawTriangle(Left + Map_.TileWidth() / 2, Top, Right, Bottom,
+					Left + Map_.TileWidth() / 2, Bottom, SteepColor, TRUE);
+				break;
 			default:
 				break;
 			}
@@ -94,6 +153,6 @@ void SlopeSandboxScene::draw() {
 	DrawBox(static_cast<int>(Body.Position.X), static_cast<int>(Body.Position.Y),
 		static_cast<int>(Body.Position.X + Body.Width), static_cast<int>(Body.Position.Y + Body.Height),
 		GetColor(240, 210, 80), TRUE);
-	DrawString(16, 16, "Slope test: Left/Right move, Z jump, Esc menu", GetColor(255, 255, 255));
+	DrawString(16, 16, "Slope/Stair test: Left/Right move, Z jump, Esc menu", GetColor(255, 255, 255));
 	DrawString(16, 40, Body.Grounded ? "Grounded" : "Airborne", GetColor(255, 255, 255));
 }
