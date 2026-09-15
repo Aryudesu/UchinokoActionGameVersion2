@@ -1,4 +1,5 @@
 ﻿#include "../Actgame/Foundation/AssetPaths.h"
+#include "../Actgame/Foundation/CharacterController.h"
 #include "../Actgame/Foundation/GridDataLoader.h"
 #include "../Actgame/Foundation/LayeredMap.h"
 #include "../Actgame/Foundation/StageDefinition.h"
@@ -6,6 +7,7 @@
 #include "../Actgame/Foundation/TileDefinition.h"
 #include "../Actgame/Foundation/TileMap.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -147,6 +149,130 @@ void TestLayeredMap() {
 	assert(LayeredMap::Create(Terrain, Visual, Object, WrongSize).IsFailure());
 }
 
+TileCatalog MakeTerrainCatalog() {
+	TileCatalog Catalog;
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+	TileDefinition UpRight;
+	UpRight.Id = 2;
+	UpRight.Collision = CollisionShape::SlopeUpRight;
+	assert(Catalog.Register(UpRight).IsSuccess());
+	TileDefinition UpLeft;
+	UpLeft.Id = 3;
+	UpLeft.Collision = CollisionShape::SlopeUpLeft;
+	assert(Catalog.Register(UpLeft).IsSuccess());
+	return Catalog;
+}
+
+void TestCharacterMovement() {
+	TileMap FlatMap = MakeMap({{0, 0, 0}, {1, 1, 1}, {0, 0, 0}});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	Body.Position = {4.0f, 2.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	Player.Step(1.0f, false, FlatMap, Catalog);
+	assert(NearlyEqual(Player.Body().Position.X, 7.0f));
+	assert(NearlyEqual(Player.Body().Position.Y, 2.0f));
+	assert(Player.Body().Grounded);
+	Player.Step(0.0f, true, FlatMap, Catalog);
+	assert(!Player.Body().Grounded);
+	assert(Player.Body().Velocity.Y < 0.0f);
+	assert(Player.Body().Position.Y < 2.0f);
+	for (int Frame = 0; Frame < 60; ++Frame) Player.Step(0.0f, false, FlatMap, Catalog);
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 2.0f));
+}
+
+void TestCharacterSlopeFollow() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 2, 1, 3, 0},
+		{1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	Body.Position = {4.0f, 34.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	for (int Frame = 0; Frame < 17; ++Frame) {
+		Player.Step(1.0f, false, Map, Catalog);
+		const float Bottom = Player.Body().Position.Y + Player.Body().Height;
+		for (float FootX : {Player.Body().Position.X + 0.01f,
+			Player.Body().Position.X + Player.Body().Width - 0.01f}) {
+			GroundHit Hit;
+			if (TerrainCollision::FindGround(Map, Catalog, {FootX, Bottom}, 32.0f, 32.0f, Hit)) {
+				assert(Bottom <= Hit.SurfaceY + 0.001f);
+			}
+		}
+	}
+	assert(Player.Body().Grounded);
+	assert(Player.Body().Position.Y < 34.0f);
+	for (int Frame = 0; Frame < 25; ++Frame) {
+		Player.Step(1.0f, false, Map, Catalog);
+		const float Bottom = Player.Body().Position.Y + Player.Body().Height;
+		for (float FootX : {Player.Body().Position.X + 0.01f,
+			Player.Body().Position.X + Player.Body().Width - 0.01f}) {
+			GroundHit Hit;
+			if (TerrainCollision::FindGround(Map, Catalog, {FootX, Bottom}, 32.0f, 32.0f, Hit)) {
+				assert(Bottom <= Hit.SurfaceY + 0.001f);
+			}
+		}
+	}
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 34.0f));
+}
+
+void TestCharacterWall() {
+	TileMap Map = MakeMap({{0, 1, 0}, {0, 1, 0}, {1, 1, 1}});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	Body.Position = {4.0f, 34.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	for (int Frame = 0; Frame < 10; ++Frame) Player.Step(1.0f, false, Map, Catalog);
+	assert(NearlyEqual(Player.Body().Position.X, 8.0f));
+}
+
+void TestCharacterCeiling() {
+	TileMap Map = MakeMap({{1, 0}, {0, 0}, {1, 1}});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	Body.Position = {4.0f, 34.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	float MinimumY = Body.Position.Y;
+	Player.Step(0.0f, true, Map, Catalog);
+	for (int Frame = 0; Frame < 10; ++Frame) {
+		Player.Step(0.0f, false, Map, Catalog);
+		MinimumY = std::min(MinimumY, Player.Body().Position.Y);
+	}
+	assert(MinimumY >= 32.0f);
+}
+
+void TestCharacterLandingAcrossSlope() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 0, 0, 3, 0},
+		{1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	Body.Position = {97.0f, 25.0f};
+	Body.Velocity.Y = 2.0f;
+	Body.Grounded = false;
+	CharacterMotion Motion;
+	Motion.MoveSpeed = 0.0f;
+	Motion.Gravity = 0.0f;
+	CharacterController Player(Body, Motion);
+	Player.Step(0.0f, false, Map, Catalog);
+	assert(Player.Body().Grounded);
+	// 低い右足側ではなく、高い左足側の坂面 (Y=33) で止まる。
+	assert(NearlyEqual(Player.Body().Position.Y + Player.Body().Height, 33.01f));
+}
+
 } // namespace
 
 int main() {
@@ -158,6 +284,11 @@ int main() {
 	TestSlopeSurfaces();
 	TestSlopeGroundSnap();
 	TestLayeredMap();
+	TestCharacterMovement();
+	TestCharacterSlopeFollow();
+	TestCharacterWall();
+	TestCharacterCeiling();
+	TestCharacterLandingAcrossSlope();
 	std::cout << "All foundation tests passed.\n";
 	return 0;
 }

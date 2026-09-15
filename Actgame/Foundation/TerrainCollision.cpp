@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 
 namespace uchinoko {
 
@@ -53,7 +52,6 @@ bool TerrainCollision::FindGround(
 		static_cast<int>(std::floor((Foot.Y + MaxDrop) / Map.TileHeight())) + 1);
 
 	bool Found = false;
-	float BestDistance = std::numeric_limits<float>::max();
 	for (int Row = FirstRow; Row <= LastRow; ++Row) {
 		const TilePosition Position = {Column, Row};
 		const int* Id = Map.TryGet(Position);
@@ -65,9 +63,8 @@ bool TerrainCollision::FindGround(
 			Map.TileWidth(), Map.TileHeight(), SurfaceY)) continue;
 		const float Distance = SurfaceY - Foot.Y;
 		if (Distance < -MaxRise || Distance > MaxDrop) continue;
-		if (!Found || std::fabs(Distance) < std::fabs(BestDistance)) {
+		if (!Found || SurfaceY < Hit.SurfaceY) {
 			Found = true;
-			BestDistance = Distance;
 			Hit.Tile = Position;
 			Hit.SurfaceY = SurfaceY;
 			Hit.Shape = Definition->Collision;
