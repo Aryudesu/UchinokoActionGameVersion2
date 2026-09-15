@@ -14,6 +14,11 @@ struct GroundHit {
 
 class TerrainCollision {
 public:
+	enum class TileSide {
+		Left,
+		Right
+	};
+
 	static bool TryGetSurfaceY(
 		CollisionShape Shape,
 		TilePosition Tile,
@@ -21,6 +26,16 @@ public:
 		int TileWidth,
 		int TileHeight,
 		float& SurfaceY);
+
+	// タイルの左右端に実体がある場合、その垂直区間を返す。
+	static bool TryGetSideBlock(
+		CollisionShape Shape,
+		TilePosition Tile,
+		TileSide Side,
+		int TileWidth,
+		int TileHeight,
+		float& BlockTop,
+		float& BlockBottom);
 
 	static bool FindGround(
 		const TileMap& Map,
