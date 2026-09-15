@@ -4,84 +4,37 @@
 #include "DxLib.h"
 #include "InputKey.h"
 #include "SceneChanger.h"
+#include "Foundation/TerrainStageLoader.h"
 
 #include <utility>
 
-namespace {
-
-uchinoko::TileMap CreateTestMap() {
-	uchinoko::IntegerGrid Tiles(SCREENY, std::vector<int>(SCREENX, 0));
-	for (int Column = 0; Column < SCREENX; ++Column) Tiles[11][Column] = 1;
-	Tiles[10][5] = 2;
-	Tiles[10][6] = 1;
-	Tiles[10][7] = 1;
-	Tiles[10][8] = 1;
-	Tiles[10][9] = 3;
-	// 2x1（横2タイル・高さ1タイル）の緩い階段。
-	Tiles[10][11] = 4;
-	Tiles[10][12] = 5;
-	Tiles[10][13] = 1;
-	Tiles[10][14] = 6;
-	Tiles[10][15] = 7;
-	// 1x2（横1タイル・高さ2タイル）の急な階段。
-	Tiles[10][18] = 8;
-	Tiles[9][18] = 9;
-	Tiles[9][19] = 1;
-	Tiles[9][20] = 10;
-	Tiles[10][20] = 11;
-	return uchinoko::TileMap::Create(std::move(Tiles)).Value();
+SlopeSandboxScene::SlopeSandboxScene() {
+	Reload();
 }
 
-uchinoko::TileCatalog CreateCatalog() {
-	uchinoko::TileCatalog Catalog;
-	uchinoko::TileDefinition Solid;
-	Solid.Id = 1;
-	Solid.Collision = uchinoko::CollisionShape::Solid;
-	Catalog.Register(Solid);
-	uchinoko::TileDefinition UpRight;
-	UpRight.Id = 2;
-	UpRight.Collision = uchinoko::CollisionShape::SlopeUpRight;
-	Catalog.Register(UpRight);
-	uchinoko::TileDefinition UpLeft;
-	UpLeft.Id = 3;
-	UpLeft.Collision = uchinoko::CollisionShape::SlopeUpLeft;
-	Catalog.Register(UpLeft);
-	const uchinoko::CollisionShape StairShapes[] = {
-		uchinoko::CollisionShape::Stair2x1UpRightLow,
-		uchinoko::CollisionShape::Stair2x1UpRightHigh,
-		uchinoko::CollisionShape::Stair2x1UpLeftHigh,
-		uchinoko::CollisionShape::Stair2x1UpLeftLow,
-		uchinoko::CollisionShape::Stair1x2UpRightBottom,
-		uchinoko::CollisionShape::Stair1x2UpRightTop,
-		uchinoko::CollisionShape::Stair1x2UpLeftTop,
-		uchinoko::CollisionShape::Stair1x2UpLeftBottom
-	};
-	for (int Index = 0; Index < 8; ++Index) {
-		uchinoko::TileDefinition Stair;
-		Stair.Id = 4 + Index;
-		Stair.Collision = StairShapes[Index];
-		Catalog.Register(Stair);
+void SlopeSandboxScene::Reload() {
+	uchinoko::Result<uchinoko::TerrainStageData> Loaded =
+		uchinoko::TerrainStageLoader::Load("dat/stage/slope-test/stage.ini");
+	if (Loaded.IsFailure()) {
+		LoadError_ = Loaded.Error();
+		return;
 	}
-	return Catalog;
-}
-
-uchinoko::CharacterController CreatePlayer() {
+	Map_ = std::move(Loaded.Value().Map);
+	Catalog_ = std::move(Loaded.Value().Catalog);
 	uchinoko::CharacterBody Body;
-	Body.Position = {64.0f, 322.0f};
+	Body.Position = Loaded.Value().PlayerSpawn;
 	Body.Grounded = true;
-	return uchinoko::CharacterController(Body);
+	Player_ = uchinoko::CharacterController(Body);
+	LoadError_.clear();
 }
-
-} // namespace
-
-SlopeSandboxScene::SlopeSandboxScene()
-	: Map_(CreateTestMap()), Catalog_(CreateCatalog()), Player_(CreatePlayer()) {}
 
 void SlopeSandboxScene::update() {
 	if (ReturnKey(KEY_INPUT_ESCAPE) == 1) {
 		SceneChanger::GetInstance().Change(MENU);
 		return;
 	}
+	if (ReturnKey(KEY_INPUT_R) == 1) Reload();
+	if (!LoadError_.empty()) return;
 	float Horizontal = 0.0f;
 	if (ReturnKey(KEY_INPUT_LEFT) != 0) Horizontal -= 1.0f;
 	if (ReturnKey(KEY_INPUT_RIGHT) != 0) Horizontal += 1.0f;
@@ -89,6 +42,11 @@ void SlopeSandboxScene::update() {
 }
 
 void SlopeSandboxScene::draw() {
+	if (!LoadError_.empty()) {
+		DrawString(16, 16, "Stage load error (R: retry, Esc: menu)", GetColor(255, 100, 100));
+		DrawString(16, 44, LoadError_.c_str(), GetColor(255, 255, 255));
+		return;
+	}
 	const unsigned int SolidColor = GetColor(70, 130, 190);
 	const unsigned int SlopeColor = GetColor(90, 180, 120);
 	const unsigned int GentleColor = GetColor(110, 170, 220);
@@ -153,6 +111,6 @@ void SlopeSandboxScene::draw() {
 	DrawBox(static_cast<int>(Body.Position.X), static_cast<int>(Body.Position.Y),
 		static_cast<int>(Body.Position.X + Body.Width), static_cast<int>(Body.Position.Y + Body.Height),
 		GetColor(240, 210, 80), TRUE);
-	DrawString(16, 16, "Slope/Stair test: Left/Right move, Z jump, Esc menu", GetColor(255, 255, 255));
+	DrawString(16, 16, "Slope/Stair test: Left/Right move, Z jump, R reload, Esc menu", GetColor(255, 255, 255));
 	DrawString(16, 40, Body.Grounded ? "Grounded" : "Airborne", GetColor(255, 255, 255));
 }
