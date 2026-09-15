@@ -107,6 +107,27 @@ void TestSlopeSurfaces() {
 		CollisionShape::None, {0, 0}, 0.0f, 32, 32, SurfaceY));
 }
 
+void TestStairSurfaces() {
+	float SurfaceY = 0.0f;
+	// 2x1 は2タイルをつないで 64px 進む間に 32px 上がる。
+	assert(TerrainCollision::TryGetSurfaceY(
+		CollisionShape::Stair2x1UpRightLow, {0, 1}, 16.0f, 32, 32, SurfaceY));
+	assert(NearlyEqual(SurfaceY, 56.0f));
+	assert(TerrainCollision::TryGetSurfaceY(
+		CollisionShape::Stair2x1UpRightHigh, {1, 1}, 48.0f, 32, 32, SurfaceY));
+	assert(NearlyEqual(SurfaceY, 40.0f));
+
+	// 1x2 は上下2タイルの半幅ずつを使い、32px 進む間に 64px 上がる。
+	assert(TerrainCollision::TryGetSurfaceY(
+		CollisionShape::Stair1x2UpRightBottom, {0, 2}, 8.0f, 32, 32, SurfaceY));
+	assert(NearlyEqual(SurfaceY, 80.0f));
+	assert(!TerrainCollision::TryGetSurfaceY(
+		CollisionShape::Stair1x2UpRightBottom, {0, 2}, 24.0f, 32, 32, SurfaceY));
+	assert(TerrainCollision::TryGetSurfaceY(
+		CollisionShape::Stair1x2UpRightTop, {0, 1}, 24.0f, 32, 32, SurfaceY));
+	assert(NearlyEqual(SurfaceY, 48.0f));
+}
+
 void TestSlopeGroundSnap() {
 	TileCatalog Catalog;
 	TileDefinition Empty;
@@ -163,6 +184,22 @@ TileCatalog MakeTerrainCatalog() {
 	UpLeft.Id = 3;
 	UpLeft.Collision = CollisionShape::SlopeUpLeft;
 	assert(Catalog.Register(UpLeft).IsSuccess());
+	const CollisionShape StairShapes[] = {
+		CollisionShape::Stair2x1UpRightLow,
+		CollisionShape::Stair2x1UpRightHigh,
+		CollisionShape::Stair2x1UpLeftHigh,
+		CollisionShape::Stair2x1UpLeftLow,
+		CollisionShape::Stair1x2UpRightBottom,
+		CollisionShape::Stair1x2UpRightTop,
+		CollisionShape::Stair1x2UpLeftTop,
+		CollisionShape::Stair1x2UpLeftBottom
+	};
+	for (int Index = 0; Index < 8; ++Index) {
+		TileDefinition Stair;
+		Stair.Id = 4 + Index;
+		Stair.Collision = StairShapes[Index];
+		assert(Catalog.Register(Stair).IsSuccess());
+	}
 	return Catalog;
 }
 
@@ -273,6 +310,36 @@ void TestCharacterLandingAcrossSlope() {
 	assert(NearlyEqual(Player.Body().Position.Y + Player.Body().Height, 33.01f));
 }
 
+void TestCharacterFollowsStairs() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap GentleMap = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 4, 5, 1, 0},
+		{1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {4.0f, 34.0f};
+	Body.Grounded = true;
+	CharacterController GentlePlayer(Body);
+	for (int Frame = 0; Frame < 30; ++Frame) GentlePlayer.Step(1.0f, false, GentleMap, Catalog);
+	assert(GentlePlayer.Body().Grounded);
+	assert(GentlePlayer.Body().Position.Y < 10.0f);
+
+	TileMap SteepMap = MakeMap({
+		{0, 0, 1, 0},
+		{0, 9, 1, 0},
+		{0, 8, 1, 0},
+		{1, 1, 1, 1}
+	});
+	Body.Position = {4.0f, 66.0f};
+	Body.Velocity = {0.0f, 0.0f};
+	Body.Grounded = true;
+	CharacterController SteepPlayer(Body);
+	for (int Frame = 0; Frame < 14; ++Frame) SteepPlayer.Step(1.0f, false, SteepMap, Catalog);
+	assert(SteepPlayer.Body().Grounded);
+	assert(SteepPlayer.Body().Position.Y < 10.0f);
+}
+
 } // namespace
 
 int main() {
@@ -282,6 +349,7 @@ int main() {
 	TestGameModes();
 	TestTileCatalog();
 	TestSlopeSurfaces();
+	TestStairSurfaces();
 	TestSlopeGroundSnap();
 	TestLayeredMap();
 	TestCharacterMovement();
@@ -289,6 +357,7 @@ int main() {
 	TestCharacterWall();
 	TestCharacterCeiling();
 	TestCharacterLandingAcrossSlope();
+	TestCharacterFollowsStairs();
 	std::cout << "All foundation tests passed.\n";
 	return 0;
 }
