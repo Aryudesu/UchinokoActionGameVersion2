@@ -8,6 +8,7 @@ private:
 	int NextScene = 0;
 public:
 	SceneManager();
+	~SceneManager();
 
 	void update();
 	void draw();

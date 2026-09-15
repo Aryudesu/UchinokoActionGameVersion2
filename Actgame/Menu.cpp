@@ -30,6 +30,9 @@ void Menu::update() {
 			case MUSIC_ROOM:
 				SceneChanger::GetInstance().Change(MUSIC);
 				break;
+			case SLOPE_TEST:
+				SceneChanger::GetInstance().Change(SLOPE_SANDBOX);
+				break;
 			default:
 				exit(0);
 			break;
