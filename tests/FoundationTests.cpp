@@ -424,6 +424,29 @@ void TestCharacterCannotEnterSlopeHighSide() {
 	assert(NearlyEqual(LeftHighSide.Body().Position.X, 8.0f));
 }
 
+void TestCharacterDescendsSteepSlopeWithoutSidePushback() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 9, 1, 10, 0},
+		{0, 8, 0, 11, 0},
+		{1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	Body.Position = {68.0f, 2.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	float PreviousX = Player.Body().Position.X;
+	for (int Frame = 0; Frame < 12; ++Frame) {
+		Player.Step(1.0f, false, Map, Catalog);
+		// 下り坂タイル内で入口の左側面を再判定して、Xを戻してはならない。
+		assert(Player.Body().Position.X >= PreviousX);
+		PreviousX = Player.Body().Position.X;
+	}
+	assert(Player.Body().Position.X > 90.0f);
+	assert(Player.Body().Grounded);
+}
+
 } // namespace
 
 int main() {
@@ -445,6 +468,7 @@ int main() {
 	TestCharacterLandingAcrossSlope();
 	TestCharacterFollowsStairs();
 	TestCharacterCannotEnterSlopeHighSide();
+	TestCharacterDescendsSteepSlopeWithoutSidePushback();
 	std::cout << "All foundation tests passed.\n";
 	return 0;
 }
