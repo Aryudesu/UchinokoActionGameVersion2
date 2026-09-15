@@ -252,6 +252,27 @@ void TestCharacterCeiling() {
 	assert(MinimumY >= 32.0f);
 }
 
+void TestCharacterLandingAcrossSlope() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 0, 0, 3, 0},
+		{1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	Body.Position = {97.0f, 25.0f};
+	Body.Velocity.Y = 2.0f;
+	Body.Grounded = false;
+	CharacterMotion Motion;
+	Motion.MoveSpeed = 0.0f;
+	Motion.Gravity = 0.0f;
+	CharacterController Player(Body, Motion);
+	Player.Step(0.0f, false, Map, Catalog);
+	assert(Player.Body().Grounded);
+	// 低い右足側ではなく、高い左足側の坂面 (Y=33) で止まる。
+	assert(NearlyEqual(Player.Body().Position.Y + Player.Body().Height, 33.01f));
+}
+
 } // namespace
 
 int main() {
@@ -267,6 +288,7 @@ int main() {
 	TestCharacterSlopeFollow();
 	TestCharacterWall();
 	TestCharacterCeiling();
+	TestCharacterLandingAcrossSlope();
 	std::cout << "All foundation tests passed.\n";
 	return 0;
 }

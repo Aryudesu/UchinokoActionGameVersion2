@@ -36,7 +36,7 @@ private:
 	void MoveHorizontal(float Amount, const TileMap& Map, const TileCatalog& Catalog);
 	void MoveVertical(float Amount, const TileMap& Map, const TileCatalog& Catalog);
 	bool FindGroundAtFeet(float FootY, float MaxRise, float MaxDrop,
-		const TileMap& Map, const TileCatalog& Catalog, GroundHit& Hit) const;
+		float MinimumSurfaceY, const TileMap& Map, const TileCatalog& Catalog, GroundHit& Hit) const;
 	bool SnapToGround(float MaxRise, float MaxDrop, const TileMap& Map, const TileCatalog& Catalog);
 	CharacterBody Body_;
 	CharacterMotion Motion_;
