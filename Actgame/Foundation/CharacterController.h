@@ -33,6 +33,8 @@ public:
 
 private:
 	bool IsSolid(const TileMap& Map, const TileCatalog& Catalog, int Column, int Row) const;
+	bool IsSideBlocked(const TileMap& Map, const TileCatalog& Catalog,
+		int Column, int Row, bool TargetLeftSide, float MaxStepUp) const;
 	void MoveHorizontal(float Amount, const TileMap& Map, const TileCatalog& Catalog);
 	void MoveVertical(float Amount, const TileMap& Map, const TileCatalog& Catalog);
 	bool FindGroundAtFeet(float FootY, float MaxRise, float MaxDrop,
