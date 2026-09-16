@@ -144,6 +144,20 @@ void TestStairSurfaces() {
 	assert(NearlyEqual(SurfaceY, 48.0f));
 }
 
+void TestSlopeSolidRegions() {
+	assert(TerrainCollision::ContainsSolidPoint(
+		CollisionShape::SlopeUpRight, {0, 0}, {16.0f, 24.0f}, 32, 32));
+	assert(!TerrainCollision::ContainsSolidPoint(
+		CollisionShape::SlopeUpRight, {0, 0}, {16.0f, 8.0f}, 32, 32));
+	assert(!TerrainCollision::ContainsSolidPoint(
+		CollisionShape::OneWay, {0, 0}, {16.0f, 24.0f}, 32, 32));
+	// 1x2急坂の下段は、斜面がない側の半分も実体で埋まっている。
+	assert(TerrainCollision::ContainsSolidPoint(
+		CollisionShape::Stair1x2UpRightBottom, {0, 0}, {24.0f, 1.0f}, 32, 32));
+	assert(TerrainCollision::ContainsSolidPoint(
+		CollisionShape::Stair1x2UpLeftBottom, {0, 0}, {8.0f, 1.0f}, 32, 32));
+}
+
 void TestSlopeSideBlocks() {
 	float Top = 0.0f;
 	float Bottom = 0.0f;
@@ -378,6 +392,26 @@ void TestCharacterCeilingUsesCenterPoint() {
 	assert(MinimumY < 32.0f);
 }
 
+void TestCharacterHitsSlopeFromBelow() {
+	TileMap Map = MakeMap({
+		{2, 0},
+		{0, 0},
+		{1, 1}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	Body.Position = {4.0f, 34.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	float MinimumY = Body.Position.Y;
+	Player.Step(0.0f, true, Map, Catalog);
+	for (int Frame = 0; Frame < 10; ++Frame) {
+		Player.Step(0.0f, false, Map, Catalog);
+		MinimumY = std::min(MinimumY, Player.Body().Position.Y);
+	}
+	assert(MinimumY >= 32.0f);
+}
+
 void TestCharacterLandingAcrossSlope() {
 	TileMap Map = MakeMap({
 		{0, 0, 0, 0, 0},
@@ -546,6 +580,7 @@ int main() {
 	TestTileCatalog();
 	TestSlopeSurfaces();
 	TestStairSurfaces();
+	TestSlopeSolidRegions();
 	TestSlopeSideBlocks();
 	TestSlopeGroundSnap();
 	TestLayeredMap();
@@ -555,6 +590,7 @@ int main() {
 	TestCharacterDropsFromBlockWithoutCornerSnag();
 	TestCharacterCeiling();
 	TestCharacterCeilingUsesCenterPoint();
+	TestCharacterHitsSlopeFromBelow();
 	TestCharacterLandingAcrossSlope();
 	TestCharacterFollowsStairs();
 	TestCharacterCannotEnterSlopeHighSide();
