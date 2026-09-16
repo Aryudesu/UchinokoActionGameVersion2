@@ -33,7 +33,7 @@ public:
 
 private:
 	bool IsCeilingBlocked(const TileMap& Map, const TileCatalog& Catalog,
-		int Column, int Row, WorldPosition Head) const;
+		WorldPosition Head) const;
 	bool IsSideBlocked(const TileMap& Map, const TileCatalog& Catalog,
 		int Column, int Row, bool TargetLeftSide) const;
 	void MoveHorizontal(float Amount, const TileMap& Map, const TileCatalog& Catalog);
