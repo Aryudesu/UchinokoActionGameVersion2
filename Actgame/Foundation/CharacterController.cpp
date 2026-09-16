@@ -115,14 +115,10 @@ void CharacterController::MoveVertical(
 		return;
 	}
 	const int Row = TileAt(Body_.Position.Y, Map.TileHeight());
-	const int FirstColumn = TileAt(Body_.Position.X + ContactMargin, Map.TileWidth());
-	const int LastColumn = TileAt(Body_.Position.X + Body_.Width - ContactMargin, Map.TileWidth());
-	for (int Column = FirstColumn; Column <= LastColumn; ++Column) {
-		if (IsSolid(Map, Catalog, Column, Row)) {
-			Body_.Position.Y = static_cast<float>((Row + 1) * Map.TileHeight());
-			Body_.Velocity.Y = 0.0f;
-			break;
-		}
+	const int Column = TileAt(Body_.Position.X + Body_.Width * 0.5f, Map.TileWidth());
+	if (IsSolid(Map, Catalog, Column, Row)) {
+		Body_.Position.Y = static_cast<float>((Row + 1) * Map.TileHeight());
+		Body_.Velocity.Y = 0.0f;
 	}
 }
 
