@@ -27,6 +27,14 @@ public:
 		int TileHeight,
 		float& SurfaceY);
 
+	// 点が床・坂・階段の実体部分に含まれるかを返す。すり抜け床は実体に含めない。
+	static bool ContainsSolidPoint(
+		CollisionShape Shape,
+		TilePosition Tile,
+		WorldPosition Point,
+		int TileWidth,
+		int TileHeight);
+
 	// タイルの左右端に実体がある場合、その垂直区間を返す。
 	static bool TryGetSideBlock(
 		CollisionShape Shape,
