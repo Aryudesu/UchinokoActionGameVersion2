@@ -13,11 +13,6 @@ int TileAt(float Coordinate, int TileSize) {
 	return static_cast<int>(std::floor(Coordinate / static_cast<float>(TileSize)));
 }
 
-bool IsSlope(CollisionShape Shape) {
-	return Shape != CollisionShape::None &&
-		Shape != CollisionShape::Solid &&
-		Shape != CollisionShape::OneWay;
-}
 } // namespace
 
 CharacterController::CharacterController(CharacterBody Body, CharacterMotion Motion)
@@ -32,7 +27,7 @@ bool CharacterController::IsSolid(
 
 bool CharacterController::IsSideBlocked(
 	const TileMap& Map, const TileCatalog& Catalog,
-	int Column, int Row, bool TargetLeftSide, float MaxStepUp) const {
+	int Column, int Row, bool TargetLeftSide) const {
 	const int* Id = Map.TryGet({Column, Row});
 	const TileDefinition* Definition = Id == nullptr ? nullptr : Catalog.Find(*Id);
 	if (Definition == nullptr) return false;
@@ -42,55 +37,33 @@ bool CharacterController::IsSideBlocked(
 		Definition->Collision, {Column, Row},
 		TargetLeftSide ? TerrainCollision::TileSide::Left : TerrainCollision::TileSide::Right,
 		Map.TileWidth(), Map.TileHeight(), BlockTop, BlockBottom)) return false;
-	const float BodyTop = Body_.Position.Y + ContactMargin;
-	const float BodyBottom = Body_.Position.Y + Body_.Height - ContactMargin;
-	if (BodyTop >= BlockBottom || BodyBottom <= BlockTop) return false;
-	// 接地中に斜面から同じ高さの床へ乗り移る程度の小さな差は、直後の接地補正へ任せる。
-	return BodyBottom - BlockTop > MaxStepUp;
+	const float CenterY = Body_.Position.Y + Body_.Height * 0.5f;
+	return CenterY > BlockTop + ContactMargin && CenterY < BlockBottom - ContactMargin;
 }
 
 void CharacterController::MoveHorizontal(
 	float Amount, const TileMap& Map, const TileCatalog& Catalog) {
 	if (Amount == 0.0f) return;
 	const float OldX = Body_.Position.X;
-	float MaxStepUp = Body_.Grounded ? std::fabs(Amount) * 2.0f + 1.0f : 0.0f;
-	if (Body_.Grounded) {
-		GroundHit CurrentGround;
-		const float Bottom = Body_.Position.Y + Body_.Height;
-		const float CenterX = OldX + Body_.Width * 0.5f;
-		if (TerrainCollision::FindGround(
-			Map, Catalog, {CenterX, Bottom}, ContactMargin, ContactMargin, CurrentGround) &&
-			IsSlope(CurrentGround.Shape)) {
-			// 中央より先に矩形端が平地へ触れる分を、坂から平地への乗り移りとして許可する。
-			MaxStepUp = std::max(MaxStepUp, Body_.Width + ContactMargin);
-		}
-	}
 	Body_.Position.X += Amount;
-	const int FirstRow = TileAt(Body_.Position.Y + ContactMargin, Map.TileHeight());
-	const int LastRow = TileAt(Body_.Position.Y + Body_.Height - ContactMargin, Map.TileHeight());
+	const float HalfWidth = Body_.Width * 0.5f;
+	const int Row = TileAt(Body_.Position.Y + Body_.Height * 0.5f, Map.TileHeight());
 	if (Amount > 0.0f) {
-		const int OldColumn = TileAt(OldX + Body_.Width - ContactMargin, Map.TileWidth());
-		const int Column = TileAt(Body_.Position.X + Body_.Width - ContactMargin, Map.TileWidth());
-		// タイル内を進んでいる間に、入口側の壁を繰り返し判定しない。
+		const int OldColumn = TileAt(OldX + HalfWidth, Map.TileWidth());
+		const int Column = TileAt(Body_.Position.X + HalfWidth, Map.TileWidth());
 		if (Column != OldColumn) {
-			for (int Row = FirstRow; Row <= LastRow; ++Row) {
-				if (IsSideBlocked(Map, Catalog, Column, Row, true, MaxStepUp)) {
-					Body_.Position.X = static_cast<float>(Column * Map.TileWidth()) - Body_.Width;
-					Body_.Velocity.X = 0.0f;
-					break;
-				}
+			if (IsSideBlocked(Map, Catalog, Column, Row, true)) {
+				Body_.Position.X = static_cast<float>(Column * Map.TileWidth()) - HalfWidth - ContactMargin;
+				Body_.Velocity.X = 0.0f;
 			}
 		}
 	} else {
-		const int OldColumn = TileAt(OldX + ContactMargin, Map.TileWidth());
-		const int Column = TileAt(Body_.Position.X + ContactMargin, Map.TileWidth());
+		const int OldColumn = TileAt(OldX + HalfWidth, Map.TileWidth());
+		const int Column = TileAt(Body_.Position.X + HalfWidth, Map.TileWidth());
 		if (Column != OldColumn) {
-			for (int Row = FirstRow; Row <= LastRow; ++Row) {
-				if (IsSideBlocked(Map, Catalog, Column, Row, false, MaxStepUp)) {
-					Body_.Position.X = static_cast<float>((Column + 1) * Map.TileWidth());
-					Body_.Velocity.X = 0.0f;
-					break;
-				}
+			if (IsSideBlocked(Map, Catalog, Column, Row, false)) {
+				Body_.Position.X = static_cast<float>((Column + 1) * Map.TileWidth()) - HalfWidth + ContactMargin;
+				Body_.Velocity.X = 0.0f;
 			}
 		}
 	}
