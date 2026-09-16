@@ -18,11 +18,13 @@ int TileAt(float Coordinate, int TileSize) {
 CharacterController::CharacterController(CharacterBody Body, CharacterMotion Motion)
 	: Body_(Body), Motion_(Motion) {}
 
-bool CharacterController::IsSolid(
-	const TileMap& Map, const TileCatalog& Catalog, int Column, int Row) const {
+bool CharacterController::IsCeilingBlocked(
+	const TileMap& Map, const TileCatalog& Catalog,
+	int Column, int Row, WorldPosition Head) const {
 	const int* Id = Map.TryGet({Column, Row});
 	const TileDefinition* Definition = Id == nullptr ? nullptr : Catalog.Find(*Id);
-	return Definition != nullptr && Definition->Collision == CollisionShape::Solid;
+	return Definition != nullptr && TerrainCollision::ContainsSolidPoint(
+		Definition->Collision, {Column, Row}, Head, Map.TileWidth(), Map.TileHeight());
 }
 
 bool CharacterController::IsSideBlocked(
@@ -114,9 +116,13 @@ void CharacterController::MoveVertical(
 		}
 		return;
 	}
-	const int Row = TileAt(Body_.Position.Y, Map.TileHeight());
-	const int Column = TileAt(Body_.Position.X + Body_.Width * 0.5f, Map.TileWidth());
-	if (IsSolid(Map, Catalog, Column, Row)) {
+	const WorldPosition Head = {
+		Body_.Position.X + Body_.Width * 0.5f,
+		Body_.Position.Y
+	};
+	const int Row = TileAt(Head.Y, Map.TileHeight());
+	const int Column = TileAt(Head.X, Map.TileWidth());
+	if (IsCeilingBlocked(Map, Catalog, Column, Row, Head)) {
 		Body_.Position.Y = static_cast<float>((Row + 1) * Map.TileHeight());
 		Body_.Velocity.Y = 0.0f;
 	}
