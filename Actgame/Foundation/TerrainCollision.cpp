@@ -64,6 +64,28 @@ bool TerrainCollision::TryGetSurfaceY(
 	return false;
 }
 
+bool TerrainCollision::ContainsSolidPoint(
+	CollisionShape Shape,
+	TilePosition Tile,
+	WorldPosition Point,
+	int TileWidth,
+	int TileHeight) {
+	if (Shape == CollisionShape::None || Shape == CollisionShape::OneWay ||
+		TileWidth <= 0 || TileHeight <= 0) return false;
+
+	const float Left = static_cast<float>(Tile.Column * TileWidth);
+	const float Ratio = (Point.X - Left) / static_cast<float>(TileWidth);
+	if (Ratio < 0.0f || Ratio > 1.0f) return false;
+
+	// 1x2急坂の下段は、斜面を越えた半分が完全に地形で埋まっている。
+	if (Shape == CollisionShape::Stair1x2UpRightBottom && Ratio > 0.5f) return true;
+	if (Shape == CollisionShape::Stair1x2UpLeftBottom && Ratio < 0.5f) return true;
+
+	float SurfaceY = 0.0f;
+	if (!TryGetSurfaceY(Shape, Tile, Point.X, TileWidth, TileHeight, SurfaceY)) return false;
+	return Point.Y >= SurfaceY;
+}
+
 bool TerrainCollision::TryGetSideBlock(
 	CollisionShape Shape,
 	TilePosition Tile,
