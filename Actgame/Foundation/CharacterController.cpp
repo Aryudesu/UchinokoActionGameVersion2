@@ -20,11 +20,20 @@ CharacterController::CharacterController(CharacterBody Body, CharacterMotion Mot
 
 bool CharacterController::IsCeilingBlocked(
 	const TileMap& Map, const TileCatalog& Catalog,
-	int Column, int Row, WorldPosition Head) const {
-	const int* Id = Map.TryGet({Column, Row});
-	const TileDefinition* Definition = Id == nullptr ? nullptr : Catalog.Find(*Id);
-	return Definition != nullptr && TerrainCollision::ContainsSolidPoint(
-		Definition->Collision, {Column, Row}, Head, Map.TileWidth(), Map.TileHeight());
+	WorldPosition Head) const {
+	// スーパー正男と同様に中央を主判定とし、タイルの継ぎ目だけ左右1pxで補う。
+	const float ProbeOffsets[] = {0.0f, -1.0f, 1.0f};
+	for (float Offset : ProbeOffsets) {
+		const WorldPosition Probe = {Head.X + Offset, Head.Y};
+		const int Column = TileAt(Probe.X, Map.TileWidth());
+		const int Row = TileAt(Probe.Y, Map.TileHeight());
+		const int* Id = Map.TryGet({Column, Row});
+		const TileDefinition* Definition = Id == nullptr ? nullptr : Catalog.Find(*Id);
+		if (Definition != nullptr && TerrainCollision::ContainsSolidPoint(
+			Definition->Collision, {Column, Row}, Probe,
+			Map.TileWidth(), Map.TileHeight())) return true;
+	}
+	return false;
 }
 
 bool CharacterController::IsSideBlocked(
@@ -121,8 +130,7 @@ void CharacterController::MoveVertical(
 		Body_.Position.Y
 	};
 	const int Row = TileAt(Head.Y, Map.TileHeight());
-	const int Column = TileAt(Head.X, Map.TileWidth());
-	if (IsCeilingBlocked(Map, Catalog, Column, Row, Head)) {
+	if (IsCeilingBlocked(Map, Catalog, Head)) {
 		Body_.Position.Y = static_cast<float>((Row + 1) * Map.TileHeight());
 		Body_.Velocity.Y = 0.0f;
 	}
