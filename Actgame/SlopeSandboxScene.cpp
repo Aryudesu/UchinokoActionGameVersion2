@@ -115,6 +115,8 @@ void SlopeSandboxScene::draw() {
 		static_cast<int>(Body.Position.Y + Body.Height), 3, GetColor(255, 80, 80), TRUE);
 	DrawCircle(static_cast<int>(Body.Position.X + Body.Width * 0.5f),
 		static_cast<int>(Body.Position.Y + Body.Height * 0.5f), 3, GetColor(255, 80, 80), TRUE);
+	DrawCircle(static_cast<int>(Body.Position.X + Body.Width * 0.5f),
+		static_cast<int>(Body.Position.Y), 3, GetColor(255, 80, 80), TRUE);
 	DrawString(16, 16, "Slope/Stair test: Left/Right move, Z jump, R reload, Esc menu", GetColor(255, 255, 255));
 	DrawString(16, 40, Body.Grounded ? "Grounded" : "Airborne", GetColor(255, 255, 255));
 }
