@@ -412,6 +412,28 @@ void TestCharacterHitsSlopeFromBelow() {
 	assert(MinimumY >= 32.0f);
 }
 
+void TestCharacterCeilingSeamUsesSideProbes() {
+	TileMap Map = MakeMap({
+		{1, 0, 0},
+		{0, 0, 0},
+		{1, 1, 1}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	// 頭上中央X=32はタイル境界。中央だけなら右の空タイルを参照するが、
+	// 左1pxの補助点が左の天井ブロックを検出する。
+	Body.Position = {20.0f, 34.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	float MinimumY = Body.Position.Y;
+	Player.Step(0.0f, true, Map, Catalog);
+	for (int Frame = 0; Frame < 10; ++Frame) {
+		Player.Step(0.0f, false, Map, Catalog);
+		MinimumY = std::min(MinimumY, Player.Body().Position.Y);
+	}
+	assert(MinimumY >= 32.0f);
+}
+
 void TestCharacterLandingAcrossSlope() {
 	TileMap Map = MakeMap({
 		{0, 0, 0, 0, 0},
@@ -591,6 +613,7 @@ int main() {
 	TestCharacterCeiling();
 	TestCharacterCeilingUsesCenterPoint();
 	TestCharacterHitsSlopeFromBelow();
+	TestCharacterCeilingSeamUsesSideProbes();
 	TestCharacterLandingAcrossSlope();
 	TestCharacterFollowsStairs();
 	TestCharacterCannotEnterSlopeHighSide();
