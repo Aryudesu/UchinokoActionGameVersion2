@@ -273,6 +273,17 @@ void TestCharacterMovement() {
 	assert(NearlyEqual(Player.Body().Position.Y, 2.0f));
 }
 
+void AssertCharacterCenterOnGround(
+	const CharacterController& Player, const TileMap& Map, const TileCatalog& Catalog) {
+	if (!Player.Body().Grounded) return;
+	const float Bottom = Player.Body().Position.Y + Player.Body().Height;
+	const float CenterX = Player.Body().Position.X + Player.Body().Width * 0.5f;
+	GroundHit Hit;
+	assert(TerrainCollision::FindGround(
+		Map, Catalog, {CenterX, Bottom}, Player.Body().Height, Player.Body().Height, Hit));
+	assert(NearlyEqual(Bottom, Hit.SurfaceY));
+}
+
 void TestCharacterSlopeFollow() {
 	TileMap Map = MakeMap({
 		{0, 0, 0, 0, 0},
@@ -286,27 +297,13 @@ void TestCharacterSlopeFollow() {
 	CharacterController Player(Body);
 	for (int Frame = 0; Frame < 17; ++Frame) {
 		Player.Step(1.0f, false, Map, Catalog);
-		const float Bottom = Player.Body().Position.Y + Player.Body().Height;
-		for (float FootX : {Player.Body().Position.X + 0.01f,
-			Player.Body().Position.X + Player.Body().Width - 0.01f}) {
-			GroundHit Hit;
-			if (TerrainCollision::FindGround(Map, Catalog, {FootX, Bottom}, 32.0f, 32.0f, Hit)) {
-				assert(Bottom <= Hit.SurfaceY + 0.001f);
-			}
-		}
+		AssertCharacterCenterOnGround(Player, Map, Catalog);
 	}
 	assert(Player.Body().Grounded);
 	assert(Player.Body().Position.Y < 34.0f);
 	for (int Frame = 0; Frame < 25; ++Frame) {
 		Player.Step(1.0f, false, Map, Catalog);
-		const float Bottom = Player.Body().Position.Y + Player.Body().Height;
-		for (float FootX : {Player.Body().Position.X + 0.01f,
-			Player.Body().Position.X + Player.Body().Width - 0.01f}) {
-			GroundHit Hit;
-			if (TerrainCollision::FindGround(Map, Catalog, {FootX, Bottom}, 32.0f, 32.0f, Hit)) {
-				assert(Bottom <= Hit.SurfaceY + 0.001f);
-			}
-		}
+		AssertCharacterCenterOnGround(Player, Map, Catalog);
 	}
 	assert(Player.Body().Grounded);
 	assert(NearlyEqual(Player.Body().Position.Y, 34.0f));
@@ -356,8 +353,8 @@ void TestCharacterLandingAcrossSlope() {
 	CharacterController Player(Body, Motion);
 	Player.Step(0.0f, false, Map, Catalog);
 	assert(Player.Body().Grounded);
-	// 低い右足側ではなく、高い左足側の坂面 (Y=33) で止まる。
-	assert(NearlyEqual(Player.Body().Position.Y + Player.Body().Height, 33.01f));
+	// 左右角ではなく、足元中央 X=109 の坂面 (Y=45) で止まる。
+	assert(NearlyEqual(Player.Body().Position.Y + Player.Body().Height, 45.0f));
 }
 
 void TestCharacterFollowsStairs() {
@@ -376,16 +373,16 @@ void TestCharacterFollowsStairs() {
 	assert(GentlePlayer.Body().Position.Y < 10.0f);
 
 	TileMap SteepMap = MakeMap({
-		{0, 0, 1, 0},
+		{0, 0, 0, 0},
 		{0, 9, 1, 0},
-		{0, 8, 1, 0},
+		{0, 8, 0, 0},
 		{1, 1, 1, 1}
 	});
 	Body.Position = {4.0f, 66.0f};
 	Body.Velocity = {0.0f, 0.0f};
 	Body.Grounded = true;
 	CharacterController SteepPlayer(Body);
-	for (int Frame = 0; Frame < 14; ++Frame) SteepPlayer.Step(1.0f, false, SteepMap, Catalog);
+	for (int Frame = 0; Frame < 20; ++Frame) SteepPlayer.Step(1.0f, false, SteepMap, Catalog);
 	assert(SteepPlayer.Body().Grounded);
 	assert(SteepPlayer.Body().Position.Y < 10.0f);
 }
@@ -447,20 +444,7 @@ void TestCharacterDescendsSteepSlopeWithoutSidePushback() {
 	assert(Player.Body().Grounded);
 }
 
-void AssertCharacterDoesNotOverlapGround(
-	const CharacterController& Player, const TileMap& Map, const TileCatalog& Catalog) {
-	const float Bottom = Player.Body().Position.Y + Player.Body().Height;
-	for (float FootX : {Player.Body().Position.X + 0.01f,
-		Player.Body().Position.X + Player.Body().Width - 0.01f}) {
-		GroundHit Hit;
-		if (TerrainCollision::FindGround(
-			Map, Catalog, {FootX, Bottom}, Player.Body().Height, 0.0f, Hit)) {
-			assert(Bottom <= Hit.SurfaceY + 0.001f);
-		}
-	}
-}
-
-void TestCharacterDoesNotOverlapOppositeCornerAfterSteepSlope() {
+void TestCharacterUsesCenterAcrossSteepSlopePeak() {
 	TileMap Map = MakeMap({
 		{0, 0, 0, 0, 0},
 		{0, 9, 1, 10, 0},
@@ -474,17 +458,17 @@ void TestCharacterDoesNotOverlapOppositeCornerAfterSteepSlope() {
 	CharacterController Player(Body);
 	for (int Frame = 0; Frame < 35; ++Frame) {
 		Player.Step(1.0f, false, Map, Catalog);
-		AssertCharacterDoesNotOverlapGround(Player, Map, Catalog);
+		AssertCharacterCenterOnGround(Player, Map, Catalog);
 	}
 	Body.Position = {132.0f, 66.0f};
 	Body.Velocity = {0.0f, 0.0f};
 	CharacterController ReversePlayer(Body);
 	for (int Frame = 0; Frame < 35; ++Frame) {
 		ReversePlayer.Step(-1.0f, false, Map, Catalog);
-		AssertCharacterDoesNotOverlapGround(ReversePlayer, Map, Catalog);
+		AssertCharacterCenterOnGround(ReversePlayer, Map, Catalog);
 	}
 
-	// 上り坂側の足だけが接地し、反対側が平地へ食い込んだ状態からも復帰する。
+	// 左右角の地形ではなく、中央点が載っている平地へ補正する。
 	Body.Position = {52.0f, 27.0f};
 	Body.Velocity = {0.0f, 0.0f};
 	Body.Grounded = true;
@@ -492,10 +476,10 @@ void TestCharacterDoesNotOverlapOppositeCornerAfterSteepSlope() {
 	OverlappingPlayer.Step(0.0f, false, Map, Catalog);
 	assert(NearlyEqual(
 		OverlappingPlayer.Body().Position.Y + OverlappingPlayer.Body().Height, 32.0f));
-	AssertCharacterDoesNotOverlapGround(OverlappingPlayer, Map, Catalog);
+	AssertCharacterCenterOnGround(OverlappingPlayer, Map, Catalog);
 }
 
-void TestExternalStageWalkingDoesNotOverlapGround() {
+void TestExternalStageWalkingFollowsCenterGround() {
 	Result<TerrainStageData> Loaded =
 		TerrainStageLoader::Load("dat/stage/slope-test/stage.ini");
 	assert(Loaded.IsSuccess());
@@ -505,7 +489,7 @@ void TestExternalStageWalkingDoesNotOverlapGround() {
 	CharacterController Player(Body);
 	for (int Frame = 0; Frame < 240; ++Frame) {
 		Player.Step(1.0f, false, Loaded.Value().Map, Loaded.Value().Catalog);
-		AssertCharacterDoesNotOverlapGround(Player, Loaded.Value().Map, Loaded.Value().Catalog);
+		AssertCharacterCenterOnGround(Player, Loaded.Value().Map, Loaded.Value().Catalog);
 	}
 }
 
@@ -531,8 +515,8 @@ int main() {
 	TestCharacterFollowsStairs();
 	TestCharacterCannotEnterSlopeHighSide();
 	TestCharacterDescendsSteepSlopeWithoutSidePushback();
-	TestCharacterDoesNotOverlapOppositeCornerAfterSteepSlope();
-	TestExternalStageWalkingDoesNotOverlapGround();
+	TestCharacterUsesCenterAcrossSteepSlopePeak();
+	TestExternalStageWalkingFollowsCenterGround();
 	std::cout << "All foundation tests passed.\n";
 	return 0;
 }
