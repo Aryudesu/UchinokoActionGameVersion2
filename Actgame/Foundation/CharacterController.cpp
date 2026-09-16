@@ -12,6 +12,12 @@ constexpr float ContactMargin = 0.01f;
 int TileAt(float Coordinate, int TileSize) {
 	return static_cast<int>(std::floor(Coordinate / static_cast<float>(TileSize)));
 }
+
+bool IsSlope(CollisionShape Shape) {
+	return Shape != CollisionShape::None &&
+		Shape != CollisionShape::Solid &&
+		Shape != CollisionShape::OneWay;
+}
 } // namespace
 
 CharacterController::CharacterController(CharacterBody Body, CharacterMotion Motion)
@@ -47,10 +53,21 @@ void CharacterController::MoveHorizontal(
 	float Amount, const TileMap& Map, const TileCatalog& Catalog) {
 	if (Amount == 0.0f) return;
 	const float OldX = Body_.Position.X;
+	float MaxStepUp = Body_.Grounded ? std::fabs(Amount) * 2.0f + 1.0f : 0.0f;
+	if (Body_.Grounded) {
+		GroundHit CurrentGround;
+		const float Bottom = Body_.Position.Y + Body_.Height;
+		const float CenterX = OldX + Body_.Width * 0.5f;
+		if (TerrainCollision::FindGround(
+			Map, Catalog, {CenterX, Bottom}, ContactMargin, ContactMargin, CurrentGround) &&
+			IsSlope(CurrentGround.Shape)) {
+			// 中央より先に矩形端が平地へ触れる分を、坂から平地への乗り移りとして許可する。
+			MaxStepUp = std::max(MaxStepUp, Body_.Width + ContactMargin);
+		}
+	}
 	Body_.Position.X += Amount;
 	const int FirstRow = TileAt(Body_.Position.Y + ContactMargin, Map.TileHeight());
 	const int LastRow = TileAt(Body_.Position.Y + Body_.Height - ContactMargin, Map.TileHeight());
-	const float MaxStepUp = Body_.Grounded ? std::fabs(Amount) * 2.0f + 1.0f : 0.0f;
 	if (Amount > 0.0f) {
 		const int OldColumn = TileAt(OldX + Body_.Width - ContactMargin, Map.TileWidth());
 		const int Column = TileAt(Body_.Position.X + Body_.Width - ContactMargin, Map.TileWidth());
@@ -84,9 +101,9 @@ void CharacterController::MoveHorizontal(
 bool CharacterController::SnapToGround(
 	float MaxRise, float MaxDrop, const TileMap& Map, const TileCatalog& Catalog) {
 	GroundHit Hit;
-	// 片足が坂、反対側が高い平地に食い込んだ場合も、身体内の最上面まで戻す。
+	// 中央の接地点が地形へ食い込んだ場合も、身体内の接地面まで戻す。
 	const float GroundSearchRise = std::max(MaxRise, Body_.Height + ContactMargin);
-	if (!FindGroundAtFeet(Body_.Position.Y + Body_.Height,
+	if (!FindGroundAtCenter(Body_.Position.Y + Body_.Height,
 		GroundSearchRise, MaxDrop, Body_.Position.Y - ContactMargin,
 		Map, Catalog, Hit)) return false;
 	Body_.Position.Y = Hit.SurfaceY - Body_.Height;
@@ -95,26 +112,13 @@ bool CharacterController::SnapToGround(
 	return true;
 }
 
-bool CharacterController::FindGroundAtFeet(
+bool CharacterController::FindGroundAtCenter(
 	float FootY, float MaxRise, float MaxDrop,
 	float MinimumSurfaceY, const TileMap& Map, const TileCatalog& Catalog, GroundHit& Hit) const {
-	const float FootXs[] = {
-		Body_.Position.X + ContactMargin,
-		Body_.Position.X + Body_.Width - ContactMargin
-	};
-	bool Found = false;
-	for (float FootX : FootXs) {
-		GroundHit Candidate;
-		if (!TerrainCollision::FindGround(
-			Map, Catalog, {FootX, FootY}, MaxRise, MaxDrop, Candidate)) continue;
-		if (Candidate.SurfaceY < MinimumSurfaceY) continue;
-		// 矩形の左右どちらも地形へ入らないよう、最も高い接地面を採用する。
-		if (!Found || Candidate.SurfaceY < Hit.SurfaceY) {
-			Hit = Candidate;
-			Found = true;
-		}
-	}
-	return Found;
+	const float CenterX = Body_.Position.X + Body_.Width * 0.5f;
+	if (!TerrainCollision::FindGround(
+		Map, Catalog, {CenterX, FootY}, MaxRise, MaxDrop, Hit)) return false;
+	return Hit.SurfaceY >= MinimumSurfaceY;
 }
 
 void CharacterController::MoveVertical(
@@ -124,10 +128,10 @@ void CharacterController::MoveVertical(
 	if (Amount >= 0.0f) {
 		const float NewBottom = Body_.Position.Y + Body_.Height;
 		GroundHit Hit;
-		// 空中で横から坂へ入った場合も、身体と重なった最上面まで戻して着地する。
+		// 空中で横から坂へ入った場合も、中央点が通過した面まで戻して着地する。
 		const float LandingSearch = std::max(
 			NewBottom - OldBottom + ContactMargin, Body_.Height + ContactMargin);
-		if (FindGroundAtFeet(NewBottom, LandingSearch, 0.0f,
+		if (FindGroundAtCenter(NewBottom, LandingSearch, 0.0f,
 			Body_.Position.Y - ContactMargin, Map, Catalog, Hit)) {
 			Body_.Position.Y = Hit.SurfaceY - Body_.Height;
 			Body_.Velocity.Y = 0.0f;
