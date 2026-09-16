@@ -32,7 +32,8 @@ public:
 	CharacterBody& Body() { return Body_; }
 
 private:
-	bool IsSolid(const TileMap& Map, const TileCatalog& Catalog, int Column, int Row) const;
+	bool IsCeilingBlocked(const TileMap& Map, const TileCatalog& Catalog,
+		int Column, int Row, WorldPosition Head) const;
 	bool IsSideBlocked(const TileMap& Map, const TileCatalog& Catalog,
 		int Column, int Row, bool TargetLeftSide) const;
 	void MoveHorizontal(float Amount, const TileMap& Map, const TileCatalog& Catalog);
