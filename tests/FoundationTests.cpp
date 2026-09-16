@@ -317,7 +317,28 @@ void TestCharacterWall() {
 	Body.Grounded = true;
 	CharacterController Player(Body);
 	for (int Frame = 0; Frame < 10; ++Frame) Player.Step(1.0f, false, Map, Catalog);
-	assert(NearlyEqual(Player.Body().Position.X, 8.0f));
+	// 横壁は身体中央がタイル境界へ到達した位置で止まる。
+	assert(NearlyEqual(Player.Body().Position.X, 20.0f - 0.01f));
+}
+
+void TestCharacterDropsFromBlockWithoutCornerSnag() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 1, 0, 0},
+		{1, 1, 1, 1}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	Body.Position = {36.0f, 2.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	for (int Frame = 0; Frame < 20; ++Frame) {
+		Player.Step(1.0f, false, Map, Catalog);
+	}
+	// 足元中央が段差を越えたら、矩形の角に止められず下の床へ降りる。
+	assert(Player.Body().Position.X > 80.0f);
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 34.0f));
 }
 
 void TestCharacterCeiling() {
@@ -395,11 +416,11 @@ void TestCharacterCannotEnterSlopeHighSide() {
 	});
 	TileCatalog Catalog = MakeTerrainCatalog();
 	CharacterBody Body;
-	Body.Position = {64.0f, 34.0f};
+	Body.Position = {53.0f, 34.0f};
 	Body.Grounded = true;
 	CharacterController FromRight(Body);
 	FromRight.Step(-1.0f, false, UpRightMap, Catalog);
-	assert(NearlyEqual(FromRight.Body().Position.X, 64.0f));
+	assert(NearlyEqual(FromRight.Body().Position.X, 52.0f + 0.01f));
 
 	// 低い側からは従来どおり坂へ進入して登れる。
 	Body.Position = {8.0f, 34.0f};
@@ -414,11 +435,11 @@ void TestCharacterCannotEnterSlopeHighSide() {
 		{0, 3, 0},
 		{1, 1, 1}
 	});
-	Body.Position = {8.0f, 34.0f};
+	Body.Position = {17.0f, 34.0f};
 	Body.Velocity = {0.0f, 0.0f};
 	CharacterController LeftHighSide(Body);
 	LeftHighSide.Step(1.0f, false, UpLeftMap, Catalog);
-	assert(NearlyEqual(LeftHighSide.Body().Position.X, 8.0f));
+	assert(NearlyEqual(LeftHighSide.Body().Position.X, 20.0f - 0.01f));
 }
 
 void TestCharacterDescendsSteepSlopeWithoutSidePushback() {
@@ -510,6 +531,7 @@ int main() {
 	TestCharacterMovement();
 	TestCharacterSlopeFollow();
 	TestCharacterWall();
+	TestCharacterDropsFromBlockWithoutCornerSnag();
 	TestCharacterCeiling();
 	TestCharacterLandingAcrossSlope();
 	TestCharacterFollowsStairs();
