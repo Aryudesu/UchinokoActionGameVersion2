@@ -57,14 +57,14 @@ bool CharacterController::IsSideBlocked(
 		Definition->Collision, {Column, Row},
 		TargetLeftSide ? TerrainCollision::TileSide::Left : TerrainCollision::TileSide::Right,
 		Map.TileWidth(), Map.TileHeight(), BlockTop, BlockBottom)) return false;
-	// CanvasMasao の y / y+31 と同様、横壁は頭側と足側の2点で調べる。
+	// CanvasMasao の y / y+31 に相当する身体の縦範囲と、坂の側面の
+	// 実体範囲が重なる間だけ横壁として扱う。上下2点だけだと、
+	// 短い側面が身体の途中に入ったときに見逃してしまう。
 	// 接地面そのものを拾わないよう、両端はわずかに身体の内側へ置く。
 	const float TopProbeY = Body_.Position.Y + ContactMargin;
 	const float BottomProbeY = Body_.Position.Y + Body_.Height - ContactMargin;
-	const auto IsInside = [BlockTop, BlockBottom](float ProbeY) {
-		return ProbeY > BlockTop + ContactMargin && ProbeY < BlockBottom - ContactMargin;
-	};
-	return IsInside(TopProbeY) || IsInside(BottomProbeY);
+	return BottomProbeY > BlockTop + ContactMargin &&
+		TopProbeY < BlockBottom - ContactMargin;
 }
 
 void CharacterController::MoveHorizontal(
