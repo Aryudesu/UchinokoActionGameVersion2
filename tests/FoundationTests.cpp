@@ -74,7 +74,7 @@ void TestExternalTerrainStage() {
 	assert(Loaded.Value().Map.Width() == 24);
 	assert(Loaded.Value().Map.Height() == 14);
 	assert(NearlyEqual(Loaded.Value().PlayerSpawn.X, 64.0f));
-	assert(NearlyEqual(Loaded.Value().PlayerSpawn.Y, 322.0f));
+	assert(NearlyEqual(Loaded.Value().PlayerSpawn.Y, 320.0f));
 	assert(Loaded.Value().Catalog.Find(4)->Collision ==
 		CollisionShape::Stair2x1UpRightLow);
 	assert(Loaded.Value().Catalog.Find(9)->Collision ==
@@ -702,6 +702,21 @@ void TestExternalStageWalkingFollowsCenterGround() {
 	}
 }
 
+void TestExternalStageSpawnStaysOnFloor() {
+	Result<TerrainStageData> Loaded =
+		TerrainStageLoader::Load("dat/stage/slope-test/stage.ini");
+	assert(Loaded.IsSuccess());
+	CharacterBody Body;
+	Body.Position = Loaded.Value().PlayerSpawn;
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	for (int Frame = 0; Frame < 60; ++Frame) {
+		Player.Step(0.0f, false, Loaded.Value().Map, Loaded.Value().Catalog);
+		assert(Player.Body().Grounded);
+		assert(NearlyEqual(Player.Body().Position.Y, 320.0f));
+	}
+}
+
 } // namespace
 
 int main() {
@@ -735,6 +750,7 @@ int main() {
 	TestCharacterUsesCenterAcrossSteepSlopePeak();
 	TestCharacterStopsAtOverlappingSlopeSide();
 	TestCharacterMovesPastSlopeSideAfterJumpingAboveIt();
+	TestExternalStageSpawnStaysOnFloor();
 	TestExternalStageWalkingFollowsCenterGround();
 	std::cout << "All foundation tests passed.\n";
 	return 0;
