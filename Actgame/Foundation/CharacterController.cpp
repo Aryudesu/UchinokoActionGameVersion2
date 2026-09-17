@@ -20,7 +20,7 @@ CharacterController::CharacterController(CharacterBody Body, CharacterMotion Mot
 
 bool CharacterController::IsCeilingBlocked(
 	const TileMap& Map, const TileCatalog& Catalog,
-	WorldPosition Head) const {
+	WorldPosition Head, bool BlockSlopes) const {
 	// スーパー正男と同様に中央を主判定とし、タイルの継ぎ目だけ左右1pxで補う。
 	const float ProbeOffsets[] = {0.0f, -1.0f, 1.0f};
 	for (float Offset : ProbeOffsets) {
@@ -30,10 +30,10 @@ bool CharacterController::IsCeilingBlocked(
 		const int* Id = Map.TryGet({Column, Row});
 		const TileDefinition* Definition = Id == nullptr ? nullptr : Catalog.Find(*Id);
 		if (Definition == nullptr) continue;
-		// CanvasMasao は上昇時、坂の三角形内部ではなく坂タイル全体を天井扱いする。
-		// これにより、斜面の低い先端で頭が既にタイル内へ入った状態からジャンプしても
-		// 坂を通り抜けない。すり抜け床だけは下から通過できる。
-		if (Definition->Collision != CollisionShape::None &&
+		if (Definition->Collision == CollisionShape::Solid) return true;
+		// CanvasMasao は、上昇して別のタイル行へ入った瞬間だけ坂タイル全体を天井扱いする。
+		// 頭が既に坂タイル内にある場合は、坂へ張り付いた状態でもジャンプできる。
+		if (BlockSlopes && Definition->Collision != CollisionShape::None &&
 			Definition->Collision != CollisionShape::OneWay) return true;
 	}
 	return false;
@@ -110,6 +110,7 @@ bool CharacterController::FindGroundAtCenter(
 
 void CharacterController::MoveVertical(
 	float Amount, const TileMap& Map, const TileCatalog& Catalog) {
+	const float OldTop = Body_.Position.Y;
 	const float OldBottom = Body_.Position.Y + Body_.Height;
 	Body_.Position.Y += Amount;
 	if (Amount >= 0.0f) {
@@ -133,7 +134,8 @@ void CharacterController::MoveVertical(
 		Body_.Position.Y
 	};
 	const int Row = TileAt(Head.Y, Map.TileHeight());
-	if (IsCeilingBlocked(Map, Catalog, Head)) {
+	const bool EnteredUpperRow = Row < TileAt(OldTop, Map.TileHeight());
+	if (IsCeilingBlocked(Map, Catalog, Head, EnteredUpperRow)) {
 		Body_.Position.Y = static_cast<float>((Row + 1) * Map.TileHeight());
 		Body_.Velocity.Y = 0.0f;
 	}
@@ -150,15 +152,8 @@ void CharacterController::Step(
 		if (!SnapToGround(StepDistance, StepDistance, Map, Catalog)) Body_.Grounded = false;
 	}
 	if (JumpPressed && Body_.Grounded) {
-		const WorldPosition Head = {
-			Body_.Position.X + Body_.Width * 0.5f,
-			Body_.Position.Y - ContactMargin
-		};
-		// CanvasMasao と同様、跳躍を開始する前にも頭上の坂タイルを確認する。
-		if (!IsCeilingBlocked(Map, Catalog, Head)) {
-			Body_.Velocity.Y = -Motion_.JumpSpeed;
-			Body_.Grounded = false;
-		}
+		Body_.Velocity.Y = -Motion_.JumpSpeed;
+		Body_.Grounded = false;
 	}
 	if (!Body_.Grounded) {
 		Body_.Velocity.Y = std::min(Motion_.MaxFallSpeed, Body_.Velocity.Y + Motion_.Gravity);
