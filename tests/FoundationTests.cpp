@@ -335,6 +335,24 @@ void TestCharacterWall() {
 	assert(NearlyEqual(Player.Body().Position.X, 20.0f - 0.01f));
 }
 
+void TestCharacterSideUsesTopAndBottomProbes() {
+	TileMap Map = MakeMap({
+		{0, 1, 0},
+		{0, 0, 0},
+		{1, 1, 1}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	// 身体中央は上段ブロックより下だが、頭側はブロックに重なっている。
+	Body.Position = {4.0f, 24.0f};
+	Body.Grounded = false;
+	CharacterMotion Motion;
+	Motion.Gravity = 0.0f;
+	CharacterController Player(Body, Motion);
+	for (int Frame = 0; Frame < 8; ++Frame) Player.Step(1.0f, false, Map, Catalog);
+	assert(NearlyEqual(Player.Body().Position.X, 20.0f - 0.01f));
+}
+
 void TestCharacterDropsFromBlockWithoutCornerSnag() {
 	TileMap Map = MakeMap({
 		{0, 0, 0, 0},
@@ -627,7 +645,7 @@ void TestCharacterUsesCenterAcrossSteepSlopePeak() {
 	AssertCharacterCenterOnGround(OverlappingPlayer, Map, Catalog);
 }
 
-void TestCharacterDoesNotWarpFromFloorToOverlappingSlope() {
+void TestCharacterStopsAtOverlappingSlopeSide() {
 	TileMap Map = MakeMap({
 		{0, 0, 0},
 		{0, 2, 0},
@@ -642,6 +660,9 @@ void TestCharacterDoesNotWarpFromFloorToOverlappingSlope() {
 	CharacterController Player(Body);
 	Player.Step(-1.0f, false, Map, Catalog);
 	assert(Player.Body().Grounded);
+	// 正男方式では、足元が坂面へ深く入り込む横移動を坂上への接地補正に変換せず、
+	// 坂タイルの右側面へ押し戻す。
+	assert(NearlyEqual(Player.Body().Position.X, 52.0f + 0.01f));
 	assert(NearlyEqual(Player.Body().Position.Y + Player.Body().Height, 64.0f));
 }
 
@@ -677,6 +698,7 @@ int main() {
 	TestCharacterMovement();
 	TestCharacterSlopeFollow();
 	TestCharacterWall();
+	TestCharacterSideUsesTopAndBottomProbes();
 	TestCharacterDropsFromBlockWithoutCornerSnag();
 	TestCharacterCeiling();
 	TestCharacterCeilingUsesCenterPoint();
@@ -689,7 +711,7 @@ int main() {
 	TestRisingCharacterCannotPassSlopeSideInsideColumn();
 	TestCharacterDescendsSteepSlopeWithoutSidePushback();
 	TestCharacterUsesCenterAcrossSteepSlopePeak();
-	TestCharacterDoesNotWarpFromFloorToOverlappingSlope();
+	TestCharacterStopsAtOverlappingSlopeSide();
 	TestExternalStageWalkingFollowsCenterGround();
 	std::cout << "All foundation tests passed.\n";
 	return 0;
