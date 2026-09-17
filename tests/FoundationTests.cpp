@@ -545,6 +545,30 @@ void TestCharacterCannotEnterSlopeHighSide() {
 	assert(NearlyEqual(LeftHighSide.Body().Position.X, 20.0f - 0.01f));
 }
 
+void TestRisingCharacterCannotPassSlopeSideInsideColumn() {
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 2, 0},
+		{0, 0, 0},
+		{1, 1, 1}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	// 右側から坂の列へ入った時点では身体中央が側壁より下にある。
+	// その後、同じ列内で上昇して側壁の高さへ入っても通過させない。
+	Body.Position = {53.0f, 60.0f};
+	Body.Velocity.Y = -20.0f;
+	Body.Grounded = false;
+	CharacterMotion Motion;
+	Motion.Gravity = 0.0f;
+	CharacterController Player(Body, Motion);
+	Player.Step(-1.0f, false, Map, Catalog);
+	assert(Player.Body().Position.X < 53.0f);
+	Player.Step(-1.0f, false, Map, Catalog);
+	assert(NearlyEqual(Player.Body().Position.X, 52.0f + 0.01f));
+	assert(NearlyEqual(Player.Body().Velocity.X, 0.0f));
+}
+
 void TestCharacterDescendsSteepSlopeWithoutSidePushback() {
 	TileMap Map = MakeMap({
 		{0, 0, 0, 0, 0},
@@ -644,6 +668,7 @@ int main() {
 	TestCharacterLandingAcrossSlope();
 	TestCharacterFollowsStairs();
 	TestCharacterCannotEnterSlopeHighSide();
+	TestRisingCharacterCannotPassSlopeSideInsideColumn();
 	TestCharacterDescendsSteepSlopeWithoutSidePushback();
 	TestCharacterUsesCenterAcrossSteepSlopePeak();
 	TestExternalStageWalkingFollowsCenterGround();
