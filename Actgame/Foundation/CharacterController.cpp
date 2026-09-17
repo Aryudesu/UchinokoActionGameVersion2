@@ -65,7 +65,8 @@ void CharacterController::MoveHorizontal(
 	if (Amount > 0.0f) {
 		const int OldColumn = TileAt(OldX + HalfWidth, Map.TileWidth());
 		const int Column = TileAt(Body_.Position.X + HalfWidth, Map.TileWidth());
-		if (Column != OldColumn) {
+		// 空中では、列へ入った後に上昇して坂の側壁へ重なる場合があるため毎フレーム確認する。
+		if (Column != OldColumn || !Body_.Grounded) {
 			if (IsSideBlocked(Map, Catalog, Column, Row, true)) {
 				Body_.Position.X = static_cast<float>(Column * Map.TileWidth()) - HalfWidth - ContactMargin;
 				Body_.Velocity.X = 0.0f;
@@ -74,7 +75,7 @@ void CharacterController::MoveHorizontal(
 	} else {
 		const int OldColumn = TileAt(OldX + HalfWidth, Map.TileWidth());
 		const int Column = TileAt(Body_.Position.X + HalfWidth, Map.TileWidth());
-		if (Column != OldColumn) {
+		if (Column != OldColumn || !Body_.Grounded) {
 			if (IsSideBlocked(Map, Catalog, Column, Row, false)) {
 				Body_.Position.X = static_cast<float>((Column + 1) * Map.TileWidth()) - HalfWidth + ContactMargin;
 				Body_.Velocity.X = 0.0f;
