@@ -666,6 +666,36 @@ void TestCharacterStopsAtOverlappingSlopeSide() {
 	assert(NearlyEqual(Player.Body().Position.Y + Player.Body().Height, 64.0f));
 }
 
+void TestCharacterMovesPastSlopeSideAfterJumpingAboveIt() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{1, 1, 1, 1},
+		{1, 1, 1, 1}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	// 2x1 坂の右側面に接した状態から、左を押したままジャンプする。
+	Body.Position = {84.01f, 34.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	const float WallX = Player.Body().Position.X;
+
+	Player.Step(-1.0f, true, Map, Catalog);
+	assert(NearlyEqual(Player.Body().Position.X, WallX));
+	assert(!Player.Body().Grounded);
+
+	// 身体と坂の右側面が重なる間は、左入力でも壁の手前に留まる。
+	while (Player.Body().Position.Y + Player.Body().Height > 32.01f) {
+		Player.Step(-1.0f, false, Map, Catalog);
+		assert(NearlyEqual(Player.Body().Position.X, WallX));
+	}
+
+	// 坂の上の空白へ身体が抜けたら、そのフレーム以降は左へ移動できる。
+	Player.Step(-1.0f, false, Map, Catalog);
+	assert(Player.Body().Position.X < WallX);
+}
+
 void TestExternalStageWalkingFollowsCenterGround() {
 	Result<TerrainStageData> Loaded =
 		TerrainStageLoader::Load("dat/stage/slope-test/stage.ini");
@@ -712,6 +742,7 @@ int main() {
 	TestCharacterDescendsSteepSlopeWithoutSidePushback();
 	TestCharacterUsesCenterAcrossSteepSlopePeak();
 	TestCharacterStopsAtOverlappingSlopeSide();
+	TestCharacterMovesPastSlopeSideAfterJumpingAboveIt();
 	TestExternalStageWalkingFollowsCenterGround();
 	std::cout << "All foundation tests passed.\n";
 	return 0;
