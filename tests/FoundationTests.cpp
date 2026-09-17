@@ -627,6 +627,24 @@ void TestCharacterUsesCenterAcrossSteepSlopePeak() {
 	AssertCharacterCenterOnGround(OverlappingPlayer, Map, Catalog);
 }
 
+void TestCharacterDoesNotWarpFromFloorToOverlappingSlope() {
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 2, 0},
+		{1, 1, 1},
+		{1, 1, 1}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	// 坂の下にある床へ着地した直後を再現する。同じ列の上方には坂面も存在する。
+	Body.Position = {45.0f, 34.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	Player.Step(-1.0f, false, Map, Catalog);
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y + Player.Body().Height, 64.0f));
+}
+
 void TestExternalStageWalkingFollowsCenterGround() {
 	Result<TerrainStageData> Loaded =
 		TerrainStageLoader::Load("dat/stage/slope-test/stage.ini");
@@ -671,6 +689,7 @@ int main() {
 	TestRisingCharacterCannotPassSlopeSideInsideColumn();
 	TestCharacterDescendsSteepSlopeWithoutSidePushback();
 	TestCharacterUsesCenterAcrossSteepSlopePeak();
+	TestCharacterDoesNotWarpFromFloorToOverlappingSlope();
 	TestExternalStageWalkingFollowsCenterGround();
 	std::cout << "All foundation tests passed.\n";
 	return 0;
