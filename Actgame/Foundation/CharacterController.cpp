@@ -29,9 +29,12 @@ bool CharacterController::IsCeilingBlocked(
 		const int Row = TileAt(Probe.Y, Map.TileHeight());
 		const int* Id = Map.TryGet({Column, Row});
 		const TileDefinition* Definition = Id == nullptr ? nullptr : Catalog.Find(*Id);
-		if (Definition != nullptr && TerrainCollision::ContainsSolidPoint(
-			Definition->Collision, {Column, Row}, Probe,
-			Map.TileWidth(), Map.TileHeight())) return true;
+		if (Definition == nullptr) continue;
+		// CanvasMasao は上昇時、坂の三角形内部ではなく坂タイル全体を天井扱いする。
+		// これにより、斜面の低い先端で頭が既にタイル内へ入った状態からジャンプしても
+		// 坂を通り抜けない。すり抜け床だけは下から通過できる。
+		if (Definition->Collision != CollisionShape::None &&
+			Definition->Collision != CollisionShape::OneWay) return true;
 	}
 	return false;
 }
@@ -147,8 +150,15 @@ void CharacterController::Step(
 		if (!SnapToGround(StepDistance, StepDistance, Map, Catalog)) Body_.Grounded = false;
 	}
 	if (JumpPressed && Body_.Grounded) {
-		Body_.Velocity.Y = -Motion_.JumpSpeed;
-		Body_.Grounded = false;
+		const WorldPosition Head = {
+			Body_.Position.X + Body_.Width * 0.5f,
+			Body_.Position.Y - ContactMargin
+		};
+		// CanvasMasao と同様、跳躍を開始する前にも頭上の坂タイルを確認する。
+		if (!IsCeilingBlocked(Map, Catalog, Head)) {
+			Body_.Velocity.Y = -Motion_.JumpSpeed;
+			Body_.Grounded = false;
+		}
 	}
 	if (!Body_.Grounded) {
 		Body_.Velocity.Y = std::min(Motion_.MaxFallSpeed, Body_.Velocity.Y + Motion_.Gravity);
