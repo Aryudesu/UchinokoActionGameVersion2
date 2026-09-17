@@ -89,11 +89,16 @@ void CharacterController::MoveHorizontal(
 bool CharacterController::SnapToGround(
 	float MaxRise, float MaxDrop, const TileMap& Map, const TileCatalog& Catalog) {
 	GroundHit Hit;
-	// 中央の接地点が地形へ食い込んだ場合も、身体内の接地面まで戻す。
-	const float GroundSearchRise = std::max(MaxRise, Body_.Height + ContactMargin);
-	if (!FindGroundAtCenter(Body_.Position.Y + Body_.Height,
-		GroundSearchRise, MaxDrop, Body_.Position.Y - ContactMargin,
-		Map, Catalog, Hit)) return false;
+	const float FootY = Body_.Position.Y + Body_.Height;
+	// まず、そのフレームで実際に追従できる範囲の地面を優先する。
+	// 下の床に立っている時、同じ列の上方に坂が重なっていても、そちらへワープさせない。
+	if (!FindGroundAtCenter(FootY, MaxRise, MaxDrop,
+		Body_.Position.Y - ContactMargin, Map, Catalog, Hit)) {
+		// 有効な足場が近くにない場合だけ、食い込みからの復帰範囲を身体全体へ広げる。
+		const float RecoveryRise = std::max(MaxRise, Body_.Height + ContactMargin);
+		if (!FindGroundAtCenter(FootY, RecoveryRise, MaxDrop,
+			Body_.Position.Y - ContactMargin, Map, Catalog, Hit)) return false;
+	}
 	Body_.Position.Y = Hit.SurfaceY - Body_.Height;
 	Body_.Velocity.Y = 0.0f;
 	Body_.Grounded = true;
