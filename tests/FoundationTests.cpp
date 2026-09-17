@@ -434,7 +434,7 @@ void TestCharacterCeilingSeamUsesSideProbes() {
 	assert(MinimumY >= 32.0f);
 }
 
-void TestCharacterCannotJumpThroughSlopeTip() {
+void TestCharacterCanJumpWhileTouchingSlopeTip() {
 	TileMap Map = MakeMap({
 		{0, 0, 0},
 		{0, 2, 0},
@@ -447,8 +447,8 @@ void TestCharacterCannotJumpThroughSlopeTip() {
 	Body.Grounded = true;
 	CharacterController Player(Body);
 	Player.Step(0.0f, true, Map, Catalog);
-	assert(Player.Body().Grounded);
-	assert(NearlyEqual(Player.Body().Velocity.Y, 0.0f));
+	assert(!Player.Body().Grounded);
+	assert(Player.Body().Velocity.Y < 0.0f);
 
 	// 坂タイルの外側なら通常どおりジャンプできる。
 	Body.Position = {17.0f, 34.0f};
@@ -640,7 +640,7 @@ int main() {
 	TestCharacterCeilingUsesCenterPoint();
 	TestCharacterHitsSlopeFromBelow();
 	TestCharacterCeilingSeamUsesSideProbes();
-	TestCharacterCannotJumpThroughSlopeTip();
+	TestCharacterCanJumpWhileTouchingSlopeTip();
 	TestCharacterLandingAcrossSlope();
 	TestCharacterFollowsStairs();
 	TestCharacterCannotEnterSlopeHighSide();
