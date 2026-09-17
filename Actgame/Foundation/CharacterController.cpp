@@ -13,6 +13,12 @@ int TileAt(float Coordinate, int TileSize) {
 	return static_cast<int>(std::floor(Coordinate / static_cast<float>(TileSize)));
 }
 
+bool IsSlopeShape(CollisionShape Shape) {
+	return Shape != CollisionShape::None &&
+		Shape != CollisionShape::Solid &&
+		Shape != CollisionShape::OneWay;
+}
+
 } // namespace
 
 CharacterController::CharacterController(CharacterBody Body, CharacterMotion Motion)
@@ -51,8 +57,14 @@ bool CharacterController::IsSideBlocked(
 		Definition->Collision, {Column, Row},
 		TargetLeftSide ? TerrainCollision::TileSide::Left : TerrainCollision::TileSide::Right,
 		Map.TileWidth(), Map.TileHeight(), BlockTop, BlockBottom)) return false;
-	const float CenterY = Body_.Position.Y + Body_.Height * 0.5f;
-	return CenterY > BlockTop + ContactMargin && CenterY < BlockBottom - ContactMargin;
+	// CanvasMasao の y / y+31 と同様、横壁は頭側と足側の2点で調べる。
+	// 接地面そのものを拾わないよう、両端はわずかに身体の内側へ置く。
+	const float TopProbeY = Body_.Position.Y + ContactMargin;
+	const float BottomProbeY = Body_.Position.Y + Body_.Height - ContactMargin;
+	const auto IsInside = [BlockTop, BlockBottom](float ProbeY) {
+		return ProbeY > BlockTop + ContactMargin && ProbeY < BlockBottom - ContactMargin;
+	};
+	return IsInside(TopProbeY) || IsInside(BottomProbeY);
 }
 
 void CharacterController::MoveHorizontal(
@@ -61,13 +73,20 @@ void CharacterController::MoveHorizontal(
 	const float OldX = Body_.Position.X;
 	Body_.Position.X += Amount;
 	const float HalfWidth = Body_.Width * 0.5f;
-	const int Row = TileAt(Body_.Position.Y + Body_.Height * 0.5f, Map.TileHeight());
+	const int TopRow = TileAt(Body_.Position.Y + ContactMargin, Map.TileHeight());
+	const int BottomRow = TileAt(
+		Body_.Position.Y + Body_.Height - ContactMargin, Map.TileHeight());
+	const auto IsBlockedAtSide = [&](int Column, bool TargetLeftSide) {
+		return IsSideBlocked(Map, Catalog, Column, TopRow, TargetLeftSide) ||
+			(BottomRow != TopRow &&
+				IsSideBlocked(Map, Catalog, Column, BottomRow, TargetLeftSide));
+	};
 	if (Amount > 0.0f) {
 		const int OldColumn = TileAt(OldX + HalfWidth, Map.TileWidth());
 		const int Column = TileAt(Body_.Position.X + HalfWidth, Map.TileWidth());
 		// 空中では、列へ入った後に上昇して坂の側壁へ重なる場合があるため毎フレーム確認する。
 		if (Column != OldColumn || !Body_.Grounded) {
-			if (IsSideBlocked(Map, Catalog, Column, Row, true)) {
+			if (IsBlockedAtSide(Column, true)) {
 				Body_.Position.X = static_cast<float>(Column * Map.TileWidth()) - HalfWidth - ContactMargin;
 				Body_.Velocity.X = 0.0f;
 			}
@@ -76,10 +95,28 @@ void CharacterController::MoveHorizontal(
 		const int OldColumn = TileAt(OldX + HalfWidth, Map.TileWidth());
 		const int Column = TileAt(Body_.Position.X + HalfWidth, Map.TileWidth());
 		if (Column != OldColumn || !Body_.Grounded) {
-			if (IsSideBlocked(Map, Catalog, Column, Row, false)) {
+			if (IsBlockedAtSide(Column, false)) {
 				Body_.Position.X = static_cast<float>((Column + 1) * Map.TileWidth()) - HalfWidth + ContactMargin;
 				Body_.Velocity.X = 0.0f;
 			}
+		}
+	}
+	if (Body_.Grounded) {
+		// CanvasMasao と同様に、横移動後の中央足元が坂面へ深く入り込んだ場合は
+		// 接地補正で坂上へ持ち上げず、坂タイルの側面で止める。
+		// 通常の坂上り（1フレーム分の高低差）はこの判定を通過させる。
+		GroundHit Hit;
+		const float FootY = Body_.Position.Y + Body_.Height;
+		const float MaxClimb = std::fabs(Amount) * 2.0f + 1.0f;
+		if (FindGroundAtCenter(FootY, Body_.Height + ContactMargin, 0.0f,
+			Body_.Position.Y - ContactMargin, Map, Catalog, Hit) &&
+			IsSlopeShape(Hit.Shape) && FootY - Hit.SurfaceY > MaxClimb + ContactMargin) {
+			const int Column = TileAt(
+				Body_.Position.X + Body_.Width * 0.5f, Map.TileWidth());
+			Body_.Position.X = Amount > 0.0f
+				? static_cast<float>(Column * Map.TileWidth()) - HalfWidth - ContactMargin
+				: static_cast<float>((Column + 1) * Map.TileWidth()) - HalfWidth + ContactMargin;
+			Body_.Velocity.X = 0.0f;
 		}
 	}
 	const float MaxX = static_cast<float>(Map.Width() * Map.TileWidth()) - Body_.Width;
