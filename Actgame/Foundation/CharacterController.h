@@ -32,15 +32,18 @@ public:
 	CharacterBody& Body() { return Body_; }
 
 private:
-	bool IsCeilingBlocked(const TileMap& Map, const TileCatalog& Catalog,
-		WorldPosition Head, bool BlockSlopes) const;
 	bool IsSideBlocked(const TileMap& Map, const TileCatalog& Catalog,
 		int Column, int Row, bool TargetLeftSide) const;
+	bool IsBlockedAtCenterSide(const TileMap& Map, const TileCatalog& Catalog,
+		int Column, bool TargetLeftSide) const;
+	bool IsCeilingTile(const TileMap& Map, const TileCatalog& Catalog,
+		int Column, int Row, bool IncludeSlopes) const;
 	void MoveHorizontal(float Amount, const TileMap& Map, const TileCatalog& Catalog);
 	void MoveVertical(float Amount, const TileMap& Map, const TileCatalog& Catalog);
 	bool FindGroundAtCenter(float FootY, float MaxRise, float MaxDrop,
 		float MinimumSurfaceY, const TileMap& Map, const TileCatalog& Catalog, GroundHit& Hit) const;
-	bool SnapToGround(float MaxRise, float MaxDrop, const TileMap& Map, const TileCatalog& Catalog);
+	bool FollowGround(float HorizontalAmount, const TileMap& Map, const TileCatalog& Catalog,
+		GroundHit* FollowedGround = nullptr);
 	CharacterBody Body_;
 	CharacterMotion Motion_;
 };
