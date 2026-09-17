@@ -11,8 +11,8 @@ struct GroundHit;
 struct CharacterBody {
 	WorldPosition Position;
 	WorldPosition Velocity;
-	float Width = 24.0f;
-	float Height = 30.0f;
+	float Width = 32.0f;
+	float Height = 32.0f;
 	bool Grounded = false;
 };
 
@@ -33,7 +33,7 @@ public:
 
 private:
 	bool IsSideBlocked(const TileMap& Map, const TileCatalog& Catalog,
-		int Column, int Row, bool TargetLeftSide) const;
+		int Column, int Row, bool TargetLeftSide, float ProbeY) const;
 	bool IsBlockedAtCenterSide(const TileMap& Map, const TileCatalog& Catalog,
 		int Column, bool TargetLeftSide) const;
 	bool IsCeilingTile(const TileMap& Map, const TileCatalog& Catalog,
