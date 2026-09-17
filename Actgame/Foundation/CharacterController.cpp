@@ -9,6 +9,11 @@ namespace uchinoko {
 
 namespace {
 constexpr float ContactMargin = 0.01f;
+constexpr float MasaoCenterX = 15.0f;
+constexpr float MasaoLeftProbeX = 14.0f;
+constexpr float MasaoRightProbeX = 16.0f;
+constexpr float MasaoBottomY = 31.0f;
+constexpr float MasaoBelowY = 32.0f;
 int TileAt(float Coordinate, int TileSize) {
 	return static_cast<int>(std::floor(Coordinate / static_cast<float>(TileSize)));
 }
@@ -23,7 +28,7 @@ CharacterController::CharacterController(CharacterBody Body, CharacterMotion Mot
 
 bool CharacterController::IsSideBlocked(
 	const TileMap& Map, const TileCatalog& Catalog,
-	int Column, int Row, bool TargetLeftSide) const {
+	int Column, int Row, bool TargetLeftSide, float ProbeY) const {
 	const int* Id = Map.TryGet({Column, Row});
 	const TileDefinition* Definition = Id == nullptr ? nullptr : Catalog.Find(*Id);
 	if (Definition == nullptr) return false;
@@ -33,26 +38,25 @@ bool CharacterController::IsSideBlocked(
 		Definition->Collision, {Column, Row},
 		TargetLeftSide ? TerrainCollision::TileSide::Left : TerrainCollision::TileSide::Right,
 		Map.TileWidth(), Map.TileHeight(), BlockTop, BlockBottom)) return false;
-	const float BodyTop = Body_.Position.Y + ContactMargin;
-	const float BodyBottom = Body_.Position.Y + Body_.Height - ContactMargin;
-	return BodyBottom > BlockTop + ContactMargin && BodyTop < BlockBottom - ContactMargin;
+	return ProbeY >= BlockTop && ProbeY < BlockBottom;
 }
 
 bool CharacterController::IsBlockedAtCenterSide(
 	const TileMap& Map, const TileCatalog& Catalog,
 	int Column, bool TargetLeftSide) const {
-	const int TopRow = TileAt(Body_.Position.Y + ContactMargin, Map.TileHeight());
-	const int BottomRow = TileAt(Body_.Position.Y + Body_.Height - ContactMargin, Map.TileHeight());
-	for (int Row = TopRow; Row <= BottomRow; ++Row) {
-		if (IsSideBlocked(Map, Catalog, Column, Row, TargetLeftSide)) return true;
-	}
-	return false;
+	const float TopProbeY = Body_.Position.Y;
+	const float BottomProbeY = Body_.Position.Y + MasaoBottomY;
+	const int TopRow = TileAt(TopProbeY, Map.TileHeight());
+	const int BottomRow = TileAt(BottomProbeY, Map.TileHeight());
+	return IsSideBlocked(Map, Catalog, Column, TopRow, TargetLeftSide, TopProbeY) ||
+		(BottomRow != TopRow &&
+			IsSideBlocked(Map, Catalog, Column, BottomRow, TargetLeftSide, BottomProbeY));
 }
 
 bool CharacterController::FindGroundAtCenter(
 	float FootY, float MaxRise, float MaxDrop,
 	float MinimumSurfaceY, const TileMap& Map, const TileCatalog& Catalog, GroundHit& Hit) const {
-	const float CenterX = Body_.Position.X + Body_.Width * 0.5f;
+	const float CenterX = Body_.Position.X + MasaoCenterX;
 	if (!TerrainCollision::FindGround(
 		Map, Catalog, {CenterX, FootY}, MaxRise, MaxDrop, Hit)) return false;
 	return Hit.SurfaceY >= MinimumSurfaceY;
@@ -61,13 +65,13 @@ bool CharacterController::FindGroundAtCenter(
 bool CharacterController::FollowGround(
 	float HorizontalAmount, const TileMap& Map, const TileCatalog& Catalog,
 	GroundHit* FollowedGround) {
-	const float FootY = Body_.Position.Y + Body_.Height;
+	const float FootY = Body_.Position.Y + MasaoBelowY;
 	const float FollowDistance = std::fabs(HorizontalAmount) * 2.0f + 1.0f;
 	GroundHit Hit;
 	if (!FindGroundAtCenter(FootY, FollowDistance, FollowDistance,
 		Body_.Position.Y - ContactMargin, Map, Catalog, Hit)) return false;
 	if (FollowedGround != nullptr) *FollowedGround = Hit;
-	Body_.Position.Y = Hit.SurfaceY - Body_.Height;
+	Body_.Position.Y = Hit.SurfaceY - MasaoBelowY;
 	Body_.Velocity.Y = 0.0f;
 	Body_.Grounded = true;
 	return true;
@@ -81,9 +85,8 @@ void CharacterController::MoveHorizontal(
 	}
 	const float OldY = Body_.Position.Y;
 	const bool WasGrounded = Body_.Grounded;
-	const float HalfWidth = Body_.Width * 0.5f;
 	Body_.Position.X += Amount;
-	const int NewColumn = TileAt(Body_.Position.X + HalfWidth, Map.TileWidth());
+	const int NewColumn = TileAt(Body_.Position.X + MasaoCenterX, Map.TileWidth());
 
 	// CanvasMasao と同じく、接地中は先に移動先の坂面へ追従する。
 	// 1フレームで追従できない高さだけを側面として止める。
@@ -92,7 +95,7 @@ void CharacterController::MoveHorizontal(
 		const bool MovingRight = Amount > 0.0f;
 		if (IsSlopeShape(FollowedGround.Shape) ||
 			!IsBlockedAtCenterSide(Map, Catalog, NewColumn, MovingRight)) {
-			const float MaxX = static_cast<float>(Map.Width() * Map.TileWidth()) - Body_.Width;
+			const float MaxX = static_cast<float>(Map.Width() * Map.TileWidth()) - MasaoBelowY;
 			Body_.Position.X = std::max(0.0f, std::min(MaxX, Body_.Position.X));
 			return;
 		}
@@ -105,12 +108,12 @@ void CharacterController::MoveHorizontal(
 	// 坂下りは上の FollowGround で確定するため、入口へ押し戻されない。
 	if (IsBlockedAtCenterSide(Map, Catalog, NewColumn, MovingRight)) {
 		Body_.Position.X = MovingRight
-			? static_cast<float>(NewColumn * Map.TileWidth()) - HalfWidth - ContactMargin
-			: static_cast<float>((NewColumn + 1) * Map.TileWidth()) - HalfWidth + ContactMargin;
+			? static_cast<float>(NewColumn * Map.TileWidth()) - MasaoRightProbeX
+			: static_cast<float>((NewColumn + 1) * Map.TileWidth()) - MasaoCenterX;
 		Body_.Velocity.X = 0.0f;
 	}
 	if (WasGrounded && !FollowGround(Amount, Map, Catalog)) Body_.Grounded = false;
-	const float MaxX = static_cast<float>(Map.Width() * Map.TileWidth()) - Body_.Width;
+	const float MaxX = static_cast<float>(Map.Width() * Map.TileWidth()) - MasaoBelowY;
 	Body_.Position.X = std::max(0.0f, std::min(MaxX, Body_.Position.X));
 }
 
@@ -127,16 +130,16 @@ bool CharacterController::IsCeilingTile(
 void CharacterController::MoveVertical(
 	float Amount, const TileMap& Map, const TileCatalog& Catalog) {
 	const float OldTop = Body_.Position.Y;
-	const float OldBottom = Body_.Position.Y + Body_.Height;
+	const float OldBottom = Body_.Position.Y + MasaoBelowY;
 	if (Amount >= 0.0f) {
 		Body_.Position.Y += Amount;
-		const float NewBottom = Body_.Position.Y + Body_.Height;
+		const float NewBottom = Body_.Position.Y + MasaoBelowY;
 		GroundHit Hit;
 		// 移動前後で足元が横切った面だけに着地する。
 		if (FindGroundAtCenter(OldBottom, 0.0f,
 			NewBottom - OldBottom + ContactMargin, OldBottom - ContactMargin,
 			Map, Catalog, Hit)) {
-			Body_.Position.Y = Hit.SurfaceY - Body_.Height;
+			Body_.Position.Y = Hit.SurfaceY - MasaoBelowY;
 			Body_.Velocity.Y = 0.0f;
 			Body_.Grounded = true;
 		} else {
@@ -146,8 +149,11 @@ void CharacterController::MoveVertical(
 	}
 
 	const float NewTop = OldTop + Amount;
-	const float CenterX = Body_.Position.X + Body_.Width * 0.5f;
-	const float ProbeXs[] = {CenterX, CenterX - 1.0f, CenterX + 1.0f};
+	const float ProbeXs[] = {
+		Body_.Position.X + MasaoCenterX,
+		Body_.Position.X + MasaoLeftProbeX,
+		Body_.Position.X + MasaoRightProbeX
+	};
 	const int OldRow = TileAt(OldTop, Map.TileHeight());
 	const int NewRow = TileAt(NewTop, Map.TileHeight());
 	for (int Row = OldRow; Row >= NewRow; --Row) {
