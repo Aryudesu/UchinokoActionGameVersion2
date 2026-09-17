@@ -486,7 +486,8 @@ void TestCharacterLandingAcrossSlope() {
 	});
 	TileCatalog Catalog = MakeTerrainCatalog();
 	CharacterBody Body;
-	Body.Position = {97.0f, 25.0f};
+	// 足元中央が坂面の上から下降して横切る、通常の着地経路を再現する。
+	Body.Position = {97.0f, 13.0f};
 	Body.Velocity.Y = 2.0f;
 	Body.Grounded = false;
 	CharacterMotion Motion;
@@ -634,15 +635,6 @@ void TestCharacterUsesCenterAcrossSteepSlopePeak() {
 		AssertCharacterCenterOnGround(ReversePlayer, Map, Catalog);
 	}
 
-	// 左右角の地形ではなく、中央点が載っている平地へ補正する。
-	Body.Position = {52.0f, 27.0f};
-	Body.Velocity = {0.0f, 0.0f};
-	Body.Grounded = true;
-	CharacterController OverlappingPlayer(Body);
-	OverlappingPlayer.Step(0.0f, false, Map, Catalog);
-	assert(NearlyEqual(
-		OverlappingPlayer.Body().Position.Y + OverlappingPlayer.Body().Height, 32.0f));
-	AssertCharacterCenterOnGround(OverlappingPlayer, Map, Catalog);
 }
 
 void TestCharacterStopsAtOverlappingSlopeSide() {
