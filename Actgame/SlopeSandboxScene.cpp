@@ -111,10 +111,13 @@ void SlopeSandboxScene::draw() {
 	DrawBox(static_cast<int>(Body.Position.X), static_cast<int>(Body.Position.Y),
 		static_cast<int>(Body.Position.X + Body.Width), static_cast<int>(Body.Position.Y + Body.Height),
 		GetColor(240, 210, 80), TRUE);
-	DrawCircle(static_cast<int>(Body.Position.X + Body.Width * 0.5f),
-		static_cast<int>(Body.Position.Y + Body.Height), 3, GetColor(255, 80, 80), TRUE);
-	DrawCircle(static_cast<int>(Body.Position.X + Body.Width * 0.5f),
-		static_cast<int>(Body.Position.Y), 3, GetColor(255, 80, 80), TRUE);
+	// CanvasMasao と同じ論理判定点: 中央 x+15、境界補助 x+14/x+16、頭 y、足 y+31。
+	for (int OffsetX : {14, 15, 16}) {
+		DrawCircle(static_cast<int>(Body.Position.X) + OffsetX,
+			static_cast<int>(Body.Position.Y), 2, GetColor(255, 80, 80), TRUE);
+	}
+	DrawCircle(static_cast<int>(Body.Position.X) + 15,
+		static_cast<int>(Body.Position.Y) + 31, 3, GetColor(255, 80, 80), TRUE);
 	DrawString(16, 16, "Slope/Stair test: Left/Right move, Z jump, R reload, Esc menu", GetColor(255, 255, 255));
 	DrawString(16, 40, Body.Grounded ? "Grounded" : "Airborne", GetColor(255, 255, 255));
 }
