@@ -136,6 +136,7 @@
     <ClCompile Include="Action.cpp" />
     <ClCompile Include="Foundation\AssetPaths.cpp" />
     <ClCompile Include="Foundation\CharacterController.cpp" />
+    <ClCompile Include="Foundation\CanvasMasaoTerrain.cpp" />
     <ClCompile Include="Foundation\GridDataLoader.cpp" />
     <ClCompile Include="Foundation\LayeredMap.cpp" />
     <ClCompile Include="Foundation\StageDefinition.cpp" />
@@ -183,6 +184,7 @@
     <ClInclude Include="Action.h" />
     <ClInclude Include="Foundation\AssetPaths.h" />
     <ClInclude Include="Foundation\CharacterController.h" />
+    <ClInclude Include="Foundation\CanvasMasaoTerrain.h" />
     <ClInclude Include="Foundation\Coordinates.h" />
     <ClInclude Include="Foundation\GridDataLoader.h" />
     <ClInclude Include="Foundation\LayeredMap.h" />

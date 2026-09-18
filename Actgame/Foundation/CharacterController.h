@@ -11,8 +11,8 @@ struct GroundHit;
 struct CharacterBody {
 	WorldPosition Position;
 	WorldPosition Velocity;
-	float Width = 24.0f;
-	float Height = 30.0f;
+	float Width = 32.0f;
+	float Height = 32.0f;
 	bool Grounded = false;
 };
 
@@ -32,14 +32,31 @@ public:
 	CharacterBody& Body() { return Body_; }
 
 private:
-	bool IsSolid(const TileMap& Map, const TileCatalog& Catalog, int Column, int Row) const;
+	CollisionShape ShapeAt(const TileMap& Map, const TileCatalog& Catalog,
+		float X, float Y) const;
+	bool IsSolidAt(const TileMap& Map, const TileCatalog& Catalog,
+		float X, float Y) const;
+	float SlopeCharacterY(CollisionShape Shape, int Column, int Row,
+		float WorldX, const TileMap& Map, const TileCatalog& Catalog) const;
+	bool TrySlopeCharacterY(const TileMap& Map, const TileCatalog& Catalog,
+		float WorldX, float ProbeY, float& CharacterY,
+		CollisionShape* FoundShape = nullptr) const;
+	void RefreshGround(const TileMap& Map, const TileCatalog& Catalog);
+	void ResolveHorizontalWall(float OldCenterX, bool MovingRight,
+		const TileMap& Map, const TileCatalog& Catalog);
+	void FollowMasaoSlopeAfterHorizontal(float OldX, float OldY, bool WasGrounded,
+		const TileMap& Map, const TileCatalog& Catalog);
 	void MoveHorizontal(float Amount, const TileMap& Map, const TileCatalog& Catalog);
-	void MoveVertical(float Amount, const TileMap& Map, const TileCatalog& Catalog);
-	bool FindGroundAtFeet(float FootY, float MaxRise, float MaxDrop,
-		float MinimumSurfaceY, const TileMap& Map, const TileCatalog& Catalog, GroundHit& Hit) const;
-	bool SnapToGround(float MaxRise, float MaxDrop, const TileMap& Map, const TileCatalog& Catalog);
+	void MoveUp(float Amount, float HorizontalInput,
+		const TileMap& Map, const TileCatalog& Catalog);
+	void MoveDown(float Amount, float HorizontalInput,
+		const TileMap& Map, const TileCatalog& Catalog);
+	void MoveVertical(float Amount, float HorizontalInput,
+		const TileMap& Map, const TileCatalog& Catalog);
 	CharacterBody Body_;
 	CharacterMotion Motion_;
+	int VelocityX10_ = 0;
+	int VelocityY10_ = 0;
 };
 
 } // namespace uchinoko

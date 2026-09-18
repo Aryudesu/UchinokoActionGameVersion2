@@ -353,6 +353,7 @@
   <ItemGroup>
     <ClCompile Include="Foundation\AssetPaths.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\CharacterController.cpp"><Filter>Foundation</Filter></ClCompile>
+    <ClCompile Include="Foundation\CanvasMasaoTerrain.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="SlopeSandboxScene.cpp"><Filter>ソース ファイル\Scene</Filter></ClCompile>
     <ClCompile Include="Foundation\GridDataLoader.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\LayeredMap.cpp"><Filter>Foundation</Filter></ClCompile>
@@ -365,6 +366,7 @@
   <ItemGroup>
     <ClInclude Include="Foundation\AssetPaths.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\CharacterController.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\CanvasMasaoTerrain.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="SlopeSandboxScene.h"><Filter>ヘッダー ファイル\Scene</Filter></ClInclude>
     <ClInclude Include="Foundation\Coordinates.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\GridDataLoader.h"><Filter>Foundation</Filter></ClInclude>
