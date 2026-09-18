@@ -92,26 +92,32 @@ bool ExtendedSlopeTerrain::ResolveHighSide(
 	float Y, bool MovingRight, bool Grounded) {
 	const int OldCenter = static_cast<int>(OldX + 15.0f);
 	const int NewCenter = static_cast<int>(NewX + 15.0f);
-	if ((OldCenter >> 5) == (NewCenter >> 5)) return false;
-	Slope2x1 Slope;
-	if (!TryFind2x1(Map, Catalog, NewCenter, static_cast<int>(Y + 31.0f), Slope)) return false;
-	const bool EntersHighSide = (Slope.UpRight && !MovingRight && NewCenter >= (Slope.LeftColumn + 1) * 32) ||
-		(!Slope.UpRight && MovingRight && NewCenter < (Slope.LeftColumn + 1) * 32);
-	if (!EntersHighSide) return false;
-	const int Boundary = Slope.UpRight ? (Slope.LeftColumn + 2) * 32 : Slope.LeftColumn * 32;
-	// 右上がりと左上がりの高い端が接続された山頂は、外壁ではなく連続面。
-	Slope2x1 Neighbor;
-	const int NeighborX = Slope.UpRight ? Boundary : Boundary - 1;
-	if (TryFind2x1(Map, Catalog, NeighborX, Slope.Row * 32 + 16, Neighbor) &&
-		Neighbor.UpRight != Slope.UpRight) {
-		const int NeighborHighBoundary = Neighbor.UpRight
-			? (Neighbor.LeftColumn + 2) * 32 : Neighbor.LeftColumn * 32;
-		if (NeighborHighBoundary == Boundary) return false;
+	const bool CrossedColumn = (OldCenter >> 5) != (NewCenter >> 5);
+	if (Grounded && !CrossedColumn) return false;
+	const int ProbeYs[] = {static_cast<int>(Y), static_cast<int>(Y + 31.0f)};
+	for (int ProbeY : ProbeYs) {
+		Slope2x1 Slope;
+		if (!TryFind2x1(Map, Catalog, NewCenter, ProbeY, Slope)) continue;
+		const bool EntersHighSide =
+			(Slope.UpRight && !MovingRight && NewCenter >= (Slope.LeftColumn + 1) * 32) ||
+			(!Slope.UpRight && MovingRight && NewCenter < (Slope.LeftColumn + 1) * 32);
+		if (!EntersHighSide) continue;
+		const int Boundary = Slope.UpRight ? (Slope.LeftColumn + 2) * 32 : Slope.LeftColumn * 32;
+		// 右上がりと左上がりの高い端が接続された山頂は、外壁ではなく連続面。
+		Slope2x1 Neighbor;
+		const int NeighborX = Slope.UpRight ? Boundary : Boundary - 1;
+		if (TryFind2x1(Map, Catalog, NeighborX, Slope.Row * 32 + 16, Neighbor) &&
+			Neighbor.UpRight != Slope.UpRight) {
+			const int NeighborHighBoundary = Neighbor.UpRight
+				? (Neighbor.LeftColumn + 2) * 32 : Neighbor.LeftColumn * 32;
+			if (NeighborHighBoundary == Boundary) continue;
+		}
+		const float SurfaceCharacterY = SurfaceY(Slope, static_cast<float>(NewCenter)) - 32.0f;
+		if (Grounded && Y <= SurfaceCharacterY) continue;
+		NewX = MovingRight ? static_cast<float>(Boundary - 16) : static_cast<float>(Boundary - 15);
+		return true;
 	}
-	const float SurfaceCharacterY = SurfaceY(Slope, static_cast<float>(NewCenter)) - 32.0f;
-	if (Grounded && Y <= SurfaceCharacterY) return false;
-	NewX = MovingRight ? static_cast<float>(Boundary - 16) : static_cast<float>(Boundary - 15);
-	return true;
+	return false;
 }
 
 bool ExtendedSlopeTerrain::ResolveFalling(
