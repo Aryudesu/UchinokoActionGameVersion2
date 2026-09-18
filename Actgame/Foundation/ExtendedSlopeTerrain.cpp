@@ -58,17 +58,32 @@ bool ExtendedSlopeTerrain::TryCharacterY(
 
 bool ExtendedSlopeTerrain::FollowHorizontal(
 	const TileMap& Map, const TileCatalog& Catalog, float OldX, float NewX,
-	float OldY, float& NewY, bool WasGrounded) {
+	float OldY, float& NewY, bool WasGrounded, bool& Grounded) {
 	if (!WasGrounded) return false;
 	Slope2x1 OldSlope;
 	float IgnoredY = 0.0f;
 	if (!TryCharacterY(Map, Catalog, OldX + 15.0f, OldY + 31.0f, IgnoredY, &OldSlope)) return false;
 	Slope2x1 NewSlope;
 	float CandidateY = 0.0f;
-	if (!TryCharacterY(Map, Catalog, NewX + 15.0f, OldY + 31.0f, CandidateY, &NewSlope)) return false;
-	const float MaxRiseOrDrop = std::fabs(NewX - OldX) * 0.5f + 0.51f;
-	if (std::fabs(CandidateY - OldY) > MaxRiseOrDrop) return false;
-	NewY = CandidateY;
+	if (TryCharacterY(Map, Catalog, NewX + 15.0f, OldY + 31.0f, CandidateY, &NewSlope)) {
+		const float MaxRiseOrDrop = std::fabs(NewX - OldX) * 0.5f + 0.51f;
+		if (std::fabs(CandidateY - OldY) > MaxRiseOrDrop) return false;
+		NewY = CandidateY;
+		Grounded = true;
+		return true;
+	}
+
+	const float NewCenter = NewX + 15.0f;
+	const float Left = OldSlope.LeftColumn * 32.0f;
+	const float Right = Left + 64.0f;
+	if (NewCenter >= Left && NewCenter < Right) return false;
+	const bool MovingRight = NewX > OldX;
+	const bool LeavesHigh = (OldSlope.UpRight && MovingRight) ||
+		(!OldSlope.UpRight && !MovingRight);
+	NewY = LeavesHigh ? OldSlope.Row * 32.0f - 32.0f : OldSlope.Row * 32.0f;
+	const int Column = static_cast<int>(std::floor(NewCenter / 32.0f));
+	const int FloorRow = static_cast<int>(std::floor((NewY + 32.0f) / 32.0f));
+	Grounded = ShapeAt(Map, Catalog, Column, FloorRow) == CollisionShape::Solid;
 	return true;
 }
 
