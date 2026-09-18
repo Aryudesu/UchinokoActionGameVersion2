@@ -371,6 +371,28 @@ void TestCharacterCanJumpAcrossConnected2x1Peak() {
 	assert(Player.Body().Position.X > AfterJumpX);
 }
 
+void TestCharacterDescendsConnected2x1PeakWithoutFloorWarp() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 4, 5, 6, 7, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {78.0f, 1.5f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	float PreviousY = Player.Body().Position.Y;
+	for (int Frame = 0; Frame < 12; ++Frame) {
+		Player.Step(1.0f, false, Map, Catalog);
+		assert(Player.Body().Grounded);
+		// 右側の下り坂を1フレームで追従し、下段床へ瞬間移動しない。
+		assert(Player.Body().Position.Y - PreviousY <= 2.0f);
+		assert(Player.Body().Position.Y < 20.0f);
+		PreviousY = Player.Body().Position.Y;
+	}
+}
+
 void TestCharacterMovement() {
 	TileMap FlatMap = MakeMap({{0, 0, 0}, {1, 1, 1}, {0, 0, 0}});
 	TileCatalog Catalog = MakeTerrainCatalog();
@@ -898,6 +920,7 @@ int main() {
 	TestExtended2x1SlopeIsOneContinuousSurface();
 	TestExtended2x1SlopeHighSideAndLanding();
 	TestCharacterCanJumpAcrossConnected2x1Peak();
+	TestCharacterDescendsConnected2x1PeakWithoutFloorWarp();
 	TestCharacterMovement();
 	TestCharacterRecomputesGroundFromMasaoProbes();
 	TestCharacterUsesGetSakamichiYCoordinates();
