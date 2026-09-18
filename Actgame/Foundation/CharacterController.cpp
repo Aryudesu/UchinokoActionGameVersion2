@@ -100,6 +100,15 @@ void CharacterController::RefreshGround(
 	const float FootY = Body_.Position.Y + BottomY;
 	Body_.Grounded = IsSolidAt(Map, Catalog, X, Body_.Position.Y + BelowY);
 
+	// 2x1坂の高い端では足元(y+31)がタイルの1px上へ出る。
+	// 論理坂面が現在位置に連続している場合は、接地を失わせない。
+	float ExtendedY = 0.0f;
+	if (ExtendedSlopeTerrain::TryCharacterY(Map, Catalog, X, FootY, ExtendedY) &&
+		std::fabs(ExtendedY - Body_.Position.Y) <= 1.0f) {
+		Body_.Position.Y = ExtendedY;
+		if (Body_.Velocity.Y >= 0.0f) Body_.Grounded = true;
+	}
+
 	float SlopeY = 0.0f;
 	if (TrySlopeCharacterY(Map, Catalog, X, FootY, SlopeY) &&
 		SlopeY <= Body_.Position.Y) {
