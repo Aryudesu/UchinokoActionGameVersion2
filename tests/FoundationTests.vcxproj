@@ -36,6 +36,7 @@
     <ClCompile Include="FoundationTests.cpp" />
     <ClCompile Include="..\Actgame\Foundation\AssetPaths.cpp" />
     <ClCompile Include="..\Actgame\Foundation\CharacterController.cpp" />
+    <ClCompile Include="..\Actgame\Foundation\CanvasMasaoTerrain.cpp" />
     <ClCompile Include="..\Actgame\Foundation\GridDataLoader.cpp" />
     <ClCompile Include="..\Actgame\Foundation\LayeredMap.cpp" />
     <ClCompile Include="..\Actgame\Foundation\StageDefinition.cpp" />
