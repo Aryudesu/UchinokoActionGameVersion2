@@ -142,6 +142,10 @@ void CharacterController::ResolveHorizontalWall(
 		const CollisionShape Shape = ShapeAt(Map, Catalog, NewCenterX, ProbeY);
 		if (Shape == CollisionShape::Solid || IsMasaoSlope(Shape)) continue;
 		if (!IsSlope(Shape) || IsMasaoSlope(Shape)) continue;
+		ExtendedSlopeTerrain::Slope2x1 LogicalSlope;
+		if (ExtendedSlopeTerrain::TryFind2x1(
+			Map, Catalog, static_cast<int>(NewCenterX), static_cast<int>(ProbeY),
+			LogicalSlope)) continue;
 		float SurfaceY = 0.0f;
 		const bool HasSurface = TerrainCollision::TryGetSurfaceY(
 			Shape, {NewColumn, TileAt(ProbeY, Map.TileHeight())}, NewCenterX,
