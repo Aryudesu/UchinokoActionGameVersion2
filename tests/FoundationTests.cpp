@@ -290,12 +290,67 @@ void TestCharacterMovement() {
 void AssertCharacterCenterOnGround(
 	const CharacterController& Player, const TileMap& Map, const TileCatalog& Catalog) {
 	if (!Player.Body().Grounded) return;
-	const float Bottom = Player.Body().Position.Y + Player.Body().Height;
 	const float CenterX = Player.Body().Position.X + 15.0f;
 	GroundHit Hit;
 	assert(TerrainCollision::FindGround(
-		Map, Catalog, {CenterX, Bottom}, Player.Body().Height, Player.Body().Height, Hit));
-	assert(NearlyEqual(Bottom, Hit.SurfaceY));
+		Map, Catalog, {CenterX, Player.Body().Position.Y + 31.0f},
+		Player.Body().Height, Player.Body().Height, Hit));
+	float ExpectedY = Hit.SurfaceY - 32.0f;
+	const float LocalX = CenterX - Hit.Tile.Column * Map.TileWidth();
+	if (Hit.Shape == CollisionShape::SlopeUpRight) {
+		ExpectedY = Hit.Tile.Row * Map.TileHeight() - std::floor(LocalX);
+	} else if (Hit.Shape == CollisionShape::SlopeUpLeft) {
+		ExpectedY = Hit.Tile.Row * Map.TileHeight() + std::floor(LocalX) - 31.0f;
+	}
+	assert(NearlyEqual(Player.Body().Position.Y, ExpectedY));
+}
+
+void TestCharacterRecomputesGroundFromMasaoProbes() {
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{1, 1, 1},
+		{0, 0, 0}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	Body.Position = {4.0f, 0.0f};
+	// 呼び出し側の値が誤っていても、x+15, y+32 から接地を再構築する。
+	Body.Grounded = false;
+	CharacterController OnFloor(Body);
+	OnFloor.Step(0.0f, false, Map, Catalog);
+	assert(OnFloor.Body().Grounded);
+	assert(NearlyEqual(OnFloor.Body().Position.Y, 0.0f));
+
+	Body.Position = {4.0f, -48.0f};
+	Body.Velocity = {0.0f, 0.0f};
+	Body.Grounded = true;
+	CharacterController InAir(Body);
+	InAir.Step(0.0f, false, Map, Catalog);
+	assert(!InAir.Body().Grounded);
+	assert(InAir.Body().Position.Y > -48.0f);
+}
+
+void TestCharacterUsesGetSakamichiYCoordinates() {
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 2, 3},
+		{1, 1, 1}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	Body.Position = {33.0f, 32.0f}; // 中央X=48、右上がり坂の localX=16
+	Body.Grounded = false;
+	CharacterController UpRight(Body);
+	UpRight.Step(0.0f, false, Map, Catalog);
+	assert(UpRight.Body().Grounded);
+	assert(NearlyEqual(UpRight.Body().Position.Y, 16.0f));
+
+	Body.Position = {65.0f, 32.0f}; // 中央X=80、左上がり坂の localX=16
+	Body.Velocity = {0.0f, 0.0f};
+	CharacterController UpLeft(Body);
+	UpLeft.Step(0.0f, false, Map, Catalog);
+	assert(UpLeft.Body().Grounded);
+	assert(NearlyEqual(UpLeft.Body().Position.Y, 17.0f));
 }
 
 void TestCharacterSlopeFollow() {
@@ -430,7 +485,7 @@ void TestCharacterHitsSlopeFromBelow() {
 	assert(MinimumY >= 32.0f);
 }
 
-void TestCharacterCeilingSeamUsesSideProbes() {
+void TestCharacterCeilingSeamUsesDirectionalProbe() {
 	TileMap Map = MakeMap({
 		{1, 0, 0},
 		{0, 0, 0},
@@ -438,15 +493,16 @@ void TestCharacterCeilingSeamUsesSideProbes() {
 	});
 	TileCatalog Catalog = MakeTerrainCatalog();
 	CharacterBody Body;
-	// 頭上中央X=32はタイル境界。中央だけなら右の空タイルを参照するが、
-	// 左1pxの補助点が左の天井ブロックを検出する。
+	// 頭上中央X=32はタイル境界。正男では左入力中だけ x+14 を補助確認する。
 	Body.Position = {17.0f, 32.0f};
 	Body.Grounded = true;
-	CharacterController Player(Body);
+	CharacterMotion Motion;
+	Motion.MoveSpeed = 0.0f;
+	CharacterController Player(Body, Motion);
 	float MinimumY = Body.Position.Y;
-	Player.Step(0.0f, true, Map, Catalog);
+	Player.Step(-1.0f, true, Map, Catalog);
 	for (int Frame = 0; Frame < 10; ++Frame) {
-		Player.Step(0.0f, false, Map, Catalog);
+		Player.Step(-1.0f, false, Map, Catalog);
 		MinimumY = std::min(MinimumY, Player.Body().Position.Y);
 	}
 	assert(MinimumY >= 32.0f);
@@ -469,7 +525,7 @@ void TestCharacterCanJumpWhileTouchingSlopeTip() {
 	assert(Player.Body().Velocity.Y < 0.0f);
 
 	// 坂タイルの外側なら通常どおりジャンプできる。
-	Body.Position = {17.0f, 32.0f};
+	Body.Position = {16.0f, 32.0f};
 	Body.Velocity = {0.0f, 0.0f};
 	Body.Grounded = true;
 	CharacterController OutsidePlayer(Body);
@@ -487,7 +543,7 @@ void TestCharacterLandingAcrossSlope() {
 	TileCatalog Catalog = MakeTerrainCatalog();
 	CharacterBody Body;
 	// 足元中央が坂面の上から下降して横切る、通常の着地経路を再現する。
-	Body.Position = {97.0f, 14.0f};
+	Body.Position = {97.0f, 16.0f};
 	Body.Velocity.Y = 2.0f;
 	Body.Grounded = false;
 	CharacterMotion Motion;
@@ -496,8 +552,8 @@ void TestCharacterLandingAcrossSlope() {
 	CharacterController Player(Body, Motion);
 	Player.Step(0.0f, false, Map, Catalog);
 	assert(Player.Body().Grounded);
-	// 正男の足元中央 X=x+15=112 の坂面 (Y=48) で止まる。
-	assert(NearlyEqual(Player.Body().Position.Y + Player.Body().Height, 48.0f));
+	// getSakamichiY の式により、x+15=112 ではキャラクターY=17で止まる。
+	assert(NearlyEqual(Player.Body().Position.Y, 17.0f));
 }
 
 void TestCharacterFollowsStairs() {
@@ -557,7 +613,7 @@ void TestCharacterCannotEnterSlopeHighSide() {
 		{0, 3, 0},
 		{1, 1, 1}
 	});
-	Body.Position = {17.0f, 32.0f};
+	Body.Position = {16.0f, 32.0f};
 	Body.Velocity = {0.0f, 0.0f};
 	CharacterController LeftHighSide(Body);
 	LeftHighSide.Step(1.0f, false, UpLeftMap, Catalog);
@@ -646,16 +702,14 @@ void TestCharacterStopsAtOverlappingSlopeSide() {
 	});
 	TileCatalog Catalog = MakeTerrainCatalog();
 	CharacterBody Body;
-	// 坂の下にある床へ着地した直後を再現する。同じ列の上方には坂面も存在する。
+	// 坂三角形の内部にいる状態を再現する。正男はフレーム冒頭で坂面へ補正する。
 	Body.Position = {45.0f, 32.0f};
 	Body.Grounded = true;
 	CharacterController Player(Body);
 	Player.Step(-1.0f, false, Map, Catalog);
 	assert(Player.Body().Grounded);
-	// 正男方式では、足元が坂面へ深く入り込む横移動を坂上への接地補正に変換せず、
-	// 坂タイルの右側面へ押し戻す。
-	assert(NearlyEqual(Player.Body().Position.X, 49.0f));
-	assert(NearlyEqual(Player.Body().Position.Y + Player.Body().Height, 64.0f));
+	assert(Player.Body().Position.X < 45.0f);
+	assert(Player.Body().Position.Y < 32.0f);
 }
 
 void TestCharacterMovesPastSlopeSideAfterJumpingAboveIt() {
@@ -733,6 +787,8 @@ int main() {
 	TestSlopeGroundSnap();
 	TestLayeredMap();
 	TestCharacterMovement();
+	TestCharacterRecomputesGroundFromMasaoProbes();
+	TestCharacterUsesGetSakamichiYCoordinates();
 	TestCharacterSlopeFollow();
 	TestCharacterWall();
 	TestCharacterSideUsesTopAndBottomProbes();
@@ -740,7 +796,7 @@ int main() {
 	TestCharacterCeiling();
 	TestCharacterCeilingUsesCenterPoint();
 	TestCharacterHitsSlopeFromBelow();
-	TestCharacterCeilingSeamUsesSideProbes();
+	TestCharacterCeilingSeamUsesDirectionalProbe();
 	TestCharacterCanJumpWhileTouchingSlopeTip();
 	TestCharacterLandingAcrossSlope();
 	TestCharacterFollowsStairs();
