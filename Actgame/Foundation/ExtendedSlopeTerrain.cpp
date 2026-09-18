@@ -37,9 +37,12 @@ bool ExtendedSlopeTerrain::TryFind2x1(
 }
 
 float ExtendedSlopeTerrain::SurfaceY(const Slope2x1& Slope, float WorldX) {
-	const float LocalX = std::max(0.0f, std::min(64.0f, WorldX - Slope.LeftColumn * 32.0f));
-	const float Top = Slope.Row * 32.0f;
-	return Slope.UpRight ? Top + 32.0f - LocalX * 0.5f : Top + LocalX * 0.5f;
+	const int LocalX = std::max(0, std::min(63,
+		static_cast<int>(WorldX) - Slope.LeftColumn * 32));
+	// 64px幅を仮想32px幅へ正規化し、CanvasMasaoの整数坂座標へ渡す。
+	const int VirtualX = LocalX >> 1;
+	const int Top = Slope.Row * 32;
+	return static_cast<float>(Slope.UpRight ? Top + 32 - VirtualX : Top + VirtualX);
 }
 
 bool ExtendedSlopeTerrain::TryCharacterY(
@@ -92,17 +95,21 @@ bool ExtendedSlopeTerrain::ResolveHighSide(
 	float Y, bool MovingRight, bool Grounded) {
 	const int OldCenter = static_cast<int>(OldX + 15.0f);
 	const int NewCenter = static_cast<int>(NewX + 15.0f);
-	const bool CrossedColumn = (OldCenter >> 5) != (NewCenter >> 5);
-	if (Grounded && !CrossedColumn) return false;
+	(void)Grounded;
 	const int ProbeYs[] = {static_cast<int>(Y), static_cast<int>(Y + 31.0f)};
 	for (int ProbeY : ProbeYs) {
 		Slope2x1 Slope;
 		if (!TryFind2x1(Map, Catalog, NewCenter, ProbeY, Slope)) continue;
-		const bool EntersHighSide =
-			(Slope.UpRight && !MovingRight && NewCenter >= (Slope.LeftColumn + 1) * 32) ||
-			(!Slope.UpRight && MovingRight && NewCenter < (Slope.LeftColumn + 1) * 32);
-		if (!EntersHighSide) continue;
 		const int Boundary = Slope.UpRight ? (Slope.LeftColumn + 2) * 32 : Slope.LeftColumn * 32;
+		// CanvasMasaoと同様、外側から高い端の境界を越えた瞬間だけ側壁とする。
+		// 坂の内部にいるキャラクターのジャンプや下り移動には適用しない。
+		const bool CrossedHighBoundary = Slope.UpRight
+			? (!MovingRight && OldCenter >= Boundary && NewCenter < Boundary)
+			: (MovingRight && OldCenter < Boundary && NewCenter >= Boundary);
+		if (!CrossedHighBoundary) continue;
+		// 高い端と同じ行の通常ブロックは、CanvasMasaoと同じく連続床として扱う。
+		const int OutsideColumn = Slope.UpRight ? Boundary / 32 : Boundary / 32 - 1;
+		if (ShapeAt(Map, Catalog, OutsideColumn, Slope.Row) == CollisionShape::Solid) continue;
 		// 右上がりと左上がりの高い端が接続された山頂は、外壁ではなく連続面。
 		Slope2x1 Neighbor;
 		const int NeighborX = Slope.UpRight ? Boundary : Boundary - 1;
@@ -112,10 +119,6 @@ bool ExtendedSlopeTerrain::ResolveHighSide(
 				? (Neighbor.LeftColumn + 2) * 32 : Neighbor.LeftColumn * 32;
 			if (NeighborHighBoundary == Boundary) continue;
 		}
-		const float SurfaceCharacterY = SurfaceY(Slope, static_cast<float>(NewCenter)) - 32.0f;
-		// 接地フラグにかかわらず、坂面上またはその上空にいるキャラクターは通す。
-		// 側面として止めるのは、坂面より下から実体へ入った場合だけ。
-		if (Y <= SurfaceCharacterY) continue;
 		NewX = MovingRight ? static_cast<float>(Boundary - 16) : static_cast<float>(Boundary - 15);
 		return true;
 	}
