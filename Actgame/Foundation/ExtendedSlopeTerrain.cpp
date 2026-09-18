@@ -113,7 +113,9 @@ bool ExtendedSlopeTerrain::ResolveHighSide(
 			if (NeighborHighBoundary == Boundary) continue;
 		}
 		const float SurfaceCharacterY = SurfaceY(Slope, static_cast<float>(NewCenter)) - 32.0f;
-		if (Grounded && Y <= SurfaceCharacterY) continue;
+		// 接地フラグにかかわらず、坂面上またはその上空にいるキャラクターは通す。
+		// 側面として止めるのは、坂面より下から実体へ入った場合だけ。
+		if (Y <= SurfaceCharacterY) continue;
 		NewX = MovingRight ? static_cast<float>(Boundary - 16) : static_cast<float>(Boundary - 15);
 		return true;
 	}
