@@ -32,18 +32,27 @@ public:
 	CharacterBody& Body() { return Body_; }
 
 private:
-	bool IsSideBlocked(const TileMap& Map, const TileCatalog& Catalog,
-		int Column, int Row, bool TargetLeftSide, float ProbeY) const;
-	bool IsBlockedAtCenterSide(const TileMap& Map, const TileCatalog& Catalog,
-		int Column, bool TargetLeftSide) const;
-	bool IsCeilingTile(const TileMap& Map, const TileCatalog& Catalog,
-		int Column, int Row, bool IncludeSlopes) const;
+	CollisionShape ShapeAt(const TileMap& Map, const TileCatalog& Catalog,
+		float X, float Y) const;
+	bool IsSolidAt(const TileMap& Map, const TileCatalog& Catalog,
+		float X, float Y) const;
+	float SlopeCharacterY(CollisionShape Shape, int Column, int Row,
+		float WorldX, const TileMap& Map) const;
+	bool TrySlopeCharacterY(const TileMap& Map, const TileCatalog& Catalog,
+		float WorldX, float ProbeY, float& CharacterY,
+		CollisionShape* FoundShape = nullptr) const;
+	void RefreshGround(const TileMap& Map, const TileCatalog& Catalog);
+	void ResolveHorizontalWall(float OldCenterX, bool MovingRight,
+		const TileMap& Map, const TileCatalog& Catalog);
+	void FollowMasaoSlopeAfterHorizontal(float OldX, float OldY, bool WasGrounded,
+		const TileMap& Map, const TileCatalog& Catalog);
 	void MoveHorizontal(float Amount, const TileMap& Map, const TileCatalog& Catalog);
-	void MoveVertical(float Amount, const TileMap& Map, const TileCatalog& Catalog);
-	bool FindGroundAtCenter(float FootY, float MaxRise, float MaxDrop,
-		float MinimumSurfaceY, const TileMap& Map, const TileCatalog& Catalog, GroundHit& Hit) const;
-	bool FollowGround(float HorizontalAmount, const TileMap& Map, const TileCatalog& Catalog,
-		GroundHit* FollowedGround = nullptr);
+	void MoveUp(float Amount, float HorizontalInput,
+		const TileMap& Map, const TileCatalog& Catalog);
+	void MoveDown(float Amount, float HorizontalInput,
+		const TileMap& Map, const TileCatalog& Catalog);
+	void MoveVertical(float Amount, float HorizontalInput,
+		const TileMap& Map, const TileCatalog& Catalog);
 	CharacterBody Body_;
 	CharacterMotion Motion_;
 };
