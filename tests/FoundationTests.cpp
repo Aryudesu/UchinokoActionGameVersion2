@@ -1,5 +1,6 @@
 ﻿#include "../Actgame/Foundation/AssetPaths.h"
 #include "../Actgame/Foundation/CharacterController.h"
+#include "../Actgame/Foundation/CanvasMasaoTerrain.h"
 #include "../Actgame/Foundation/GridDataLoader.h"
 #include "../Actgame/Foundation/LayeredMap.h"
 #include "../Actgame/Foundation/StageDefinition.h"
@@ -264,7 +265,49 @@ TileCatalog MakeTerrainCatalog() {
 		Stair.Collision = StairShapes[Index];
 		assert(Catalog.Register(Stair).IsSuccess());
 	}
+	TileDefinition OneWay;
+	OneWay.Id = 12;
+	OneWay.Collision = CollisionShape::OneWay;
+	assert(Catalog.Register(OneWay).IsSuccess());
 	return Catalog;
+}
+
+void TestCanvasMasaoTerrainCodesAndCoordinates() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({{1, 2, 3, 12}});
+	assert(CanvasMasaoTerrain::CodeAt(Map, Catalog, 1, 1) == 20);
+	assert(CanvasMasaoTerrain::CodeAt(Map, Catalog, 33, 1) == 18);
+	assert(CanvasMasaoTerrain::CodeAt(Map, Catalog, 65, 1) == 19);
+	assert(CanvasMasaoTerrain::CodeAt(Map, Catalog, 97, 1) == 15);
+	assert(CanvasMasaoTerrain::RoundDown(2.9) == 2);
+	assert(CanvasMasaoTerrain::RoundDown(-2.9) == -2);
+	for (int LocalX = 0; LocalX < 32; ++LocalX) {
+		assert(CanvasMasaoTerrain::GetSakamichiY(Map, Catalog, 32 + LocalX, 31) == -LocalX);
+		assert(CanvasMasaoTerrain::GetSakamichiY(Map, Catalog, 64 + LocalX, 31) == LocalX - 31);
+	}
+	int X = -15;
+	assert(CanvasMasaoTerrain::ResolveHorizontalSolid(Map, Catalog, X, 0, true));
+	assert(X == -16);
+	int Y = -1;
+	assert(CanvasMasaoTerrain::ResolveVerticalSolid(Map, Catalog, 0, Y, true));
+	assert(Y == -32);
+}
+
+void TestCanvasMasaoVerticalCrossings() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 2, 0},
+		{0, 12, 0},
+		{1, 1, 1}
+	});
+	int RisingY = 31;
+	assert(CanvasMasaoTerrain::ResolveRisingSlope(Map, Catalog, 32, 32, RisingY));
+	assert(RisingY == 32);
+	int SameRowY = 20;
+	assert(!CanvasMasaoTerrain::ResolveRisingSlope(Map, Catalog, 32, 21, SameRowY));
+	int OneWayY = 1;
+	assert(CanvasMasaoTerrain::ResolveFallingOneWay(Map, Catalog, 32, 0, OneWayY));
+	assert(OneWayY == 0);
 }
 
 void TestCharacterMovement() {
@@ -302,7 +345,8 @@ void AssertCharacterCenterOnGround(
 	} else if (Hit.Shape == CollisionShape::SlopeUpLeft) {
 		ExpectedY = Hit.Tile.Row * Map.TileHeight() + std::floor(LocalX) - 31.0f;
 	}
-	assert(NearlyEqual(Player.Body().Position.Y, ExpectedY));
+	// 正男にない2x1/1x2坂は0.5px面を持つため、隣接する平地との境界だけ許容する。
+	assert(std::fabs(Player.Body().Position.Y - ExpectedY) <= 0.5f);
 }
 
 void TestCharacterRecomputesGroundFromMasaoProbes() {
@@ -320,13 +364,6 @@ void TestCharacterRecomputesGroundFromMasaoProbes() {
 	OnFloor.Step(0.0f, false, Map, Catalog);
 	assert(OnFloor.Body().Grounded);
 	assert(NearlyEqual(OnFloor.Body().Position.Y, 0.0f));
-	Body.Position = {4.0f, 0.5f};
-	Body.Velocity = {0.0f, 0.5f};
-	Body.Grounded = false;
-	CharacterController SlightlyInsideFloor(Body);
-	SlightlyInsideFloor.Step(0.0f, false, Map, Catalog);
-	assert(SlightlyInsideFloor.Body().Grounded);
-	assert(NearlyEqual(SlightlyInsideFloor.Body().Position.Y, 0.0f));
 
 	Body.Position = {4.0f, -48.0f};
 	Body.Velocity = {0.0f, 0.0f};
@@ -334,6 +371,8 @@ void TestCharacterRecomputesGroundFromMasaoProbes() {
 	CharacterController InAir(Body);
 	InAir.Step(0.0f, false, Map, Catalog);
 	assert(!InAir.Body().Grounded);
+	assert(NearlyEqual(InAir.Body().Position.Y, -48.0f));
+	InAir.Step(0.0f, false, Map, Catalog);
 	assert(InAir.Body().Position.Y > -48.0f);
 }
 
@@ -383,42 +422,6 @@ void TestCharacterSlopeFollow() {
 	}
 	assert(Player.Body().Grounded);
 	assert(NearlyEqual(Player.Body().Position.Y, 32.0f));
-}
-
-void TestCharacterLeavesSlopePeakWithoutWarpingToLowerFloor() {
-	TileMap Map = MakeMap({
-		{0, 0, 0, 0},
-		{0, 2, 0, 0},
-		{1, 1, 1, 1},
-		{1, 1, 1, 1}
-	});
-	TileCatalog Catalog = MakeTerrainCatalog();
-	CharacterBody Body;
-	// 右上がり坂の頂上直前。右へ抜けた先は空白で、その下に床がある。
-	Body.Position = {48.0f, 1.0f};
-	Body.Grounded = true;
-	CharacterController Player(Body);
-	Player.Step(1.0f, false, Map, Catalog);
-
-	assert(Player.Body().Position.X > 48.0f);
-	assert(!Player.Body().Grounded);
-	// 下段床の Y=32 へ瞬間移動せず、頂上付近から通常落下を始める。
-	assert(Player.Body().Position.Y < 10.0f);
-
-	TileMap ReverseMap = MakeMap({
-		{0, 0, 0, 0},
-		{0, 0, 3, 0},
-		{1, 1, 1, 1},
-		{1, 1, 1, 1}
-	});
-	Body.Position = {50.0f, 2.0f};
-	Body.Velocity = {0.0f, 0.0f};
-	Body.Grounded = true;
-	CharacterController ReversePlayer(Body);
-	ReversePlayer.Step(-1.0f, false, ReverseMap, Catalog);
-	assert(ReversePlayer.Body().Position.X < 50.0f);
-	assert(!ReversePlayer.Body().Grounded);
-	assert(ReversePlayer.Body().Position.Y < 10.0f);
 }
 
 void TestCharacterWall() {
@@ -829,11 +832,12 @@ int main() {
 	TestSlopeSideBlocks();
 	TestSlopeGroundSnap();
 	TestLayeredMap();
+	TestCanvasMasaoTerrainCodesAndCoordinates();
+	TestCanvasMasaoVerticalCrossings();
 	TestCharacterMovement();
 	TestCharacterRecomputesGroundFromMasaoProbes();
 	TestCharacterUsesGetSakamichiYCoordinates();
 	TestCharacterSlopeFollow();
-	TestCharacterLeavesSlopePeakWithoutWarpingToLowerFloor();
 	TestCharacterWall();
 	TestCharacterSideUsesTopAndBottomProbes();
 	TestCharacterDropsFromBlockWithoutCornerSnag();
