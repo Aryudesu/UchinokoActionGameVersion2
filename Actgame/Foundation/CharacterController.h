@@ -37,7 +37,7 @@ private:
 	bool IsSolidAt(const TileMap& Map, const TileCatalog& Catalog,
 		float X, float Y) const;
 	float SlopeCharacterY(CollisionShape Shape, int Column, int Row,
-		float WorldX, const TileMap& Map) const;
+		float WorldX, const TileMap& Map, const TileCatalog& Catalog) const;
 	bool TrySlopeCharacterY(const TileMap& Map, const TileCatalog& Catalog,
 		float WorldX, float ProbeY, float& CharacterY,
 		CollisionShape* FoundShape = nullptr) const;
@@ -55,6 +55,8 @@ private:
 		const TileMap& Map, const TileCatalog& Catalog);
 	CharacterBody Body_;
 	CharacterMotion Motion_;
+	int VelocityX10_ = 0;
+	int VelocityY10_ = 0;
 };
 
 } // namespace uchinoko
