@@ -1,6 +1,7 @@
 ﻿#include "CharacterController.h"
 
 #include "CanvasMasaoTerrain.h"
+#include "ExtendedSlopeTerrain.h"
 #include "TerrainCollision.h"
 
 #include <algorithm>
@@ -70,6 +71,15 @@ bool CharacterController::TrySlopeCharacterY(
 	const int Row = TileAt(ProbeY, Map.TileHeight());
 	const CollisionShape Shape = ShapeAt(Map, Catalog, WorldX, ProbeY);
 	if (!IsSlope(Shape)) return false;
+	if (Shape == CollisionShape::Stair2x1UpRightLow ||
+		Shape == CollisionShape::Stair2x1UpRightHigh ||
+		Shape == CollisionShape::Stair2x1UpLeftHigh ||
+		Shape == CollisionShape::Stair2x1UpLeftLow) {
+		if (!ExtendedSlopeTerrain::TryCharacterY(
+			Map, Catalog, WorldX, ProbeY, CharacterY)) return false;
+		if (FoundShape != nullptr) *FoundShape = Shape;
+		return true;
+	}
 	if (!IsMasaoSlope(Shape)) {
 		float SurfaceY = 0.0f;
 		if (!TerrainCollision::TryGetSurfaceY(
@@ -104,6 +114,15 @@ void CharacterController::ResolveHorizontalWall(
 	float OldCenterX, bool MovingRight,
 	const TileMap& Map, const TileCatalog& Catalog) {
 	int X = static_cast<int>(Body_.Position.X);
+	float ExtendedX = Body_.Position.X;
+	if (ExtendedSlopeTerrain::ResolveHighSide(
+		Map, Catalog, OldCenterX - CenterX, ExtendedX, Body_.Position.Y,
+		MovingRight, Body_.Grounded)) {
+		Body_.Position.X = ExtendedX;
+		Body_.Velocity.X = 0.0f;
+		VelocityX10_ = 0;
+		return;
+	}
 	if (CanvasMasaoTerrain::ResolveHorizontalSolid(
 		Map, Catalog, X, static_cast<int>(Body_.Position.Y), MovingRight) ||
 		CanvasMasaoTerrain::ResolveHorizontalSlopeSide(
@@ -153,6 +172,15 @@ void CharacterController::ResolveHorizontalWall(
 void CharacterController::FollowMasaoSlopeAfterHorizontal(
 	float OldX, float OldY, bool WasGrounded,
 	const TileMap& Map, const TileCatalog& Catalog) {
+	float ExtendedY = Body_.Position.Y;
+	if (ExtendedSlopeTerrain::FollowHorizontal(
+		Map, Catalog, OldX, Body_.Position.X, OldY, ExtendedY, WasGrounded)) {
+		Body_.Position.Y = ExtendedY;
+		Body_.Grounded = true;
+		Body_.Velocity.Y = 0.0f;
+		VelocityY10_ = 0;
+		return;
+	}
 	int Y = static_cast<int>(Body_.Position.Y);
 	bool Grounded = WasGrounded;
 	if (CanvasMasaoTerrain::FollowHorizontalSlope(
@@ -294,6 +322,15 @@ void CharacterController::MoveDown(
 	int X = static_cast<int>(Body_.Position.X);
 	int NewY = static_cast<int>(Body_.Position.Y);
 	const int Direction = HorizontalInput > 0.0f ? 1 : HorizontalInput < 0.0f ? -1 : 0;
+	float ExtendedY = Body_.Position.Y;
+	if (ExtendedSlopeTerrain::ResolveFalling(
+		Map, Catalog, Body_.Position.X, static_cast<float>(OldY), ExtendedY)) {
+		Body_.Position.Y = ExtendedY;
+		Body_.Velocity.Y = 0.0f;
+		VelocityY10_ = 0;
+		Body_.Grounded = true;
+		return;
+	}
 	if (CanvasMasaoTerrain::ResolveVerticalSolid(Map, Catalog, X, NewY, true) ||
 		CanvasMasaoTerrain::ResolveFallingSlope(Map, Catalog, X, OldY, NewY) ||
 		CanvasMasaoTerrain::ResolveFallingOneWay(Map, Catalog, X, OldY, NewY) ||
