@@ -416,6 +416,30 @@ void TestCharacterLeaves2x1HighEdgeWithoutWarpingToLowerFloor() {
 	assert(Player.Body().Position.Y < 5.0f);
 }
 
+void TestRisingCharacterCannotPass2x1HighSideInsideColumn() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 坂より低い位置で右側から列へ入り、その後同じ列内で上昇して頭が側面へ重なる。
+	Body.Position = {84.0f, 64.0f};
+	Body.Velocity.Y = -10.0f;
+	Body.Grounded = false;
+	CharacterMotion Motion;
+	Motion.Gravity = 0.0f;
+	CharacterController Player(Body, Motion);
+	Player.Step(-1.0f, false, Map, Catalog);
+	assert(Player.Body().Position.X < 84.0f);
+	Player.Step(-1.0f, false, Map, Catalog);
+	assert(NearlyEqual(Player.Body().Position.X, 81.0f));
+	assert(NearlyEqual(Player.Body().Velocity.X, 0.0f));
+}
+
 void TestCharacterMovement() {
 	TileMap FlatMap = MakeMap({{0, 0, 0}, {1, 1, 1}, {0, 0, 0}});
 	TileCatalog Catalog = MakeTerrainCatalog();
@@ -945,6 +969,7 @@ int main() {
 	TestCharacterCanJumpAcrossConnected2x1Peak();
 	TestCharacterDescendsConnected2x1PeakWithoutFloorWarp();
 	TestCharacterLeaves2x1HighEdgeWithoutWarpingToLowerFloor();
+	TestRisingCharacterCannotPass2x1HighSideInsideColumn();
 	TestCharacterMovement();
 	TestCharacterRecomputesGroundFromMasaoProbes();
 	TestCharacterUsesGetSakamichiYCoordinates();
