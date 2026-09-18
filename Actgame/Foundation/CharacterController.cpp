@@ -88,7 +88,12 @@ void CharacterController::RefreshGround(
 	const TileMap& Map, const TileCatalog& Catalog) {
 	const float X = Body_.Position.X + CenterX;
 	const float FootY = Body_.Position.Y + BottomY;
-	Body_.Grounded = IsSolidAt(Map, Catalog, X, Body_.Position.Y + BelowY);
+	const float DirectlyBelowY = Body_.Position.Y + BelowY;
+	Body_.Grounded = IsSolidAt(Map, Catalog, X, DirectlyBelowY);
+	if (Body_.Grounded) {
+		const int GroundRow = TileAt(DirectlyBelowY, Map.TileHeight());
+		Body_.Position.Y = static_cast<float>(GroundRow * Map.TileHeight()) - BelowY;
+	}
 
 	float SlopeY = 0.0f;
 	if (TrySlopeCharacterY(Map, Catalog, X, FootY, SlopeY) &&
@@ -209,8 +214,13 @@ void CharacterController::FollowMasaoSlopeAfterHorizontal(
 		return;
 	}
 
-	// 坂を出たフレームは、正男と同じく直下のタイル行だけを見る。
-	if (IsSlope(OldFootShape)) {
+	// 低い端から坂を出た場合だけ、一段下の平地へ接続する。
+	// 高い端から空白へ抜ける場合にこれを行うと、下の床までワープしてしまう。
+	const bool MovingRight = Body_.Position.X > OldX;
+	const bool LeavesLowSide =
+		(OldFootShape == CollisionShape::SlopeUpRight && !MovingRight) ||
+		(OldFootShape == CollisionShape::SlopeUpLeft && MovingRight);
+	if (LeavesLowSide) {
 		const int BelowRow = TileAt(OldY + BottomY, Map.TileHeight()) + 1;
 		const float BelowProbeY = static_cast<float>(BelowRow * Map.TileHeight());
 		if (IsSolidAt(Map, Catalog, NewCenterX, BelowProbeY)) {
@@ -219,6 +229,7 @@ void CharacterController::FollowMasaoSlopeAfterHorizontal(
 			Body_.Velocity.Y = 0.0f;
 		}
 	}
+	if (IsSlope(OldFootShape) && !LeavesLowSide) Body_.Grounded = false;
 }
 
 void CharacterController::MoveHorizontal(
