@@ -351,6 +351,26 @@ void TestExtended2x1SlopeHighSideAndLanding() {
 	assert(NearlyEqual(FallingY, 18.0f));
 }
 
+void TestCharacterCanJumpAcrossConnected2x1Peak() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 4, 5, 6, 7, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// x+15=93。右上がり坂の頂上直前から、接続された左上がり坂へ飛び越す。
+	Body.Position = {78.0f, 1.5f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	Player.Step(1.0f, true, Map, Catalog);
+	assert(Player.Body().Position.X > 78.0f);
+	assert(Player.Body().Position.Y < 0.0f);
+	const float AfterJumpX = Player.Body().Position.X;
+	Player.Step(1.0f, false, Map, Catalog);
+	assert(Player.Body().Position.X > AfterJumpX);
+}
+
 void TestCharacterMovement() {
 	TileMap FlatMap = MakeMap({{0, 0, 0}, {1, 1, 1}, {0, 0, 0}});
 	TileCatalog Catalog = MakeTerrainCatalog();
@@ -877,6 +897,7 @@ int main() {
 	TestCanvasMasaoVerticalCrossings();
 	TestExtended2x1SlopeIsOneContinuousSurface();
 	TestExtended2x1SlopeHighSideAndLanding();
+	TestCharacterCanJumpAcrossConnected2x1Peak();
 	TestCharacterMovement();
 	TestCharacterRecomputesGroundFromMasaoProbes();
 	TestCharacterUsesGetSakamichiYCoordinates();
