@@ -1,6 +1,7 @@
 ﻿#include "../Actgame/Foundation/AssetPaths.h"
 #include "../Actgame/Foundation/CharacterController.h"
 #include "../Actgame/Foundation/CanvasMasaoTerrain.h"
+#include "../Actgame/Foundation/ExtendedSlopeTerrain.h"
 #include "../Actgame/Foundation/GridDataLoader.h"
 #include "../Actgame/Foundation/LayeredMap.h"
 #include "../Actgame/Foundation/StageDefinition.h"
@@ -308,6 +309,46 @@ void TestCanvasMasaoVerticalCrossings() {
 	int OneWayY = 1;
 	assert(CanvasMasaoTerrain::ResolveFallingOneWay(Map, Catalog, 32, 0, OneWayY));
 	assert(OneWayY == 0);
+}
+
+void TestExtended2x1SlopeIsOneContinuousSurface() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap UpRight = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{1, 1, 1, 1}
+	});
+	ExtendedSlopeTerrain::Slope2x1 Slope;
+	assert(ExtendedSlopeTerrain::TryFind2x1(UpRight, Catalog, 40, 40, Slope));
+	assert(Slope.LeftColumn == 1 && Slope.Row == 1 && Slope.UpRight);
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 32.0f), 64.0f));
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 64.0f), 48.0f));
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 96.0f), 32.0f));
+	float LeftY = 0.0f;
+	float RightY = 0.0f;
+	assert(ExtendedSlopeTerrain::TryCharacterY(UpRight, Catalog, 63.999f, 48.0f, LeftY));
+	assert(ExtendedSlopeTerrain::TryCharacterY(UpRight, Catalog, 64.001f, 48.0f, RightY));
+	assert(std::fabs(LeftY - RightY) < 0.01f);
+
+	// 片方だけ配置された不完全な坂は、64x32坂として認識しない。
+	TileMap Broken = MakeMap({{0, 0, 0}, {0, 4, 0}, {1, 1, 1}});
+	assert(!ExtendedSlopeTerrain::TryFind2x1(Broken, Catalog, 40, 40, Slope));
+}
+
+void TestExtended2x1SlopeHighSideAndLanding() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{1, 1, 1, 1}
+	});
+	float X = 78.0f;
+	assert(ExtendedSlopeTerrain::ResolveHighSide(
+		Map, Catalog, 85.0f, X, 32.0f, false, false));
+	assert(NearlyEqual(X, 81.0f));
+	float FallingY = 20.0f;
+	assert(ExtendedSlopeTerrain::ResolveFalling(Map, Catalog, 45.0f, 15.0f, FallingY));
+	assert(NearlyEqual(FallingY, 18.0f));
 }
 
 void TestCharacterMovement() {
@@ -834,6 +875,8 @@ int main() {
 	TestLayeredMap();
 	TestCanvasMasaoTerrainCodesAndCoordinates();
 	TestCanvasMasaoVerticalCrossings();
+	TestExtended2x1SlopeIsOneContinuousSurface();
+	TestExtended2x1SlopeHighSideAndLanding();
 	TestCharacterMovement();
 	TestCharacterRecomputesGroundFromMasaoProbes();
 	TestCharacterUsesGetSakamichiYCoordinates();
