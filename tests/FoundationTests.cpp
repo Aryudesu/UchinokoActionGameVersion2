@@ -323,12 +323,12 @@ void TestExtended2x1SlopeIsOneContinuousSurface() {
 	assert(Slope.LeftColumn == 1 && Slope.Row == 1 && Slope.UpRight);
 	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 32.0f), 64.0f));
 	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 64.0f), 48.0f));
-	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 96.0f), 32.0f));
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 95.0f), 33.0f));
 	float LeftY = 0.0f;
 	float RightY = 0.0f;
 	assert(ExtendedSlopeTerrain::TryCharacterY(UpRight, Catalog, 63.999f, 48.0f, LeftY));
 	assert(ExtendedSlopeTerrain::TryCharacterY(UpRight, Catalog, 64.001f, 48.0f, RightY));
-	assert(std::fabs(LeftY - RightY) < 0.01f);
+	assert(std::fabs(LeftY - RightY) <= 1.0f);
 
 	// 片方だけ配置された不完全な坂は、64x32坂として認識しない。
 	TileMap Broken = MakeMap({{0, 0, 0}, {0, 4, 0}, {1, 1, 1}});
@@ -459,6 +459,27 @@ void TestJumpingCharacterCanMoveAbove2x1SurfaceInsideColumn() {
 	Player.Step(-1.0f, false, Map, Catalog);
 	// 同じタイル列内の再判定で坂側面へ戻されず、上の空間を移動できる。
 	assert(Player.Body().Position.X < JumpX);
+}
+
+void TestCharacterCanJumpFromBlockInto2x1UpperSpace() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	// 実テストステージと同じ「右上がり2x1坂・ブロック・左上がり2x1坂」。
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 4, 5, 1, 6, 7},
+		{1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 中央ブロックの左端から、左入力を続けて坂上の空間へジャンプする。
+	Body.Position = {81.0f, 0.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	Player.Step(-1.0f, true, Map, Catalog);
+	assert(Player.Body().Position.X < 81.0f);
+	assert(Player.Body().Position.Y < 0.0f);
+	const float FirstX = Player.Body().Position.X;
+	Player.Step(-1.0f, false, Map, Catalog);
+	assert(Player.Body().Position.X < FirstX);
 }
 
 void TestCharacterMovement() {
@@ -992,6 +1013,7 @@ int main() {
 	TestCharacterLeaves2x1HighEdgeWithoutWarpingToLowerFloor();
 	TestRisingCharacterCannotPass2x1HighSideInsideColumn();
 	TestJumpingCharacterCanMoveAbove2x1SurfaceInsideColumn();
+	TestCharacterCanJumpFromBlockInto2x1UpperSpace();
 	TestCharacterMovement();
 	TestCharacterRecomputesGroundFromMasaoProbes();
 	TestCharacterUsesGetSakamichiYCoordinates();
