@@ -393,6 +393,29 @@ void TestCharacterDescendsConnected2x1PeakWithoutFloorWarp() {
 	}
 }
 
+void TestCharacterLeaves2x1HighEdgeWithoutWarpingToLowerFloor() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{1, 1, 1, 1},
+		{1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {78.0f, 1.5f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	Player.Step(1.0f, false, Map, Catalog);
+	assert(Player.Body().Position.X > 78.0f);
+	assert(!Player.Body().Grounded);
+	// 高い端のY=0付近から落下を開始し、下段床のY=32へ飛ばない。
+	assert(Player.Body().Position.Y < 5.0f);
+	const float PeakY = Player.Body().Position.Y;
+	Player.Step(1.0f, false, Map, Catalog);
+	assert(Player.Body().Position.Y >= PeakY);
+	assert(Player.Body().Position.Y < 5.0f);
+}
+
 void TestCharacterMovement() {
 	TileMap FlatMap = MakeMap({{0, 0, 0}, {1, 1, 1}, {0, 0, 0}});
 	TileCatalog Catalog = MakeTerrainCatalog();
@@ -921,6 +944,7 @@ int main() {
 	TestExtended2x1SlopeHighSideAndLanding();
 	TestCharacterCanJumpAcrossConnected2x1Peak();
 	TestCharacterDescendsConnected2x1PeakWithoutFloorWarp();
+	TestCharacterLeaves2x1HighEdgeWithoutWarpingToLowerFloor();
 	TestCharacterMovement();
 	TestCharacterRecomputesGroundFromMasaoProbes();
 	TestCharacterUsesGetSakamichiYCoordinates();
