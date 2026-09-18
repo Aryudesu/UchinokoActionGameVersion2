@@ -186,10 +186,12 @@ void CharacterController::FollowMasaoSlopeAfterHorizontal(
 	float OldX, float OldY, bool WasGrounded,
 	const TileMap& Map, const TileCatalog& Catalog) {
 	float ExtendedY = Body_.Position.Y;
+	bool ExtendedGrounded = WasGrounded;
 	if (ExtendedSlopeTerrain::FollowHorizontal(
-		Map, Catalog, OldX, Body_.Position.X, OldY, ExtendedY, WasGrounded)) {
+		Map, Catalog, OldX, Body_.Position.X, OldY, ExtendedY, WasGrounded,
+		ExtendedGrounded)) {
 		Body_.Position.Y = ExtendedY;
-		Body_.Grounded = true;
+		Body_.Grounded = ExtendedGrounded;
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
 		return;
