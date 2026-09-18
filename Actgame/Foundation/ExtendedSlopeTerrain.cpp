@@ -83,9 +83,18 @@ bool ExtendedSlopeTerrain::ResolveHighSide(
 	const bool EntersHighSide = (Slope.UpRight && !MovingRight && NewCenter >= (Slope.LeftColumn + 1) * 32) ||
 		(!Slope.UpRight && MovingRight && NewCenter < (Slope.LeftColumn + 1) * 32);
 	if (!EntersHighSide) return false;
+	const int Boundary = Slope.UpRight ? (Slope.LeftColumn + 2) * 32 : Slope.LeftColumn * 32;
+	// 右上がりと左上がりの高い端が接続された山頂は、外壁ではなく連続面。
+	Slope2x1 Neighbor;
+	const int NeighborX = Slope.UpRight ? Boundary : Boundary - 1;
+	if (TryFind2x1(Map, Catalog, NeighborX, Slope.Row * 32 + 16, Neighbor) &&
+		Neighbor.UpRight != Slope.UpRight) {
+		const int NeighborHighBoundary = Neighbor.UpRight
+			? (Neighbor.LeftColumn + 2) * 32 : Neighbor.LeftColumn * 32;
+		if (NeighborHighBoundary == Boundary) return false;
+	}
 	const float SurfaceCharacterY = SurfaceY(Slope, static_cast<float>(NewCenter)) - 32.0f;
 	if (Grounded && Y <= SurfaceCharacterY) return false;
-	const int Boundary = Slope.UpRight ? (Slope.LeftColumn + 2) * 32 : Slope.LeftColumn * 32;
 	NewX = MovingRight ? static_cast<float>(Boundary - 16) : static_cast<float>(Boundary - 15);
 	return true;
 }
