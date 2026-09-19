@@ -6,6 +6,7 @@
 #include "Scene.h"
 
 #include <string>
+#include <vector>
 
 class GimmickSandboxScene : public Scene {
 public:
