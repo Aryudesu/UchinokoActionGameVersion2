@@ -30,6 +30,7 @@ public:
 	void Step(float HorizontalInput, bool JumpPressed, const TileMap& Map, const TileCatalog& Catalog);
 	const CharacterBody& Body() const { return Body_; }
 	CharacterBody& Body() { return Body_; }
+	const std::vector<TileInteraction>& Interactions() const { return Interactions_; }
 
 private:
 	CollisionShape ShapeAt(const TileMap& Map, const TileCatalog& Catalog,
@@ -53,10 +54,14 @@ private:
 		const TileMap& Map, const TileCatalog& Catalog);
 	void MoveVertical(float Amount, float HorizontalInput,
 		const TileMap& Map, const TileCatalog& Catalog);
+	void EmitInteractionAtWorld(TileTrigger Trigger, const TileMap& Map, float X, float Y);
+	void EmitTouchInteractions(const TileMap& Map);
+	void EmitStandInteractions(const TileMap& Map);
 	CharacterBody Body_;
 	CharacterMotion Motion_;
 	int VelocityX10_ = 0;
 	int VelocityY10_ = 0;
+	std::vector<TileInteraction> Interactions_;
 };
 
 } // namespace uchinoko
