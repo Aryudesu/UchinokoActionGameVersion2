@@ -107,19 +107,9 @@ void CharacterController::RefreshGround(
 	const float FootY = Body_.Position.Y + BottomY;
 	Body_.Grounded = IsSolidAt(Map, Catalog, X, Body_.Position.Y + BelowY);
 
-	// 2x1坂の高い端では足元(y+31)がタイルの1px上へ出る。
-	// 論理坂面が現在位置に連続している場合は、接地を失わせない。
-	float ExtendedY = 0.0f;
-	if (ExtendedSlopeTerrain::TryCharacterY(Map, Catalog, X, FootY, ExtendedY) &&
-		std::fabs(ExtendedY - Body_.Position.Y) <= 1.0f) {
-		Body_.Position.Y = ExtendedY;
-		if (Body_.Velocity.Y >= 0.0f) Body_.Grounded = true;
-	}
-
 	float SlopeY = 0.0f;
-	CollisionShape GroundShape = CollisionShape::None;
-	if (TrySlopeCharacterY(Map, Catalog, X, FootY, SlopeY, &GroundShape) &&
-		!Is2x1Slope(GroundShape) && SlopeY <= Body_.Position.Y) {
+	if (TrySlopeCharacterY(Map, Catalog, X, FootY, SlopeY) &&
+		SlopeY <= Body_.Position.Y) {
 		Body_.Position.Y = SlopeY;
 		if (Body_.Velocity.Y >= 0.0f) Body_.Grounded = true;
 	}
@@ -196,12 +186,11 @@ void CharacterController::FollowMasaoSlopeAfterHorizontal(
 	float ExtendedY = Body_.Position.Y;
 	bool ExtendedGrounded = WasGrounded;
 	if (ExtendedSlopeTerrain::FollowHorizontal(
-		Map, Catalog, OldX, Body_.Position.X, OldY, ExtendedY, WasGrounded,
-		ExtendedGrounded)) {
+		Map, Catalog, OldX, Body_.Position.X, OldY, ExtendedY,
+		VelocityX10_, VelocityY10_, WasGrounded, ExtendedGrounded)) {
 		Body_.Position.Y = ExtendedY;
 		Body_.Grounded = ExtendedGrounded;
-		Body_.Velocity.Y = 0.0f;
-		VelocityY10_ = 0;
+		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
 		return;
 	}
 	int Y = static_cast<int>(Body_.Position.Y);
@@ -240,7 +229,7 @@ void CharacterController::FollowMasaoSlopeAfterHorizontal(
 		const int* Id = Map.TryGet({NewColumn, Row});
 		const TileDefinition* Definition = Id == nullptr ? nullptr : Catalog.Find(*Id);
 		if (Definition == nullptr || !IsSlope(Definition->Collision) ||
-			IsMasaoSlope(Definition->Collision)) continue;
+			IsMasaoSlope(Definition->Collision) || Is2x1Slope(Definition->Collision)) continue;
 		float SurfaceY = 0.0f;
 		if (!TerrainCollision::TryGetSurfaceY(
 			Definition->Collision, {NewColumn, Row}, NewCenterX,
@@ -320,17 +309,25 @@ void CharacterController::MoveUp(
 		return;
 	}
 
-	// CanvasMasaoにない複数タイル坂の下面だけは既存形状判定を残す。
+	float ExtendedY = Body_.Position.Y;
+	if (ExtendedSlopeTerrain::ResolveRising(
+		Map, Catalog, Body_.Position.X, static_cast<float>(OldY), ExtendedY)) {
+		Body_.Position.Y = ExtendedY;
+		Body_.Velocity.Y = 0.0f;
+		VelocityY10_ = 0;
+		Body_.Grounded = false;
+		return;
+	}
+
+	// 1x2急坂など、CanvasMasaoにも2x1一般化にも含まれない形状だけ
+	// 既存の下面判定を残す。
 	const int OldRow = TileAt(static_cast<float>(OldY), Map.TileHeight());
 	const int NewRow = TileAt(Body_.Position.Y, Map.TileHeight());
 	const float CenterProbeX = Body_.Position.X + CenterX;
-	// 段違いに接続した2x1坂では、上昇開始時の頭が下側坂の行境界に
-	// ちょうど接していることがある。移動後の行だけを見ると、その下面を
-	// 飛び越してしまうため、開始行も正男の上昇衝突候補に含める。
-	for (int Row = OldRow; Row >= NewRow; --Row) {
+	for (int Row = OldRow - 1; Row >= NewRow; --Row) {
 		const float ProbeY = static_cast<float>(Row * Map.TileHeight());
 		const CollisionShape Shape = ShapeAt(Map, Catalog, CenterProbeX, ProbeY);
-		if (!IsSlope(Shape) || IsMasaoSlope(Shape)) continue;
+		if (!IsSlope(Shape) || IsMasaoSlope(Shape) || Is2x1Slope(Shape)) continue;
 		Body_.Position.Y = static_cast<float>((Row + 1) * Map.TileHeight());
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
@@ -375,7 +372,7 @@ void CharacterController::MoveDown(
 	float SlopeY = 0.0f;
 	CollisionShape FoundShape = CollisionShape::None;
 	if (TrySlopeCharacterY(Map, Catalog, CenterProbeX, NewFootY, SlopeY, &FoundShape) &&
-		!IsMasaoSlope(FoundShape) &&
+		!IsMasaoSlope(FoundShape) && !Is2x1Slope(FoundShape) &&
 		SlopeY < Body_.Position.Y && SlopeY >= OldY) {
 		Body_.Position.Y = SlopeY;
 		Body_.Velocity.Y = 0.0f;
