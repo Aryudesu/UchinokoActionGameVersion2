@@ -843,6 +843,183 @@ void TestCharacterCanJumpFromBlockInto2x1UpperSpace() {
 	assert(Player.Body().Position.X < FirstX);
 }
 
+void TestExtended1x2SlopeIsOneContinuousSurface() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap UpRight = MakeMap({
+		{0, 0, 0, 0},
+		{0, 9, 0, 0},
+		{0, 8, 0, 0},
+		{1, 1, 1, 1}
+	});
+	ExtendedSlopeTerrain::Slope1x2 Slope;
+	assert(ExtendedSlopeTerrain::TryFind1x2(UpRight, Catalog, 40, 40, Slope));
+	assert(Slope.Column == 1 && Slope.TopRow == 1 && Slope.UpRight);
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 32.0f), 96.0f));
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 48.0f), 64.0f));
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 63.0f), 34.0f));
+
+	// y=64 の内部タイル境界をまたいでも、1本の32x64坂として連続する。
+	float LowerY = 0.0f;
+	float UpperY = 0.0f;
+	assert(ExtendedSlopeTerrain::TryCharacterY1x2(
+		UpRight, Catalog, 47.0f, 65.0f, LowerY));
+	assert(ExtendedSlopeTerrain::TryCharacterY1x2(
+		UpRight, Catalog, 48.0f, 63.0f, UpperY));
+	assert(NearlyEqual(LowerY - UpperY, 2.0f));
+
+	TileMap UpLeft = MakeMap({
+		{0, 0, 0, 0},
+		{0, 10, 0, 0},
+		{0, 11, 0, 0},
+		{1, 1, 1, 1}
+	});
+	assert(ExtendedSlopeTerrain::TryFind1x2(UpLeft, Catalog, 40, 40, Slope));
+	assert(Slope.Column == 1 && Slope.TopRow == 1 && !Slope.UpRight);
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 32.0f), 34.0f));
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 48.0f), 66.0f));
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 63.0f), 96.0f));
+
+	TileMap Broken = MakeMap({
+		{0, 0, 0},
+		{0, 9, 0},
+		{0, 0, 0}
+	});
+	assert(!ExtendedSlopeTerrain::TryFind1x2(Broken, Catalog, 40, 40, Slope));
+}
+
+void TestExtended1x2SlopeEdgeVelocityFollowsGradient() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Floating = MakeMap({
+		{0, 0, 0, 0},
+		{0, 9, 0, 0},
+		{0, 8, 0, 0},
+		{0, 0, 0, 0}
+	});
+
+	float NewY = 2.0f;
+	int VelocityY10 = 0;
+	bool Grounded = true;
+	assert(ExtendedSlopeTerrain::FollowHorizontal1x2(
+		Floating, Catalog,
+		48.0f, 51.0f, 2.0f, NewY,
+		30, VelocityY10, true, Grounded));
+	assert(NearlyEqual(NewY, 0.0f));
+	assert(!Grounded);
+	assert(VelocityY10 == -60);
+
+	NewY = 64.0f;
+	VelocityY10 = 0;
+	Grounded = true;
+	assert(ExtendedSlopeTerrain::FollowHorizontal1x2(
+		Floating, Catalog,
+		17.0f, 14.0f, 64.0f, NewY,
+		-30, VelocityY10, true, Grounded));
+	assert(NearlyEqual(NewY, 64.0f));
+	assert(!Grounded);
+	assert(VelocityY10 == 60);
+}
+
+void TestExtended1x2SlopeIgnoresInternalVerticalBoundary() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 9, 0},
+		{0, 8, 0},
+		{0, 0, 0}
+	});
+
+	// 上下2タイルの境界 y=64 は論理坂の内部なので、天井衝突にしない。
+	float NewY = 55.0f;
+	assert(!ExtendedSlopeTerrain::ResolveRising1x2(
+		Map, Catalog, 33.0f, 64.0f, NewY));
+	assert(NearlyEqual(NewY, 55.0f));
+
+	// 32x64坂そのものの下面 y=96 を下から跨いだ場合だけ止める。
+	NewY = 87.0f;
+	assert(ExtendedSlopeTerrain::ResolveRising1x2(
+		Map, Catalog, 33.0f, 96.0f, NewY));
+	assert(NearlyEqual(NewY, 96.0f));
+}
+
+void TestCharacterTraverses1x2SlopeWithoutSeamSnag() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 0, 9, 1, 0},
+		{0, 0, 8, 0, 0},
+		{1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {43.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	for (int Frame = 0; Frame < 18; ++Frame) {
+		Player.Step(1.0f, false, Map, Catalog);
+		assert(Player.Body().Grounded);
+		const float CenterX = Player.Body().Position.X + 15.0f;
+		float LogicalY = 0.0f;
+		if (ExtendedSlopeTerrain::TryCharacterY1x2(
+			Map, Catalog, CenterX, Player.Body().Position.Y + 31.0f, LogicalY)) {
+			assert(NearlyEqual(Player.Body().Position.Y, LogicalY));
+		}
+	}
+	assert(Player.Body().Position.X > 80.0f);
+	assert(NearlyEqual(Player.Body().Position.Y, 0.0f));
+}
+
+void TestCharacterCannotEnter1x2HighSide() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+
+	TileMap UpRight = MakeMap({
+		{0, 0, 0, 0},
+		{0, 9, 0, 0},
+		{0, 8, 0, 0},
+		{1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {50.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController FromRight(Body);
+	FromRight.Step(-1.0f, false, UpRight, Catalog);
+	assert(NearlyEqual(FromRight.Body().Position.X, 49.0f));
+
+	TileMap UpLeft = MakeMap({
+		{0, 0, 0, 0},
+		{0, 10, 0, 0},
+		{0, 11, 0, 0},
+		{1, 1, 1, 1}
+	});
+	Body.Position = {16.0f, 64.0f};
+	Body.Velocity = {0.0f, 0.0f};
+	Body.Grounded = true;
+	CharacterController FromLeft(Body);
+	FromLeft.Step(1.0f, false, UpLeft, Catalog);
+	assert(NearlyEqual(FromLeft.Body().Position.X, 16.0f));
+}
+
+void TestCharacterLandsOn1x2Slope() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 9, 0},
+		{0, 8, 0},
+		{1, 1, 1}
+	});
+	CharacterBody Body;
+	// 中央X=48では坂面Y=64、キャラクターY=32。
+	Body.Position = {33.0f, 28.0f};
+	Body.Velocity.Y = 5.0f;
+	Body.Grounded = false;
+	CharacterMotion Motion;
+	Motion.MoveSpeed = 0.0f;
+	Motion.Gravity = 0.0f;
+	CharacterController Player(Body, Motion);
+	Player.Step(0.0f, false, Map, Catalog);
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 32.0f));
+}
+
 void TestCharacterMovement() {
 	TileMap FlatMap = MakeMap({{0, 0, 0}, {1, 1, 1}, {0, 0, 0}});
 	TileCatalog Catalog = MakeTerrainCatalog();
@@ -878,7 +1055,15 @@ void AssertCharacterCenterOnGround(
 	} else if (Hit.Shape == CollisionShape::SlopeUpLeft) {
 		ExpectedY = Hit.Tile.Row * Map.TileHeight() + std::floor(LocalX) - 31.0f;
 	}
-	// 正男にない2x1/1x2坂は0.5px面を持つため、隣接する平地との境界だけ許容する。
+	float LogicalY = 0.0f;
+	if (ExtendedSlopeTerrain::TryCharacterY(
+		Map, Catalog, CenterX, Player.Body().Position.Y + 31.0f, LogicalY)) {
+		ExpectedY = LogicalY;
+	}
+	if (ExtendedSlopeTerrain::TryCharacterY1x2(
+		Map, Catalog, CenterX, Player.Body().Position.Y + 31.0f, LogicalY)) {
+		ExpectedY = LogicalY;
+	}
 	assert(std::fabs(Player.Body().Position.Y - ExpectedY) <= 0.5f);
 }
 
@@ -1388,6 +1573,12 @@ int main() {
 	TestCharacterJumpArcUnderLongStacked2x1Slope();
 	TestJumpingCharacterCanMoveAbove2x1SurfaceInsideColumn();
 	TestCharacterCanJumpFromBlockInto2x1UpperSpace();
+	TestExtended1x2SlopeIsOneContinuousSurface();
+	TestExtended1x2SlopeEdgeVelocityFollowsGradient();
+	TestExtended1x2SlopeIgnoresInternalVerticalBoundary();
+	TestCharacterTraverses1x2SlopeWithoutSeamSnag();
+	TestCharacterCannotEnter1x2HighSide();
+	TestCharacterLandsOn1x2Slope();
 	TestCharacterMovement();
 	TestCharacterRecomputesGroundFromMasaoProbes();
 	TestCharacterUsesGetSakamichiYCoordinates();
