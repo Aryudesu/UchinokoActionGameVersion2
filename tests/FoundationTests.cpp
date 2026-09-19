@@ -721,6 +721,42 @@ void TestCharacterCannotRiseThroughStacked2x1RightEdge() {
 	}
 }
 
+void TestCharacterJumpArcUnderLongStacked2x1Slope() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0, 0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {496.0f, 320.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	for (int Frame = 0; Frame < 80; ++Frame) {
+		Player.Step(-1.0f, Frame == 0, Map, Catalog);
+		const float CenterX = Player.Body().Position.X + 15.0f;
+		ExtendedSlopeTerrain::Slope2x1 Slope;
+		for (int Row = 7; Row <= 10; ++Row) {
+			if (!ExtendedSlopeTerrain::TryFind2x1(
+				Map, Catalog, static_cast<int>(CenterX), Row * 32 + 16, Slope)) continue;
+			const float SurfaceY = ExtendedSlopeTerrain::SurfaceY(Slope, CenterX);
+			const float Top = Player.Body().Position.Y;
+			const float Foot = Top + 31.0f;
+			const float Bottom = static_cast<float>((Row + 1) * 32);
+			assert(Top >= Bottom || Foot <= SurfaceY + 0.01f);
+		}
+	}
+}
+
 void TestJumpingCharacterCanMoveAbove2x1SurfaceInsideColumn() {
 	TileCatalog Catalog = MakeTerrainCatalog();
 	TileMap Map = MakeMap({
@@ -1304,6 +1340,7 @@ int main() {
 	TestCharacterJumpsLeftAlong2x1HighSideAndLands();
 	TestCharacterJumpsLeftAlong2x1HighSideConnectedToBlock();
 	TestCharacterCannotRiseThroughStacked2x1RightEdge();
+	TestCharacterJumpArcUnderLongStacked2x1Slope();
 	TestJumpingCharacterCanMoveAbove2x1SurfaceInsideColumn();
 	TestCharacterCanJumpFromBlockInto2x1UpperSpace();
 	TestCharacterMovement();
