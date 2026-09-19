@@ -1,0 +1,6 @@
+﻿# id, collision shape, image index, breakable, damaging, rules
+0,None,0,0,0,-
+1,Solid,0,0,0,-
+20,None,0,0,0,Touch:AddCoin:1:once;Touch:AddScore:100:once;Touch:ReplaceTile:0:once
+21,Solid,0,1,0,-
+22,Solid,0,0,1,-
