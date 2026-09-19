@@ -457,10 +457,12 @@ void CharacterController::EmitTouchInteractions(const TileMap& Map) {
 void CharacterController::EmitStandInteractions(const TileMap& Map) {
 	if (!Body_.Grounded) return;
 	const float ProbeY = Body_.Position.Y + Body_.Height + 0.01f;
-	EmitInteractionAtWorld(
-		TileTrigger::StandOn, Map, Body_.Position.X + 1.0f, ProbeY);
-	EmitInteractionAtWorld(
-		TileTrigger::StandOn, Map, Body_.Position.X + Body_.Width - 2.0f, ProbeY);
+	const float Left = Body_.Position.X + 1.0f;
+	const float Right = Body_.Position.X + Body_.Width - 2.0f;
+	EmitInteractionAtWorld(TileTrigger::StandOn, Map, Left, ProbeY);
+	EmitInteractionAtWorld(TileTrigger::Touch, Map, Left, ProbeY);
+	EmitInteractionAtWorld(TileTrigger::StandOn, Map, Right, ProbeY);
+	EmitInteractionAtWorld(TileTrigger::Touch, Map, Right, ProbeY);
 }
 
 void CharacterController::Step(
@@ -485,14 +487,24 @@ void CharacterController::Step(
 		EmitInteractionAtWorld(
 			TileTrigger::PushFromLeft, Map, ProbeX, Body_.Position.Y + 1.0f);
 		EmitInteractionAtWorld(
+			TileTrigger::Touch, Map, ProbeX, Body_.Position.Y + 1.0f);
+		EmitInteractionAtWorld(
 			TileTrigger::PushFromLeft, Map, ProbeX,
+			Body_.Position.Y + Body_.Height - 2.0f);
+		EmitInteractionAtWorld(
+			TileTrigger::Touch, Map, ProbeX,
 			Body_.Position.Y + Body_.Height - 2.0f);
 	} else if (HorizontalAmount < 0.0f && ActualHorizontal > HorizontalAmount + 0.01f) {
 		const float ProbeX = Body_.Position.X - 0.01f;
 		EmitInteractionAtWorld(
 			TileTrigger::PushFromRight, Map, ProbeX, Body_.Position.Y + 1.0f);
 		EmitInteractionAtWorld(
+			TileTrigger::Touch, Map, ProbeX, Body_.Position.Y + 1.0f);
+		EmitInteractionAtWorld(
 			TileTrigger::PushFromRight, Map, ProbeX,
+			Body_.Position.Y + Body_.Height - 2.0f);
+		EmitInteractionAtWorld(
+			TileTrigger::Touch, Map, ProbeX,
 			Body_.Position.Y + Body_.Height - 2.0f);
 	}
 
@@ -517,7 +529,12 @@ void CharacterController::Step(
 			EmitInteractionAtWorld(
 				TileTrigger::HitFromBelow, Map, Body_.Position.X + 1.0f, ProbeY);
 			EmitInteractionAtWorld(
+				TileTrigger::Touch, Map, Body_.Position.X + 1.0f, ProbeY);
+			EmitInteractionAtWorld(
 				TileTrigger::HitFromBelow, Map,
+				Body_.Position.X + Body_.Width - 2.0f, ProbeY);
+			EmitInteractionAtWorld(
+				TileTrigger::Touch, Map,
 				Body_.Position.X + Body_.Width - 2.0f, ProbeY);
 		}
 	}
