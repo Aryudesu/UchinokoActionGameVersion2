@@ -144,6 +144,7 @@
     <ClCompile Include="Foundation\TerrainCollision.cpp" />
     <ClCompile Include="Foundation\TerrainStageLoader.cpp" />
     <ClCompile Include="Foundation\TileDefinition.cpp" />
+    <ClCompile Include="Foundation\TileInteraction.cpp" />
     <ClCompile Include="Foundation\TileMap.cpp" />
     <ClCompile Include="Base64.cpp" />
     <ClCompile Include="Block.cpp" />
@@ -154,6 +155,7 @@
     <ClCompile Include="EnemyFactory.cpp" />
     <ClCompile Include="function.cpp" />
     <ClCompile Include="GameData.cpp" />
+    <ClCompile Include="GimmickSandboxScene.cpp" />
     <ClCompile Include="LevelChanger.cpp" />
     <ClCompile Include="LoadIni.cpp" />
     <ClCompile Include="MainLoop.cpp" />
@@ -195,6 +197,7 @@
     <ClInclude Include="Foundation\TerrainCollision.h" />
     <ClInclude Include="Foundation\TerrainStageLoader.h" />
     <ClInclude Include="Foundation\TileDefinition.h" />
+    <ClInclude Include="Foundation\TileInteraction.h" />
     <ClInclude Include="Foundation\TileMap.h" />
     <ClInclude Include="Base64.h" />
     <ClInclude Include="Block.h" />
@@ -203,6 +206,7 @@
     <ClInclude Include="Enemy.h" />
     <ClInclude Include="EnemyFactory.h" />
     <ClInclude Include="GameData.h" />
+    <ClInclude Include="GimmickSandboxScene.h" />
     <ClInclude Include="LoadIni.h" />
     <ClInclude Include="MainLoop.h" />
     <ClInclude Include="GameCollection.h" />
@@ -238,6 +242,9 @@
     <None Include="..\dat\stage\slope-test\stage.ini" />
     <None Include="..\dat\stage\slope-test\terrain.csv" />
     <None Include="..\dat\stage\slope-test\tiles.csv" />
+    <None Include="..\dat\stage\interaction-test\tiles.csv" />
+    <None Include="..\dat\stage\interaction-test\stage.ini" />
+    <None Include="..\dat\stage\interaction-test\terrain.csv" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

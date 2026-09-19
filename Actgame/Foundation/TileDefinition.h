@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "Result.h"
+#include "TileInteraction.h"
 
 #include <vector>
 
@@ -26,8 +27,10 @@ struct TileDefinition {
 	int Id = 0;
 	int ImageIndex = 0;
 	CollisionShape Collision = CollisionShape::None;
+	// 旧5列CSVとの互換用。Register時に Rules へ正規化される。
 	bool Breakable = false;
 	bool Damaging = false;
+	std::vector<TileRule> Rules;
 };
 
 class TileCatalog {

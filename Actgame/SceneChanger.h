@@ -7,6 +7,7 @@
 #define GAME   2
 #define MUSIC  3
 #define SLOPE_SANDBOX 4
+#define GIMMICK_SANDBOX 5
 
 class SceneChanger :public Singleton<SceneChanger>{
 private:

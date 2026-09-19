@@ -5,6 +5,7 @@
 #include "MusicRoom.h"
 #include "function.h"
 #include "SlopeSandboxScene.h"
+#include "GimmickSandboxScene.h"
 
 SceneManager::SceneManager() {
 	ActiveScene = new Menu();	//初期はメニュー画面
@@ -34,6 +35,9 @@ void SceneManager::update() {
 				break;
 			case SLOPE_SANDBOX:
 				ActiveScene = new SlopeSandboxScene();
+				break;
+			case GIMMICK_SANDBOX:
+				ActiveScene = new GimmickSandboxScene();
 				break;
 		}
 		NextScene = STEADY;
