@@ -330,9 +330,53 @@ void TestExtended2x1SlopeIsOneContinuousSurface() {
 	assert(ExtendedSlopeTerrain::TryCharacterY(UpRight, Catalog, 64.001f, 48.0f, RightY));
 	assert(std::fabs(LeftY - RightY) <= 1.0f);
 
+	TileMap UpLeft = MakeMap({
+		{0, 0, 0, 0},
+		{0, 6, 7, 0},
+		{1, 1, 1, 1}
+	});
+	assert(ExtendedSlopeTerrain::TryFind2x1(UpLeft, Catalog, 40, 40, Slope));
+	assert(Slope.LeftColumn == 1 && Slope.Row == 1 && !Slope.UpRight);
+	// 1x1左上がりの -31 をそのまま横2倍へ一般化する。
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 32.0f), 33.0f));
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 64.0f), 49.0f));
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 95.0f), 64.0f));
+
 	// 片方だけ配置された不完全な坂は、64x32坂として認識しない。
 	TileMap Broken = MakeMap({{0, 0, 0}, {0, 4, 0}, {1, 1, 1}});
 	assert(!ExtendedSlopeTerrain::TryFind2x1(Broken, Catalog, 40, 40, Slope));
+}
+
+void TestExtended2x1SlopeEdgeVelocityFollowsGradient() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Floating = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{0, 0, 0, 0}
+	});
+
+	float NewY = 2.0f;
+	int VelocityY10 = 0;
+	bool Grounded = true;
+	assert(ExtendedSlopeTerrain::FollowHorizontal(
+		Floating, Catalog,
+		78.0f, 81.0f, 2.0f, NewY,
+		30, VelocityY10, true, Grounded));
+	assert(NearlyEqual(NewY, 0.0f));
+	assert(!Grounded);
+	assert(VelocityY10 == -15);
+
+	// 64px進んで32px下るため、低い端では横速度の1/2で落下を開始する。
+	NewY = 32.0f;
+	VelocityY10 = 0;
+	Grounded = true;
+	assert(ExtendedSlopeTerrain::FollowHorizontal(
+		Floating, Catalog,
+		18.0f, 15.0f, 32.0f, NewY,
+		-30, VelocityY10, true, Grounded));
+	assert(NearlyEqual(NewY, 32.0f));
+	assert(!Grounded);
+	assert(VelocityY10 == 15);
 }
 
 void TestExtended2x1SlopeHighSideAndLanding() {
@@ -1324,6 +1368,7 @@ int main() {
 	TestCanvasMasaoTerrainCodesAndCoordinates();
 	TestCanvasMasaoVerticalCrossings();
 	TestExtended2x1SlopeIsOneContinuousSurface();
+	TestExtended2x1SlopeEdgeVelocityFollowsGradient();
 	TestExtended2x1SlopeHighSideAndLanding();
 	TestCharacterCanJumpAcrossConnected2x1Peak();
 	TestCharacterDescendsConnected2x1PeakWithoutFloorWarp();
