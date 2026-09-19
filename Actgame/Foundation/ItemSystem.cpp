@@ -30,6 +30,7 @@ bool ItemSystem::Spawn(
 
 	SpawnedItem Item;
 	Item.Kind = Kind;
+	Item.SourceTile = Source;
 	Item.Position.X = static_cast<float>(Source.Column * TileWidth);
 	// V1: MakeObject(..., pos.x, pos.y - 32)
 	Item.Position.Y = static_cast<float>((Source.Row - 1) * TileHeight);
@@ -52,10 +53,7 @@ void ItemSystem::ConsumeTileEffects(
 void ItemSystem::AddRewardEffects(
 	std::vector<TileEffect>& Effects, const SpawnedItem& Item) {
 	TileEffect Effect;
-	Effect.Position = {
-		static_cast<int>(Item.Position.X / 32.0f),
-		static_cast<int>(Item.Position.Y / 32.0f)
-	};
+	Effect.Position = Item.SourceTile;
 	Effect.SourceTileId = 0;
 
 	switch (Item.Kind) {
