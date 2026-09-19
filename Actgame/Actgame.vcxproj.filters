@@ -362,6 +362,7 @@
     <ClCompile Include="Foundation\TerrainCollision.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\TerrainStageLoader.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\TileDefinition.cpp"><Filter>Foundation</Filter></ClCompile>
+    <ClCompile Include="Foundation\TileInteraction.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\TileMap.cpp"><Filter>Foundation</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -378,11 +379,13 @@
     <ClInclude Include="Foundation\TerrainCollision.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\TerrainStageLoader.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\TileDefinition.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\TileInteraction.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\TileMap.h"><Filter>Foundation</Filter></ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\dat\stage\slope-test\stage.ini"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\slope-test\terrain.csv"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\slope-test\tiles.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\interaction-test\tiles.csv"><Filter>Stage Data</Filter></None>
   </ItemGroup>
 </Project>
