@@ -28,6 +28,13 @@ bool IsSlope(CollisionShape Shape) {
 bool IsMasaoSlope(CollisionShape Shape) {
 	return Shape == CollisionShape::SlopeUpRight || Shape == CollisionShape::SlopeUpLeft;
 }
+
+bool Is2x1Slope(CollisionShape Shape) {
+	return Shape == CollisionShape::Stair2x1UpRightLow ||
+		Shape == CollisionShape::Stair2x1UpRightHigh ||
+		Shape == CollisionShape::Stair2x1UpLeftHigh ||
+		Shape == CollisionShape::Stair2x1UpLeftLow;
+}
 } // namespace
 
 CharacterController::CharacterController(CharacterBody Body, CharacterMotion Motion)
@@ -110,8 +117,9 @@ void CharacterController::RefreshGround(
 	}
 
 	float SlopeY = 0.0f;
-	if (TrySlopeCharacterY(Map, Catalog, X, FootY, SlopeY) &&
-		SlopeY <= Body_.Position.Y) {
+	CollisionShape GroundShape = CollisionShape::None;
+	if (TrySlopeCharacterY(Map, Catalog, X, FootY, SlopeY, &GroundShape) &&
+		!Is2x1Slope(GroundShape) && SlopeY <= Body_.Position.Y) {
 		Body_.Position.Y = SlopeY;
 		if (Body_.Velocity.Y >= 0.0f) Body_.Grounded = true;
 	}
@@ -316,7 +324,10 @@ void CharacterController::MoveUp(
 	const int OldRow = TileAt(static_cast<float>(OldY), Map.TileHeight());
 	const int NewRow = TileAt(Body_.Position.Y, Map.TileHeight());
 	const float CenterProbeX = Body_.Position.X + CenterX;
-	for (int Row = OldRow - 1; Row >= NewRow; --Row) {
+	// 段違いに接続した2x1坂では、上昇開始時の頭が下側坂の行境界に
+	// ちょうど接していることがある。移動後の行だけを見ると、その下面を
+	// 飛び越してしまうため、開始行も正男の上昇衝突候補に含める。
+	for (int Row = OldRow; Row >= NewRow; --Row) {
 		const float ProbeY = static_cast<float>(Row * Map.TileHeight());
 		const CollisionShape Shape = ShapeAt(Map, Catalog, CenterProbeX, ProbeY);
 		if (!IsSlope(Shape) || IsMasaoSlope(Shape)) continue;
