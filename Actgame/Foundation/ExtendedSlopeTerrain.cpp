@@ -95,7 +95,6 @@ bool ExtendedSlopeTerrain::ResolveHighSide(
 	float Y, bool MovingRight, bool Grounded) {
 	const int OldCenter = static_cast<int>(OldX + 15.0f);
 	const int NewCenter = static_cast<int>(NewX + 15.0f);
-	(void)Grounded;
 	const int ProbeYs[] = {static_cast<int>(Y), static_cast<int>(Y + 31.0f)};
 	for (int ProbeY : ProbeYs) {
 		Slope2x1 Slope;
@@ -107,9 +106,11 @@ bool ExtendedSlopeTerrain::ResolveHighSide(
 			? (!MovingRight && OldCenter >= Boundary && NewCenter < Boundary)
 			: (MovingRight && OldCenter < Boundary && NewCenter >= Boundary);
 		if (!CrossedHighBoundary) continue;
-		// 高い端と同じ行の通常ブロックは、CanvasMasaoと同じく連続床として扱う。
+		// 高い端と同じ行の通常ブロックは、上面に接地しているときだけ連続床。
+		// 下からジャンプ上昇中まで無条件に通すと、ブロックと坂の側面を貫通する。
 		const int OutsideColumn = Slope.UpRight ? Boundary / 32 : Boundary / 32 - 1;
-		if (ShapeAt(Map, Catalog, OutsideColumn, Slope.Row) == CollisionShape::Solid) continue;
+		if (ShapeAt(Map, Catalog, OutsideColumn, Slope.Row) == CollisionShape::Solid &&
+			Grounded && Y <= static_cast<float>(Slope.Row * 32)) continue;
 		// 境界で坂面の高さがつながる隣接2x1坂は、外壁ではなく連続面。
 		// 反対向きの山頂だけでなく、1行ずらした同方向坂の連結も含む。
 		Slope2x1 Neighbor;
