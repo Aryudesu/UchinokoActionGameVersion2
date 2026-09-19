@@ -1,6 +1,7 @@
 ﻿#include "../Actgame/Foundation/AssetPaths.h"
 #include "../Actgame/Foundation/CharacterController.h"
 #include "../Actgame/Foundation/CanvasMasaoTerrain.h"
+#include "../Actgame/Foundation/ExtendedSlopeTerrain.h"
 #include "../Actgame/Foundation/GridDataLoader.h"
 #include "../Actgame/Foundation/LayeredMap.h"
 #include "../Actgame/Foundation/StageDefinition.h"
@@ -308,6 +309,538 @@ void TestCanvasMasaoVerticalCrossings() {
 	int OneWayY = 1;
 	assert(CanvasMasaoTerrain::ResolveFallingOneWay(Map, Catalog, 32, 0, OneWayY));
 	assert(OneWayY == 0);
+}
+
+void TestExtended2x1SlopeIsOneContinuousSurface() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap UpRight = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{1, 1, 1, 1}
+	});
+	ExtendedSlopeTerrain::Slope2x1 Slope;
+	assert(ExtendedSlopeTerrain::TryFind2x1(UpRight, Catalog, 40, 40, Slope));
+	assert(Slope.LeftColumn == 1 && Slope.Row == 1 && Slope.UpRight);
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 32.0f), 64.0f));
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 64.0f), 48.0f));
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 95.0f), 33.0f));
+	float LeftY = 0.0f;
+	float RightY = 0.0f;
+	assert(ExtendedSlopeTerrain::TryCharacterY(UpRight, Catalog, 63.999f, 48.0f, LeftY));
+	assert(ExtendedSlopeTerrain::TryCharacterY(UpRight, Catalog, 64.001f, 48.0f, RightY));
+	assert(std::fabs(LeftY - RightY) <= 1.0f);
+
+	TileMap UpLeft = MakeMap({
+		{0, 0, 0, 0},
+		{0, 6, 7, 0},
+		{1, 1, 1, 1}
+	});
+	assert(ExtendedSlopeTerrain::TryFind2x1(UpLeft, Catalog, 40, 40, Slope));
+	assert(Slope.LeftColumn == 1 && Slope.Row == 1 && !Slope.UpRight);
+	// 1x1左上がりの -31 をそのまま横2倍へ一般化する。
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 32.0f), 33.0f));
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 64.0f), 49.0f));
+	assert(NearlyEqual(ExtendedSlopeTerrain::SurfaceY(Slope, 95.0f), 64.0f));
+
+	// 片方だけ配置された不完全な坂は、64x32坂として認識しない。
+	TileMap Broken = MakeMap({{0, 0, 0}, {0, 4, 0}, {1, 1, 1}});
+	assert(!ExtendedSlopeTerrain::TryFind2x1(Broken, Catalog, 40, 40, Slope));
+}
+
+void TestExtended2x1SlopeEdgeVelocityFollowsGradient() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Floating = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{0, 0, 0, 0}
+	});
+
+	float NewY = 2.0f;
+	int VelocityY10 = 0;
+	bool Grounded = true;
+	assert(ExtendedSlopeTerrain::FollowHorizontal(
+		Floating, Catalog,
+		78.0f, 81.0f, 2.0f, NewY,
+		30, VelocityY10, true, Grounded));
+	assert(NearlyEqual(NewY, 0.0f));
+	assert(!Grounded);
+	assert(VelocityY10 == -15);
+
+	// 64px進んで32px下るため、低い端では横速度の1/2で落下を開始する。
+	NewY = 32.0f;
+	VelocityY10 = 0;
+	Grounded = true;
+	assert(ExtendedSlopeTerrain::FollowHorizontal(
+		Floating, Catalog,
+		18.0f, 15.0f, 32.0f, NewY,
+		-30, VelocityY10, true, Grounded));
+	assert(NearlyEqual(NewY, 32.0f));
+	assert(!Grounded);
+	assert(VelocityY10 == 15);
+}
+
+void TestExtended2x1SlopeHighSideAndLanding() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{1, 1, 1, 1}
+	});
+	float X = 78.0f;
+	assert(ExtendedSlopeTerrain::ResolveHighSide(
+		Map, Catalog, 85.0f, X, 32.0f, false, false));
+	assert(NearlyEqual(X, 81.0f));
+	float FallingY = 20.0f;
+	assert(ExtendedSlopeTerrain::ResolveFalling(Map, Catalog, 45.0f, 15.0f, FallingY));
+	assert(NearlyEqual(FallingY, 18.0f));
+}
+
+void TestCharacterCanJumpAcrossConnected2x1Peak() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 4, 5, 6, 7, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// x+15=93。右上がり坂の頂上直前から、接続された左上がり坂へ飛び越す。
+	Body.Position = {78.0f, 1.5f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	Player.Step(1.0f, true, Map, Catalog);
+	assert(Player.Body().Position.X > 78.0f);
+	assert(Player.Body().Position.Y < 0.0f);
+	const float AfterJumpX = Player.Body().Position.X;
+	Player.Step(1.0f, false, Map, Catalog);
+	assert(Player.Body().Position.X > AfterJumpX);
+}
+
+void TestCharacterDescendsConnected2x1PeakWithoutFloorWarp() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 4, 5, 6, 7, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {78.0f, 1.5f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	float PreviousY = Player.Body().Position.Y;
+	for (int Frame = 0; Frame < 12; ++Frame) {
+		Player.Step(1.0f, false, Map, Catalog);
+		assert(Player.Body().Grounded);
+		// 右側の下り坂を1フレームで追従し、下段床へ瞬間移動しない。
+		assert(Player.Body().Position.Y - PreviousY <= 2.0f);
+		assert(Player.Body().Position.Y < 20.0f);
+		PreviousY = Player.Body().Position.Y;
+	}
+}
+
+void TestCharacterCrossesConnected2x1PeakToLeftWithoutFallingThrough() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 4, 5, 6, 7, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 右側の左上がり坂から山頂を越え、左側の右上がり坂を左へ下る。
+	Body.Position = {84.0f, 1.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	float PreviousY = Player.Body().Position.Y;
+	for (int Frame = 0; Frame < 20; ++Frame) {
+		Player.Step(-1.0f, false, Map, Catalog);
+		assert(Player.Body().Grounded);
+		assert(std::fabs(Player.Body().Position.Y - PreviousY) <= 2.0f);
+		PreviousY = Player.Body().Position.Y;
+	}
+}
+
+void TestCharacterCrossesConnected2x1ValleyToLeftWithoutFallingThrough() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 6, 7, 4, 5, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 右側の右上がり坂を左へ下り、2x1坂同士の谷間を越える。
+	Body.Position = {142.0f, 2.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	float PreviousY = Player.Body().Position.Y;
+	for (int Frame = 0; Frame < 20; ++Frame) {
+		Player.Step(-1.0f, false, Map, Catalog);
+		assert(Player.Body().Grounded);
+		assert(std::fabs(Player.Body().Position.Y - PreviousY) <= 2.0f);
+		PreviousY = Player.Body().Position.Y;
+	}
+}
+
+void TestCharacterDescendsStacked2x1BoundaryToLeft() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 4, 5, 0},
+		{0, 4, 5, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 1行上の右上がり2x1坂から、左下の右上がり2x1坂へ連続して下る。
+	Body.Position = {84.0f, 31.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	float PreviousY = Player.Body().Position.Y;
+	for (int Frame = 0; Frame < 20; ++Frame) {
+		Player.Step(-1.0f, false, Map, Catalog);
+		assert(Player.Body().Grounded);
+		assert(Player.Body().Position.Y >= PreviousY - 0.01f);
+		assert(Player.Body().Position.Y - PreviousY <= 2.0f);
+		PreviousY = Player.Body().Position.Y;
+	}
+}
+
+void TestCharacterDescends2x1SlopeToLeftWithoutFallingThrough() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 右上がり2x1坂の高い側から、左入力を続けて坂を下る。
+	Body.Position = {78.0f, 1.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	for (int Frame = 0; Frame < 18; ++Frame) {
+		Player.Step(-1.0f, false, Map, Catalog);
+		assert(Player.Body().Grounded);
+		float ExpectedY = 0.0f;
+		assert(ExtendedSlopeTerrain::TryCharacterY(
+			Map, Catalog, Player.Body().Position.X + 15.0f,
+			Player.Body().Position.Y + 31.0f, ExpectedY));
+		assert(NearlyEqual(Player.Body().Position.Y, ExpectedY));
+	}
+}
+
+void TestCharacterEnters2x1HighEdgeAndDescendsToLeft() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 4, 5, 1, 0},
+		{1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 高い端に接続した平地から左へ入り、そのまま坂を下り切る。
+	Body.Position = {81.0f, 0.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	float PreviousY = Player.Body().Position.Y;
+	for (int Frame = 0; Frame < 30; ++Frame) {
+		Player.Step(-1.0f, false, Map, Catalog);
+		assert(Player.Body().Grounded);
+		assert(Player.Body().Position.Y >= PreviousY - 0.01f);
+		assert(Player.Body().Position.Y - PreviousY <= 2.0f);
+		PreviousY = Player.Body().Position.Y;
+	}
+}
+
+void TestCharacterDescends2x1ToLeftFromEverySurfacePixel() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{1, 1, 1, 1}
+	});
+	ExtendedSlopeTerrain::Slope2x1 Slope;
+	assert(ExtendedSlopeTerrain::TryFind2x1(Map, Catalog, 40, 40, Slope));
+	for (int CenterX = 34; CenterX <= 94; ++CenterX) {
+		CharacterBody Body;
+		Body.Position = {
+			static_cast<float>(CenterX - 15),
+			ExtendedSlopeTerrain::SurfaceY(Slope, static_cast<float>(CenterX)) - 32.0f};
+		Body.Grounded = true;
+		CharacterController Player(Body);
+		for (int Frame = 0; Frame < 30; ++Frame) {
+			Player.Step(-1.0f, false, Map, Catalog);
+			assert(Player.Body().Grounded);
+		}
+	}
+}
+
+void TestCharacterDescends2x1ToLeftOnExternalStage() {
+	Result<TerrainStageData> Loaded =
+		TerrainStageLoader::Load("dat/stage/slope-test/stage.ini");
+	assert(Loaded.IsSuccess());
+	const TileMap& Map = Loaded.Value().Map;
+	const TileCatalog& Catalog = Loaded.Value().Catalog;
+	// 外部テストステージの右上がり2x1坂（列11～12）を全位置から左へ下る。
+	ExtendedSlopeTerrain::Slope2x1 Slope;
+	assert(ExtendedSlopeTerrain::TryFind2x1(Map, Catalog, 11 * 32, 10 * 32, Slope));
+	for (int CenterX = 11 * 32 + 2; CenterX <= 13 * 32 - 2; ++CenterX) {
+		CharacterBody Body;
+		Body.Position = {
+			static_cast<float>(CenterX - 15),
+			ExtendedSlopeTerrain::SurfaceY(Slope, static_cast<float>(CenterX)) - 32.0f};
+		Body.Grounded = true;
+		CharacterController Player(Body);
+		for (int Frame = 0; Frame < 4; ++Frame) {
+			Player.Step(-1.0f, false, Map, Catalog);
+			assert(Player.Body().Grounded);
+		}
+	}
+	// 画像で隣に見える反対向き2x1坂（列14～15）も、左入力で接地を失わない。
+	assert(ExtendedSlopeTerrain::TryFind2x1(Map, Catalog, 14 * 32, 10 * 32, Slope));
+	for (int CenterX = 14 * 32 + 2; CenterX <= 16 * 32 - 2; ++CenterX) {
+		CharacterBody Body;
+		Body.Position = {
+			static_cast<float>(CenterX - 15),
+			ExtendedSlopeTerrain::SurfaceY(Slope, static_cast<float>(CenterX)) - 32.0f};
+		Body.Grounded = true;
+		CharacterController Player(Body);
+		for (int Frame = 0; Frame < 4; ++Frame) {
+			Player.Step(-1.0f, false, Map, Catalog);
+			assert(Player.Body().Grounded);
+		}
+	}
+}
+
+void TestCharacterLeavesFloating2x1LowEdgeNaturally() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{0, 0, 0, 0},
+		{1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {78.0f, 1.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	bool LeftSlope = false;
+	float PreviousY = Player.Body().Position.Y;
+	for (int Frame = 0; Frame < 40; ++Frame) {
+		Player.Step(-1.0f, false, Map, Catalog);
+		const float CenterX = Player.Body().Position.X + 15.0f;
+		if (CenterX >= 32.0f) {
+			assert(Player.Body().Grounded);
+			assert(Player.Body().Position.Y - PreviousY <= 2.0f);
+		} else {
+			LeftSlope = true;
+			assert(!Player.Body().Grounded);
+			// 低い端の高さから通常落下し、下の床へ瞬間移動しない。
+			assert(Player.Body().Position.Y < 40.0f);
+			break;
+		}
+		PreviousY = Player.Body().Position.Y;
+	}
+	assert(LeftSlope);
+}
+
+void TestCharacterLeaves2x1HighEdgeWithoutWarpingToLowerFloor() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{1, 1, 1, 1},
+		{1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {78.0f, 1.5f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	Player.Step(1.0f, false, Map, Catalog);
+	assert(Player.Body().Position.X > 78.0f);
+	assert(!Player.Body().Grounded);
+	// 高い端のY=0付近から落下を開始し、下段床のY=32へ飛ばない。
+	assert(Player.Body().Position.Y < 5.0f);
+	const float PeakY = Player.Body().Position.Y;
+	Player.Step(1.0f, false, Map, Catalog);
+	assert(Player.Body().Position.Y >= PeakY);
+	assert(Player.Body().Position.Y < 5.0f);
+}
+
+void TestRisingCharacterCannotPass2x1HighSideInsideColumn() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 坂より低い位置で右側から列へ入り、その後同じ列内で上昇して頭が側面へ重なる。
+	Body.Position = {84.0f, 64.0f};
+	Body.Velocity.Y = -10.0f;
+	Body.Grounded = false;
+	CharacterMotion Motion;
+	Motion.Gravity = 0.0f;
+	CharacterController Player(Body, Motion);
+	Player.Step(-1.0f, false, Map, Catalog);
+	assert(Player.Body().Position.X < 84.0f);
+	Player.Step(-1.0f, false, Map, Catalog);
+	assert(NearlyEqual(Player.Body().Position.X, 81.0f));
+	assert(NearlyEqual(Player.Body().Velocity.X, 0.0f));
+}
+
+void TestCharacterJumpsLeftAlong2x1HighSideAndLands() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{0, 0, 0, 0},
+		{1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 2x1坂の右側面に接した床上から、左入力を続けながらジャンプする。
+	Body.Position = {84.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	bool RoseAboveSlope = false;
+	bool Landed = false;
+	for (int Frame = 0; Frame < 80; ++Frame) {
+		Player.Step(-1.0f, Frame == 0, Map, Catalog);
+		assert(Player.Body().Position.Y <= 64.0f);
+		if (Player.Body().Position.Y < 0.0f) RoseAboveSlope = true;
+		if (Frame > 0 && Player.Body().Grounded) {
+			Landed = true;
+			break;
+		}
+	}
+	assert(RoseAboveSlope);
+	assert(Landed);
+}
+
+void TestCharacterJumpsLeftAlong2x1HighSideConnectedToBlock() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 4, 5, 1, 0},
+		{0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 高い端にブロックが接続された坂の右下から、左入力で側面をこすって上昇する。
+	Body.Position = {84.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	bool ClearedTerrain = false;
+	bool RoseAfterClearing = false;
+	for (int Frame = 0; Frame < 40; ++Frame) {
+		Player.Step(-1.0f, Frame == 0, Map, Catalog);
+		const float Center = Player.Body().Position.X + 15.0f;
+		if (Center >= 32.0f && Center < 128.0f) {
+			// 坂とブロックの下面にいる間は、上の床へ抜けない。
+			assert(Player.Body().Position.Y >= 64.0f);
+		} else if (Center < 32.0f) {
+			ClearedTerrain = true;
+			if (Player.Body().Position.Y < 64.0f) RoseAfterClearing = true;
+		}
+		assert(Player.Body().Position.Y <= 64.0f);
+	}
+	assert(ClearedTerrain);
+	assert(RoseAfterClearing);
+}
+
+void TestCharacterCannotRiseThroughStacked2x1RightEdge() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 4, 5, 0},
+		{0, 4, 5, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 下側2x1坂の高い右端を左へこすりながらジャンプする。
+	// 横方向には上側坂と連続しているが、下側坂の下面は通過できない。
+	Body.Position = {84.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	for (int Frame = 0; Frame < 8; ++Frame) {
+		Player.Step(-1.0f, Frame == 0, Map, Catalog);
+		assert(Player.Body().Position.Y >= 64.0f);
+	}
+}
+
+void TestCharacterJumpArcUnderLongStacked2x1Slope() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 5, 0, 0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {496.0f, 320.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	for (int Frame = 0; Frame < 80; ++Frame) {
+		Player.Step(-1.0f, Frame == 0, Map, Catalog);
+		const float CenterX = Player.Body().Position.X + 15.0f;
+		ExtendedSlopeTerrain::Slope2x1 Slope;
+		for (int Row = 7; Row <= 10; ++Row) {
+			if (!ExtendedSlopeTerrain::TryFind2x1(
+				Map, Catalog, static_cast<int>(CenterX), Row * 32 + 16, Slope)) continue;
+			const float SurfaceY = ExtendedSlopeTerrain::SurfaceY(Slope, CenterX);
+			const float Top = Player.Body().Position.Y;
+			const float Foot = Top + 31.0f;
+			const float Bottom = static_cast<float>((Row + 1) * 32);
+			assert(Top >= Bottom || Foot <= SurfaceY + 0.01f);
+		}
+	}
+}
+
+void TestJumpingCharacterCanMoveAbove2x1SurfaceInsideColumn() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 2x1坂の高い側半分に接地した状態から、左入力を続けてジャンプする。
+	Body.Position = {60.0f, 10.5f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	Player.Step(-1.0f, true, Map, Catalog);
+	const float JumpX = Player.Body().Position.X;
+	assert(JumpX < 60.0f);
+	assert(Player.Body().Position.Y < 10.5f);
+	Player.Step(-1.0f, false, Map, Catalog);
+	// 同じタイル列内の再判定で坂側面へ戻されず、上の空間を移動できる。
+	assert(Player.Body().Position.X < JumpX);
+}
+
+void TestCharacterCanJumpFromBlockInto2x1UpperSpace() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	// 実テストステージと同じ「右上がり2x1坂・ブロック・左上がり2x1坂」。
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 4, 5, 1, 6, 7},
+		{1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 中央ブロックの左端から、左入力を続けて坂上の空間へジャンプする。
+	Body.Position = {81.0f, 0.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	Player.Step(-1.0f, true, Map, Catalog);
+	assert(Player.Body().Position.X < 81.0f);
+	assert(Player.Body().Position.Y < 0.0f);
+	const float FirstX = Player.Body().Position.X;
+	Player.Step(-1.0f, false, Map, Catalog);
+	assert(Player.Body().Position.X < FirstX);
 }
 
 void TestCharacterMovement() {
@@ -834,6 +1367,27 @@ int main() {
 	TestLayeredMap();
 	TestCanvasMasaoTerrainCodesAndCoordinates();
 	TestCanvasMasaoVerticalCrossings();
+	TestExtended2x1SlopeIsOneContinuousSurface();
+	TestExtended2x1SlopeEdgeVelocityFollowsGradient();
+	TestExtended2x1SlopeHighSideAndLanding();
+	TestCharacterCanJumpAcrossConnected2x1Peak();
+	TestCharacterDescendsConnected2x1PeakWithoutFloorWarp();
+	TestCharacterCrossesConnected2x1PeakToLeftWithoutFallingThrough();
+	TestCharacterCrossesConnected2x1ValleyToLeftWithoutFallingThrough();
+	TestCharacterDescendsStacked2x1BoundaryToLeft();
+	TestCharacterDescends2x1SlopeToLeftWithoutFallingThrough();
+	TestCharacterEnters2x1HighEdgeAndDescendsToLeft();
+	TestCharacterDescends2x1ToLeftFromEverySurfacePixel();
+	TestCharacterDescends2x1ToLeftOnExternalStage();
+	TestCharacterLeavesFloating2x1LowEdgeNaturally();
+	TestCharacterLeaves2x1HighEdgeWithoutWarpingToLowerFloor();
+	TestRisingCharacterCannotPass2x1HighSideInsideColumn();
+	TestCharacterJumpsLeftAlong2x1HighSideAndLands();
+	TestCharacterJumpsLeftAlong2x1HighSideConnectedToBlock();
+	TestCharacterCannotRiseThroughStacked2x1RightEdge();
+	TestCharacterJumpArcUnderLongStacked2x1Slope();
+	TestJumpingCharacterCanMoveAbove2x1SurfaceInsideColumn();
+	TestCharacterCanJumpFromBlockInto2x1UpperSpace();
 	TestCharacterMovement();
 	TestCharacterRecomputesGroundFromMasaoProbes();
 	TestCharacterUsesGetSakamichiYCoordinates();
