@@ -701,6 +701,26 @@ void TestCharacterJumpsLeftAlong2x1HighSideConnectedToBlock() {
 	assert(RoseAfterClearing);
 }
 
+void TestCharacterCannotRiseThroughStacked2x1RightEdge() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 4, 5, 0},
+		{0, 4, 5, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 下側2x1坂の高い右端を左へこすりながらジャンプする。
+	// 横方向には上側坂と連続しているが、下側坂の下面は通過できない。
+	Body.Position = {84.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	for (int Frame = 0; Frame < 8; ++Frame) {
+		Player.Step(-1.0f, Frame == 0, Map, Catalog);
+		assert(Player.Body().Position.Y >= 64.0f);
+	}
+}
+
 void TestJumpingCharacterCanMoveAbove2x1SurfaceInsideColumn() {
 	TileCatalog Catalog = MakeTerrainCatalog();
 	TileMap Map = MakeMap({
@@ -1283,6 +1303,7 @@ int main() {
 	TestRisingCharacterCannotPass2x1HighSideInsideColumn();
 	TestCharacterJumpsLeftAlong2x1HighSideAndLands();
 	TestCharacterJumpsLeftAlong2x1HighSideConnectedToBlock();
+	TestCharacterCannotRiseThroughStacked2x1RightEdge();
 	TestJumpingCharacterCanMoveAbove2x1SurfaceInsideColumn();
 	TestCharacterCanJumpFromBlockInto2x1UpperSpace();
 	TestCharacterMovement();
