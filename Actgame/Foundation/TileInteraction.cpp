@@ -59,16 +59,16 @@ TileBehaviorResult TileBehaviorSystem::Apply(
 	TileRuntimeState* State = Runtime.TryGet(Interaction.Position);
 	if (Definition == nullptr || State == nullptr) return Result;
 
-	const bool WasUsed = State->Used;
-	bool ConsumeOnce = false;
+	if (State->ConsumedRules.size() < Definition->Rules.size()) {
+		State->ConsumedRules.resize(Definition->Rules.size(), false);
+	}
 
 	for (std::size_t Index = 0; Index < Definition->Rules.size(); ++Index) {
 		const TileRule& Rule = Definition->Rules[Index];
 		if (Rule.Trigger != Interaction.Trigger) continue;
-		if (Rule.Once && WasUsed) continue;
+		if (Rule.Once && State->ConsumedRules[Index]) continue;
 
 		Result.Handled = true;
-		if (Rule.Once) ConsumeOnce = true;
 
 		switch (Rule.Action) {
 		case TileAction::None:
@@ -112,9 +112,12 @@ TileBehaviorResult TileBehaviorSystem::Apply(
 			AddEffect(Result, TileEffectType::Goal, Interaction, Rule.Value);
 			break;
 		}
+		if (Rule.Once) {
+			State->ConsumedRules[Index] = true;
+			State->Used = true;
+		}
 	}
 
-	if (ConsumeOnce) State->Used = true;
 	return Result;
 }
 
