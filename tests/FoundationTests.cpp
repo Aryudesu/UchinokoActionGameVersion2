@@ -529,6 +529,12 @@ void TestHiddenItemBlockOnlyBlocksFromBelow() {
 	assert(SidePlayer.Body().Position.X > 32.0f);
 
 	// 上から落ちても足場にならない。
+	TileMap FallMap = MakeMap({
+		{0, 0, 0},
+		{0, 34, 0},
+		{0, 0, 0},
+		{1, 1, 1}
+	});
 	CharacterBody FallBody;
 	FallBody.Position = {32.0f, -16.0f};
 	FallBody.Velocity.Y = 4.0f;
@@ -538,9 +544,10 @@ void TestHiddenItemBlockOnlyBlocksFromBelow() {
 	FallMotion.Gravity = 0.0f;
 	CharacterController FallPlayer(FallBody, FallMotion);
 	for (int Frame = 0; Frame < 14; ++Frame) {
-		FallPlayer.Step(0.0f, false, SideMap, Loaded.Value());
+		FallPlayer.Step(0.0f, false, FallMap, Loaded.Value());
 	}
 	assert(FallPlayer.Body().Position.Y > 32.0f);
+	assert(!FallPlayer.Body().Grounded);
 
 	// 下からだけ頭を止め、HitFromBelowを通知する。
 	TileMap HitMap = MakeMap({
