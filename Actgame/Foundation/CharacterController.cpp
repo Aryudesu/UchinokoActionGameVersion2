@@ -108,10 +108,13 @@ void CharacterController::RefreshGround(
 	Body_.Grounded = IsSolidAt(Map, Catalog, X, Body_.Position.Y + BelowY);
 
 	float SlopeY = 0.0f;
-	if (TrySlopeCharacterY(Map, Catalog, X, FootY, SlopeY) &&
-		SlopeY <= Body_.Position.Y) {
-		Body_.Position.Y = SlopeY;
-		if (Body_.Velocity.Y >= 0.0f) Body_.Grounded = true;
+	CollisionShape GroundShape = CollisionShape::None;
+	if (TrySlopeCharacterY(Map, Catalog, X, FootY, SlopeY, &GroundShape)) {
+		const float Tolerance = Is2x1Slope(GroundShape) ? 1.0f : 0.0f;
+		if (SlopeY <= Body_.Position.Y + Tolerance) {
+			Body_.Position.Y = SlopeY;
+			if (Body_.Velocity.Y >= 0.0f) Body_.Grounded = true;
+		}
 	}
 	if (Body_.Grounded && Body_.Velocity.Y > 0.0f) Body_.Velocity.Y = 0.0f;
 	if (Body_.Grounded) VelocityY10_ = 0;
