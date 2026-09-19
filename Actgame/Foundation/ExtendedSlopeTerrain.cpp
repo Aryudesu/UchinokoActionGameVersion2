@@ -110,14 +110,18 @@ bool ExtendedSlopeTerrain::ResolveHighSide(
 		// 高い端と同じ行の通常ブロックは、CanvasMasaoと同じく連続床として扱う。
 		const int OutsideColumn = Slope.UpRight ? Boundary / 32 : Boundary / 32 - 1;
 		if (ShapeAt(Map, Catalog, OutsideColumn, Slope.Row) == CollisionShape::Solid) continue;
-		// 右上がりと左上がりの高い端が接続された山頂は、外壁ではなく連続面。
+		// 境界で坂面の高さがつながる隣接2x1坂は、外壁ではなく連続面。
+		// 反対向きの山頂だけでなく、1行ずらした同方向坂の連結も含む。
 		Slope2x1 Neighbor;
 		const int NeighborX = Slope.UpRight ? Boundary : Boundary - 1;
-		if (TryFind2x1(Map, Catalog, NeighborX, Slope.Row * 32 + 16, Neighbor) &&
-			Neighbor.UpRight != Slope.UpRight) {
-			const int NeighborHighBoundary = Neighbor.UpRight
-				? (Neighbor.LeftColumn + 2) * 32 : Neighbor.LeftColumn * 32;
-			if (NeighborHighBoundary == Boundary) continue;
+		for (int RowOffset = -1; RowOffset <= 1; ++RowOffset) {
+			if (!TryFind2x1(Map, Catalog, NeighborX,
+				(Slope.Row + RowOffset) * 32 + 16, Neighbor)) continue;
+			const float CurrentHighY = static_cast<float>(Slope.Row * 32);
+			const float NeighborY = SurfaceY(Neighbor, static_cast<float>(NeighborX));
+			if (std::fabs(NeighborY - CurrentHighY) <= 1.0f) {
+				return false;
+			}
 		}
 		NewX = MovingRight ? static_cast<float>(Boundary - 16) : static_cast<float>(Boundary - 15);
 		return true;
