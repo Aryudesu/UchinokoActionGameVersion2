@@ -178,8 +178,6 @@ void CharacterController::ResolveHorizontalWall(
 			Shape, {NewColumn, TileAt(ProbeY, Map.TileHeight())}, NewCenterX,
 			Map.TileWidth(), Map.TileHeight(), SurfaceY);
 		if (HasSurface && Body_.Grounded && Body_.Position.Y <= SurfaceY - BelowY) continue;
-		if (!HasSurface && (Shape == CollisionShape::Stair1x2UpRightTop ||
-			Shape == CollisionShape::Stair1x2UpLeftTop)) continue;
 		float BlockTop = 0.0f;
 		float BlockBottom = 0.0f;
 		if (TerrainCollision::TryGetSideBlock(
@@ -345,7 +343,7 @@ void CharacterController::MoveUp(
 		return;
 	}
 
-	// 1x2急坂など、CanvasMasaoにも2x1一般化にも含まれない形状だけ
+	// CanvasMasao互換・2x1・1x2の論理坂に含まれない独自形状だけ、
 	// 既存の下面判定を残す。
 	const int OldRow = TileAt(static_cast<float>(OldY), Map.TileHeight());
 	const int NewRow = TileAt(Body_.Position.Y, Map.TileHeight());
