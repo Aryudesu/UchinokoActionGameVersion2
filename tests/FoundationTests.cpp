@@ -393,6 +393,71 @@ void TestCharacterDescendsConnected2x1PeakWithoutFloorWarp() {
 	}
 }
 
+void TestCharacterCrossesConnected2x1PeakToLeftWithoutFallingThrough() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 4, 5, 6, 7, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 右側の左上がり坂から山頂を越え、左側の右上がり坂を左へ下る。
+	Body.Position = {84.0f, 1.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	float PreviousY = Player.Body().Position.Y;
+	for (int Frame = 0; Frame < 20; ++Frame) {
+		Player.Step(-1.0f, false, Map, Catalog);
+		assert(Player.Body().Grounded);
+		assert(std::fabs(Player.Body().Position.Y - PreviousY) <= 2.0f);
+		PreviousY = Player.Body().Position.Y;
+	}
+}
+
+void TestCharacterCrossesConnected2x1ValleyToLeftWithoutFallingThrough() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 6, 7, 4, 5, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 右側の右上がり坂を左へ下り、2x1坂同士の谷間を越える。
+	Body.Position = {142.0f, 2.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	float PreviousY = Player.Body().Position.Y;
+	for (int Frame = 0; Frame < 20; ++Frame) {
+		Player.Step(-1.0f, false, Map, Catalog);
+		assert(Player.Body().Grounded);
+		assert(std::fabs(Player.Body().Position.Y - PreviousY) <= 2.0f);
+		PreviousY = Player.Body().Position.Y;
+	}
+}
+
+void TestCharacterDescendsStacked2x1BoundaryToLeft() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 4, 5, 0},
+		{0, 4, 5, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 1行上の右上がり2x1坂から、左下の右上がり2x1坂へ連続して下る。
+	Body.Position = {84.0f, 31.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	float PreviousY = Player.Body().Position.Y;
+	for (int Frame = 0; Frame < 20; ++Frame) {
+		Player.Step(-1.0f, false, Map, Catalog);
+		assert(Player.Body().Grounded);
+		assert(Player.Body().Position.Y >= PreviousY - 0.01f);
+		assert(Player.Body().Position.Y - PreviousY <= 2.0f);
+		PreviousY = Player.Body().Position.Y;
+	}
+}
+
 void TestCharacterDescends2x1SlopeToLeftWithoutFallingThrough() {
 	TileCatalog Catalog = MakeTerrainCatalog();
 	TileMap Map = MakeMap({
@@ -1147,6 +1212,9 @@ int main() {
 	TestExtended2x1SlopeHighSideAndLanding();
 	TestCharacterCanJumpAcrossConnected2x1Peak();
 	TestCharacterDescendsConnected2x1PeakWithoutFloorWarp();
+	TestCharacterCrossesConnected2x1PeakToLeftWithoutFallingThrough();
+	TestCharacterCrossesConnected2x1ValleyToLeftWithoutFallingThrough();
+	TestCharacterDescendsStacked2x1BoundaryToLeft();
 	TestCharacterDescends2x1SlopeToLeftWithoutFallingThrough();
 	TestCharacterEnters2x1HighEdgeAndDescendsToLeft();
 	TestCharacterDescends2x1ToLeftFromEverySurfacePixel();
