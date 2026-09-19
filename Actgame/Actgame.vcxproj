@@ -139,6 +139,7 @@
     <ClCompile Include="Foundation\CanvasMasaoTerrain.cpp" />
     <ClCompile Include="Foundation\ExtendedSlopeTerrain.cpp" />
     <ClCompile Include="Foundation\GridDataLoader.cpp" />
+    <ClCompile Include="Foundation\ItemSystem.cpp" />
     <ClCompile Include="Foundation\LayeredMap.cpp" />
     <ClCompile Include="Foundation\StageDefinition.cpp" />
     <ClCompile Include="Foundation\TerrainCollision.cpp" />
@@ -191,6 +192,7 @@
     <ClInclude Include="Foundation\ExtendedSlopeTerrain.h" />
     <ClInclude Include="Foundation\Coordinates.h" />
     <ClInclude Include="Foundation\GridDataLoader.h" />
+    <ClInclude Include="Foundation\ItemSystem.h" />
     <ClInclude Include="Foundation\LayeredMap.h" />
     <ClInclude Include="Foundation\Result.h" />
     <ClInclude Include="Foundation\StageDefinition.h" />
