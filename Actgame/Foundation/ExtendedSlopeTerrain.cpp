@@ -120,7 +120,11 @@ bool ExtendedSlopeTerrain::ResolveHighSide(
 				(Slope.Row + RowOffset) * 32 + 16, Neighbor)) continue;
 			const float CurrentHighY = static_cast<float>(Slope.Row * 32);
 			const float NeighborY = SurfaceY(Neighbor, static_cast<float>(NeighborX));
-			if (std::fabs(NeighborY - CurrentHighY) <= 1.0f) {
+			// 連続する坂面を開けるのは、キャラクターがその面の上側にいる場合だけ。
+			// 下面側から高い端をこすって下降している最中まで開けると、段違い境界から
+			// 坂の実体へ入り込んでしまう。
+			if (std::fabs(NeighborY - CurrentHighY) <= 1.0f &&
+				Y + 31.0f <= CurrentHighY + 1.0f) {
 				return false;
 			}
 		}
