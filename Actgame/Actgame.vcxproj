@@ -144,6 +144,7 @@
     <ClCompile Include="Foundation\TerrainCollision.cpp" />
     <ClCompile Include="Foundation\TerrainStageLoader.cpp" />
     <ClCompile Include="Foundation\TileDefinition.cpp" />
+    <ClCompile Include="Foundation\TileInteraction.cpp" />
     <ClCompile Include="Foundation\TileMap.cpp" />
     <ClCompile Include="Base64.cpp" />
     <ClCompile Include="Block.cpp" />
@@ -195,6 +196,7 @@
     <ClInclude Include="Foundation\TerrainCollision.h" />
     <ClInclude Include="Foundation\TerrainStageLoader.h" />
     <ClInclude Include="Foundation\TileDefinition.h" />
+    <ClInclude Include="Foundation\TileInteraction.h" />
     <ClInclude Include="Foundation\TileMap.h" />
     <ClInclude Include="Base64.h" />
     <ClInclude Include="Block.h" />
@@ -238,6 +240,7 @@
     <None Include="..\dat\stage\slope-test\stage.ini" />
     <None Include="..\dat\stage\slope-test\terrain.csv" />
     <None Include="..\dat\stage\slope-test\tiles.csv" />
+    <None Include="..\dat\stage\interaction-test\tiles.csv" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
