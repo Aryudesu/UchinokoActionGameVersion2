@@ -44,6 +44,7 @@
     <ClCompile Include="..\Actgame\Foundation\TerrainCollision.cpp" />
     <ClCompile Include="..\Actgame\Foundation\TerrainStageLoader.cpp" />
     <ClCompile Include="..\Actgame\Foundation\TileDefinition.cpp" />
+    <ClCompile Include="..\Actgame\Foundation\TileInteraction.cpp" />
     <ClCompile Include="..\Actgame\Foundation\TileMap.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
