@@ -4,3 +4,10 @@
 20,None,0,0,0,Touch:AddCoin:1:once;Touch:AddScore:100:once;Touch:ReplaceTile:0:once
 21,Solid,0,1,0,-
 22,Solid,0,0,1,-
+30,Solid,0,0,0,-
+31,Solid,0,0,0,HitFromBelow:SpawnItem:1:once;HitFromBelow:ReplaceTile:30:once
+32,Solid,0,0,0,HitFromBelow:SpawnItem:2:once;HitFromBelow:ReplaceTile:30:once
+33,Solid,0,0,0,HitFromBelow:SpawnItem:3:once;HitFromBelow:ReplaceTile:30:once
+34,HitFromBelowOnly,0,0,0,HitFromBelow:SpawnItem:1:once;HitFromBelow:ReplaceTile:30:once
+35,HitFromBelowOnly,0,0,0,HitFromBelow:SpawnItem:2:once;HitFromBelow:ReplaceTile:30:once
+36,HitFromBelowOnly,0,0,0,HitFromBelow:SpawnItem:3:once;HitFromBelow:ReplaceTile:30:once
