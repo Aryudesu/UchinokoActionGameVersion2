@@ -71,9 +71,11 @@ struct TileEffect {
 };
 
 struct TileRuntimeState {
+	// 互換・デバッグ用に「何か一度きりのルールを消費したか」も保持する。
 	bool Used = false;
 	int Timer = 0;
 	int Count = 0;
+	std::vector<bool> ConsumedRules;
 };
 
 class TileRuntimeMap {
