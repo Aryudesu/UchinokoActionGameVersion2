@@ -353,6 +353,50 @@ void TestLegacyBreakableBecomesRuleDriven() {
 	assert(Runtime.TryGet({0, 0})->Used);
 }
 
+void TestTileOnceRulesAreIndependent() {
+	TileCatalog Catalog;
+	TileDefinition Tile;
+	Tile.Id = 30;
+	Tile.Collision = CollisionShape::None;
+	Tile.Rules.push_back({TileTrigger::Touch, TileAction::AddScore, 10, true});
+	Tile.Rules.push_back({TileTrigger::HitFromBelow, TileAction::AddCoin, 1, true});
+	assert(Catalog.Register(Tile).IsSuccess());
+
+	TileMap Map = MakeMap({{30}});
+	TileRuntimeMap Runtime(Map);
+
+	TileInteraction Touch;
+	Touch.Trigger = TileTrigger::Touch;
+	Touch.Position = {0, 0};
+	Touch.TileId = 30;
+	TileBehaviorResult First = TileBehaviorSystem::Apply(Touch, Map, Catalog, Runtime);
+	assert(First.Effects.size() == 1);
+	assert(First.Effects[0].Type == TileEffectType::AddScore);
+
+	TileInteraction Hit = Touch;
+	Hit.Trigger = TileTrigger::HitFromBelow;
+	TileBehaviorResult Second = TileBehaviorSystem::Apply(Hit, Map, Catalog, Runtime);
+	assert(Second.Effects.size() == 1);
+	assert(Second.Effects[0].Type == TileEffectType::AddCoin);
+
+	assert(TileBehaviorSystem::Apply(Touch, Map, Catalog, Runtime).Effects.empty());
+	assert(TileBehaviorSystem::Apply(Hit, Map, Catalog, Runtime).Effects.empty());
+}
+
+void TestExternalInteractionStage() {
+	Result<TerrainStageData> Loaded =
+		TerrainStageLoader::Load("dat/stage/interaction-test/stage.ini");
+	assert(Loaded.IsSuccess());
+	assert(Loaded.Value().Map.Width() == 12);
+	assert(Loaded.Value().Map.Height() == 6);
+	assert(*Loaded.Value().Map.TryGet({2, 2}) == 20);
+	assert(*Loaded.Value().Map.TryGet({5, 1}) == 21);
+	assert(Loaded.Value().Catalog.Find(20) != nullptr);
+	assert(Loaded.Value().Catalog.Find(20)->Rules.size() == 3);
+	assert(Loaded.Value().Catalog.Find(21) != nullptr);
+	assert(Loaded.Value().Catalog.Find(21)->Rules.size() == 1);
+}
+
 void TestCharacterEmitsTouchForCollectible() {
 	TileCatalog Catalog = MakeTerrainCatalog();
 	TileDefinition Coin;
@@ -1709,6 +1753,8 @@ int main() {
 	TestTileRuleCatalogAndLegacyCompatibility();
 	TestTileBehaviorComposesEffectsWithoutManagers();
 	TestLegacyBreakableBecomesRuleDriven();
+	TestTileOnceRulesAreIndependent();
+	TestExternalInteractionStage();
 	TestCharacterEmitsTouchForCollectible();
 	TestCharacterEmitsHitFromBelowForBlock();
 	TestCanvasMasaoTerrainCodesAndCoordinates();
