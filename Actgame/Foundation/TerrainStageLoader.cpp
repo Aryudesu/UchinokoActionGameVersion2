@@ -82,6 +82,92 @@ std::vector<std::string> Split(const std::string& Line, char Delimiter) {
 	return Values;
 }
 
+Result<TileTrigger> ParseTileTrigger(const std::string& Text) {
+	const std::string Name = Trim(Text);
+	const std::map<std::string, TileTrigger> Triggers = {
+		{"Touch", TileTrigger::Touch},
+		{"HitFromBelow", TileTrigger::HitFromBelow},
+		{"StandOn", TileTrigger::StandOn},
+		{"PushFromLeft", TileTrigger::PushFromLeft},
+		{"PushFromRight", TileTrigger::PushFromRight}
+	};
+	const auto Found = Triggers.find(Name);
+	if (Found == Triggers.end()) {
+		return Result<TileTrigger>::Failure("Unknown tile trigger: " + Name);
+	}
+	return Result<TileTrigger>::Success(Found->second);
+}
+
+Result<TileAction> ParseTileAction(const std::string& Text) {
+	const std::string Name = Trim(Text);
+	const std::map<std::string, TileAction> Actions = {
+		{"None", TileAction::None},
+		{"ReplaceTile", TileAction::ReplaceTile},
+		{"BreakTile", TileAction::BreakTile},
+		{"AddCoin", TileAction::AddCoin},
+		{"AddHealth", TileAction::AddHealth},
+		{"AddLife", TileAction::AddLife},
+		{"AddScore", TileAction::AddScore},
+		{"Damage", TileAction::Damage},
+		{"InstantDeath", TileAction::InstantDeath},
+		{"SpawnItem", TileAction::SpawnItem},
+		{"ToggleSwitch", TileAction::ToggleSwitch},
+		{"Goal", TileAction::Goal}
+	};
+	const auto Found = Actions.find(Name);
+	if (Found == Actions.end()) {
+		return Result<TileAction>::Failure("Unknown tile action: " + Name);
+	}
+	return Result<TileAction>::Success(Found->second);
+}
+
+Result<std::vector<TileRule>> ParseTileRules(const std::string& Text) {
+	std::vector<TileRule> Rules;
+	const std::string Value = Trim(Text);
+	if (Value.empty() || Value == "-") {
+		return Result<std::vector<TileRule>>::Success(std::move(Rules));
+	}
+
+	const std::vector<std::string> RuleTexts = Split(Value, ';');
+	for (std::size_t Index = 0; Index < RuleTexts.size(); ++Index) {
+		const std::vector<std::string> Parts = Split(RuleTexts[Index], ':');
+		if (Parts.size() < 2 || Parts.size() > 4) {
+			return Result<std::vector<TileRule>>::Failure(
+				"Invalid tile rule: " + RuleTexts[Index]);
+		}
+
+		Result<TileTrigger> Trigger = ParseTileTrigger(Parts[0]);
+		Result<TileAction> Action = ParseTileAction(Parts[1]);
+		if (Trigger.IsFailure()) {
+			return Result<std::vector<TileRule>>::Failure(Trigger.Error());
+		}
+		if (Action.IsFailure()) {
+			return Result<std::vector<TileRule>>::Failure(Action.Error());
+		}
+
+		TileRule Rule;
+		Rule.Trigger = Trigger.Value();
+		Rule.Action = Action.Value();
+		if (Parts.size() >= 3 && !Parts[2].empty()) {
+			Result<int> ParsedValue = ParseInteger(Parts[2], "tile rule value");
+			if (ParsedValue.IsFailure()) {
+				return Result<std::vector<TileRule>>::Failure(ParsedValue.Error());
+			}
+			Rule.Value = ParsedValue.Value();
+		}
+		if (Parts.size() >= 4) {
+			if (Parts[3] == "once") Rule.Once = true;
+			else if (Parts[3] == "repeat") Rule.Once = false;
+			else {
+				return Result<std::vector<TileRule>>::Failure(
+					"Unknown tile rule lifetime: " + Parts[3]);
+			}
+		}
+		Rules.push_back(Rule);
+	}
+	return Result<std::vector<TileRule>>::Success(std::move(Rules));
+}
+
 std::string DirectoryOf(const std::string& Path) {
 	const std::size_t Separator = Path.find_last_of("/\\");
 	return Separator == std::string::npos ? "" : Path.substr(0, Separator);
@@ -151,8 +237,8 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 		Line = Trim(Line);
 		if (Line.empty() || Line.front() == '#') continue;
 		const std::vector<std::string> Cells = Split(Line, ',');
-		if (Cells.size() != 5) {
-			return Result<TileCatalog>::Failure(FileName + ": expected 5 columns at line " +
+		if (Cells.size() != 5 && Cells.size() != 6) {
+			return Result<TileCatalog>::Failure(FileName + ": expected 5 or 6 columns at line " +
 				std::to_string(LineNumber));
 		}
 		Result<int> Id = ParseInteger(Cells[0], "tile id");
@@ -160,17 +246,23 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 		Result<int> Image = ParseInteger(Cells[2], "image index");
 		Result<bool> Breakable = ParseBoolean(Cells[3], "breakable");
 		Result<bool> Damaging = ParseBoolean(Cells[4], "damaging");
+		Result<std::vector<TileRule>> Rules =
+			Cells.size() == 6
+				? ParseTileRules(Cells[5])
+				: Result<std::vector<TileRule>>::Success(std::vector<TileRule>());
 		if (Id.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Id.Error());
 		if (Shape.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Shape.Error());
 		if (Image.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Image.Error());
 		if (Breakable.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Breakable.Error());
 		if (Damaging.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Damaging.Error());
+		if (Rules.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Rules.Error());
 		TileDefinition Definition;
 		Definition.Id = Id.Value();
 		Definition.Collision = Shape.Value();
 		Definition.ImageIndex = Image.Value();
 		Definition.Breakable = Breakable.Value();
 		Definition.Damaging = Damaging.Value();
+		Definition.Rules = std::move(Rules.Value());
 		Result<bool> Registered = Catalog.Register(Definition);
 		if (Registered.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Registered.Error());
 	}
