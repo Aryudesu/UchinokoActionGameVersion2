@@ -642,6 +642,65 @@ void TestRisingCharacterCannotPass2x1HighSideInsideColumn() {
 	assert(NearlyEqual(Player.Body().Velocity.X, 0.0f));
 }
 
+void TestCharacterJumpsLeftAlong2x1HighSideAndLands() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 4, 5, 0},
+		{0, 0, 0, 0},
+		{1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 2x1坂の右側面に接した床上から、左入力を続けながらジャンプする。
+	Body.Position = {84.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	bool RoseAboveSlope = false;
+	bool Landed = false;
+	for (int Frame = 0; Frame < 80; ++Frame) {
+		Player.Step(-1.0f, Frame == 0, Map, Catalog);
+		assert(Player.Body().Position.Y <= 64.0f);
+		if (Player.Body().Position.Y < 0.0f) RoseAboveSlope = true;
+		if (Frame > 0 && Player.Body().Grounded) {
+			Landed = true;
+			break;
+		}
+	}
+	assert(RoseAboveSlope);
+	assert(Landed);
+}
+
+void TestCharacterJumpsLeftAlong2x1HighSideConnectedToBlock() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 4, 5, 1, 0},
+		{0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1}
+	});
+	CharacterBody Body;
+	// 高い端にブロックが接続された坂の右下から、左入力で側面をこすって上昇する。
+	Body.Position = {84.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	bool ClearedTerrain = false;
+	bool RoseAfterClearing = false;
+	for (int Frame = 0; Frame < 40; ++Frame) {
+		Player.Step(-1.0f, Frame == 0, Map, Catalog);
+		const float Center = Player.Body().Position.X + 15.0f;
+		if (Center >= 32.0f && Center < 128.0f) {
+			// 坂とブロックの下面にいる間は、上の床へ抜けない。
+			assert(Player.Body().Position.Y >= 64.0f);
+		} else if (Center < 32.0f) {
+			ClearedTerrain = true;
+			if (Player.Body().Position.Y < 64.0f) RoseAfterClearing = true;
+		}
+		assert(Player.Body().Position.Y <= 64.0f);
+	}
+	assert(ClearedTerrain);
+	assert(RoseAfterClearing);
+}
+
 void TestJumpingCharacterCanMoveAbove2x1SurfaceInsideColumn() {
 	TileCatalog Catalog = MakeTerrainCatalog();
 	TileMap Map = MakeMap({
@@ -1222,6 +1281,8 @@ int main() {
 	TestCharacterLeavesFloating2x1LowEdgeNaturally();
 	TestCharacterLeaves2x1HighEdgeWithoutWarpingToLowerFloor();
 	TestRisingCharacterCannotPass2x1HighSideInsideColumn();
+	TestCharacterJumpsLeftAlong2x1HighSideAndLands();
+	TestCharacterJumpsLeftAlong2x1HighSideConnectedToBlock();
 	TestJumpingCharacterCanMoveAbove2x1SurfaceInsideColumn();
 	TestCharacterCanJumpFromBlockInto2x1UpperSpace();
 	TestCharacterMovement();
