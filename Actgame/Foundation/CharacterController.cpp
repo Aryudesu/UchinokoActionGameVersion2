@@ -418,16 +418,83 @@ void CharacterController::MoveVertical(
 	else if (Amount > 0.0f) MoveDown(Amount, HorizontalInput, Map, Catalog);
 }
 
+void CharacterController::EmitInteractionAtWorld(
+	TileTrigger Trigger, const TileMap& Map, float X, float Y) {
+	TilePosition Position;
+	if (!Map.TryWorldToTile({X, Y}, Position)) return;
+	const int* Id = Map.TryGet(Position);
+	if (Id == nullptr) return;
+
+	for (std::size_t Index = 0; Index < Interactions_.size(); ++Index) {
+		const TileInteraction& Existing = Interactions_[Index];
+		if (Existing.Trigger == Trigger &&
+			Existing.Position.Column == Position.Column &&
+			Existing.Position.Row == Position.Row) return;
+	}
+
+	TileInteraction Interaction;
+	Interaction.Trigger = Trigger;
+	Interaction.Position = Position;
+	Interaction.TileId = *Id;
+	Interactions_.push_back(Interaction);
+}
+
+void CharacterController::EmitTouchInteractions(const TileMap& Map) {
+	const float Left = Body_.Position.X + 1.0f;
+	const float Right = Body_.Position.X + Body_.Width - 2.0f;
+	const float Top = Body_.Position.Y + 1.0f;
+	const float Bottom = Body_.Position.Y + Body_.Height - 2.0f;
+	const float Center = Body_.Position.X + CenterX;
+
+	EmitInteractionAtWorld(TileTrigger::Touch, Map, Left, Top);
+	EmitInteractionAtWorld(TileTrigger::Touch, Map, Right, Top);
+	EmitInteractionAtWorld(TileTrigger::Touch, Map, Left, Bottom);
+	EmitInteractionAtWorld(TileTrigger::Touch, Map, Right, Bottom);
+	EmitInteractionAtWorld(TileTrigger::Touch, Map, Center,
+		Body_.Position.Y + Body_.Height * 0.5f);
+}
+
+void CharacterController::EmitStandInteractions(const TileMap& Map) {
+	if (!Body_.Grounded) return;
+	const float ProbeY = Body_.Position.Y + Body_.Height + 0.01f;
+	EmitInteractionAtWorld(
+		TileTrigger::StandOn, Map, Body_.Position.X + 1.0f, ProbeY);
+	EmitInteractionAtWorld(
+		TileTrigger::StandOn, Map, Body_.Position.X + Body_.Width - 2.0f, ProbeY);
+}
+
 void CharacterController::Step(
 	float HorizontalInput, bool JumpPressed,
 	const TileMap& Map, const TileCatalog& Catalog) {
+	Interactions_.clear();
 	HorizontalInput = std::max(-1.0f, std::min(1.0f, HorizontalInput));
 	// jM100 と同じく、入力処理より前に現在座標から接地を再判定する。
 	RefreshGround(Map, Catalog);
+
 	VelocityX10_ = static_cast<int>(std::round(HorizontalInput * Motion_.MoveSpeed * 10.0f));
 	Body_.Velocity.X = static_cast<float>(VelocityX10_) / 10.0f;
-	MoveHorizontal(static_cast<float>(CanvasMasaoTerrain::RoundDown(
-		static_cast<double>(VelocityX10_) / 10.0)), Map, Catalog);
+	const float OldX = Body_.Position.X;
+	const float HorizontalAmount = static_cast<float>(CanvasMasaoTerrain::RoundDown(
+		static_cast<double>(VelocityX10_) / 10.0));
+	MoveHorizontal(HorizontalAmount, Map, Catalog);
+
+	// 壁へ押し付けた事実だけをイベント化する。ギミックの意味はここでは判断しない。
+	const float ActualHorizontal = Body_.Position.X - OldX;
+	if (HorizontalAmount > 0.0f && ActualHorizontal < HorizontalAmount - 0.01f) {
+		const float ProbeX = Body_.Position.X + Body_.Width + 0.01f;
+		EmitInteractionAtWorld(
+			TileTrigger::PushFromLeft, Map, ProbeX, Body_.Position.Y + 1.0f);
+		EmitInteractionAtWorld(
+			TileTrigger::PushFromLeft, Map, ProbeX,
+			Body_.Position.Y + Body_.Height - 2.0f);
+	} else if (HorizontalAmount < 0.0f && ActualHorizontal > HorizontalAmount + 0.01f) {
+		const float ProbeX = Body_.Position.X - 0.01f;
+		EmitInteractionAtWorld(
+			TileTrigger::PushFromRight, Map, ProbeX, Body_.Position.Y + 1.0f);
+		EmitInteractionAtWorld(
+			TileTrigger::PushFromRight, Map, ProbeX,
+			Body_.Position.Y + Body_.Height - 2.0f);
+	}
 
 	if (JumpPressed && Body_.Grounded) {
 		VelocityY10_ = -static_cast<int>(std::round(Motion_.JumpSpeed * 10.0f));
@@ -439,9 +506,24 @@ void CharacterController::Step(
 		VelocityY10_ = std::min(
 			static_cast<int>(std::round(Motion_.MaxFallSpeed * 10.0f)), VelocityY10_);
 		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
-		MoveVertical(static_cast<float>(CanvasMasaoTerrain::RoundDown(
-			static_cast<double>(VelocityY10_) / 10.0)), HorizontalInput, Map, Catalog);
+
+		const float VerticalAmount = static_cast<float>(CanvasMasaoTerrain::RoundDown(
+			static_cast<double>(VelocityY10_) / 10.0));
+		MoveVertical(VerticalAmount, HorizontalInput, Map, Catalog);
+
+		// 上昇が地形で止められた場合、V1 の Hited() 相当を左右2点から通知する。
+		if (VerticalAmount < 0.0f && VelocityY10_ == 0) {
+			const float ProbeY = Body_.Position.Y - 0.01f;
+			EmitInteractionAtWorld(
+				TileTrigger::HitFromBelow, Map, Body_.Position.X + 1.0f, ProbeY);
+			EmitInteractionAtWorld(
+				TileTrigger::HitFromBelow, Map,
+				Body_.Position.X + Body_.Width - 2.0f, ProbeY);
+		}
 	}
+
+	EmitTouchInteractions(Map);
+	EmitStandInteractions(Map);
 }
 
 } // namespace uchinoko
