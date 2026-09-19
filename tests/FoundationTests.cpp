@@ -435,6 +435,29 @@ void TestCharacterEmitsTouchForCollectible() {
 	assert(*Map.TryGet({1, 0}) == 0);
 }
 
+void TestCharacterTouchIncludesSolidContact() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0},
+		{22}
+	});
+	CharacterBody Body;
+	Body.Position = {0.0f, 0.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	Player.Step(0.0f, false, Map, Loaded.Value());
+
+	TileRuntimeMap Runtime(Map);
+	std::vector<TileEffect> Effects =
+		TileBehaviorSystem::ApplyAll(Player.Interactions(), Map, Loaded.Value(), Runtime);
+	assert(Effects.size() == 1);
+	assert(Effects[0].Type == TileEffectType::Damage);
+	assert(Effects[0].Value == 1);
+}
+
 void TestCharacterEmitsHitFromBelowForBlock() {
 	TileCatalog Catalog = MakeTerrainCatalog();
 	TileDefinition Breakable;
@@ -1756,6 +1779,7 @@ int main() {
 	TestTileOnceRulesAreIndependent();
 	TestExternalInteractionStage();
 	TestCharacterEmitsTouchForCollectible();
+	TestCharacterTouchIncludesSolidContact();
 	TestCharacterEmitsHitFromBelowForBlock();
 	TestCanvasMasaoTerrainCodesAndCoordinates();
 	TestCanvasMasaoVerticalCrossings();
