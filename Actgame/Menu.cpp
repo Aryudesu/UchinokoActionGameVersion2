@@ -33,6 +33,9 @@ void Menu::update() {
 			case SLOPE_TEST:
 				SceneChanger::GetInstance().Change(SLOPE_SANDBOX);
 				break;
+			case GIMMICK_TEST:
+				SceneChanger::GetInstance().Change(GIMMICK_SANDBOX);
+				break;
 			default:
 				exit(0);
 			break;
