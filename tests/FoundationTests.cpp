@@ -8,6 +8,7 @@
 #include "../Actgame/Foundation/TerrainCollision.h"
 #include "../Actgame/Foundation/TerrainStageLoader.h"
 #include "../Actgame/Foundation/TileDefinition.h"
+#include "../Actgame/Foundation/TileInteraction.h"
 #include "../Actgame/Foundation/TileMap.h"
 
 #include <algorithm>
@@ -271,6 +272,161 @@ TileCatalog MakeTerrainCatalog() {
 	OneWay.Collision = CollisionShape::OneWay;
 	assert(Catalog.Register(OneWay).IsSuccess());
 	return Catalog;
+}
+
+void TestTileRuleCatalogAndLegacyCompatibility() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* Coin = Loaded.Value().Find(20);
+	assert(Coin != nullptr);
+	assert(Coin->Rules.size() == 3);
+	assert(Coin->Rules[0].Trigger == TileTrigger::Touch);
+	assert(Coin->Rules[0].Action == TileAction::AddCoin);
+	assert(Coin->Rules[0].Value == 1);
+	assert(Coin->Rules[0].Once);
+
+	const TileDefinition* Breakable = Loaded.Value().Find(21);
+	assert(Breakable != nullptr);
+	assert(Breakable->Rules.size() == 1);
+	assert(Breakable->Rules[0].Trigger == TileTrigger::HitFromBelow);
+	assert(Breakable->Rules[0].Action == TileAction::BreakTile);
+	assert(Breakable->Rules[0].Once);
+
+	const TileDefinition* Damaging = Loaded.Value().Find(22);
+	assert(Damaging != nullptr);
+	assert(Damaging->Rules.size() == 1);
+	assert(Damaging->Rules[0].Trigger == TileTrigger::Touch);
+	assert(Damaging->Rules[0].Action == TileAction::Damage);
+	assert(!Damaging->Rules[0].Once);
+}
+
+void TestTileBehaviorComposesEffectsWithoutManagers() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({{20}});
+	TileRuntimeMap Runtime(Map);
+	TileInteraction Interaction;
+	Interaction.Trigger = TileTrigger::Touch;
+	Interaction.Position = {0, 0};
+	Interaction.TileId = 20;
+
+	TileBehaviorResult Result =
+		TileBehaviorSystem::Apply(Interaction, Map, Loaded.Value(), Runtime);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 2);
+	assert(Result.Effects[0].Type == TileEffectType::AddCoin);
+	assert(Result.Effects[0].Value == 1);
+	assert(Result.Effects[1].Type == TileEffectType::AddScore);
+	assert(Result.Effects[1].Value == 100);
+	assert(*Map.TryGet({0, 0}) == 0);
+	assert(Runtime.TryGet({0, 0})->Used);
+
+	// 置換後の古いイベントや once ルールを再実行してはいけない。
+	TileBehaviorResult Again =
+		TileBehaviorSystem::Apply(Interaction, Map, Loaded.Value(), Runtime);
+	assert(!Again.Handled);
+	assert(Again.Effects.empty());
+}
+
+void TestLegacyBreakableBecomesRuleDriven() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({{21}});
+	TileRuntimeMap Runtime(Map);
+	TileInteraction Interaction;
+	Interaction.Trigger = TileTrigger::HitFromBelow;
+	Interaction.Position = {0, 0};
+	Interaction.TileId = 21;
+
+	TileBehaviorResult Result =
+		TileBehaviorSystem::Apply(Interaction, Map, Loaded.Value(), Runtime);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::TileBroken);
+	assert(*Map.TryGet({0, 0}) == 0);
+	assert(Runtime.TryGet({0, 0})->Used);
+}
+
+void TestCharacterEmitsTouchForCollectible() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileDefinition Coin;
+	Coin.Id = 20;
+	Coin.Collision = CollisionShape::None;
+	Coin.Rules.push_back({TileTrigger::Touch, TileAction::AddCoin, 1, true});
+	Coin.Rules.push_back({TileTrigger::Touch, TileAction::ReplaceTile, 0, true});
+	assert(Catalog.Register(Coin).IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 20, 0},
+		{1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {0.0f, 0.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	Player.Step(1.0f, false, Map, Catalog);
+
+	bool FoundTouch = false;
+	for (std::size_t Index = 0; Index < Player.Interactions().size(); ++Index) {
+		const TileInteraction& Interaction = Player.Interactions()[Index];
+		if (Interaction.Trigger == TileTrigger::Touch &&
+			Interaction.Position.Column == 1 && Interaction.Position.Row == 0 &&
+			Interaction.TileId == 20) {
+			FoundTouch = true;
+		}
+	}
+	assert(FoundTouch);
+
+	TileRuntimeMap Runtime(Map);
+	std::vector<TileEffect> Effects =
+		TileBehaviorSystem::ApplyAll(Player.Interactions(), Map, Catalog, Runtime);
+	assert(Effects.size() == 1);
+	assert(Effects[0].Type == TileEffectType::AddCoin);
+	assert(*Map.TryGet({1, 0}) == 0);
+}
+
+void TestCharacterEmitsHitFromBelowForBlock() {
+	TileCatalog Catalog = MakeTerrainCatalog();
+	TileDefinition Breakable;
+	Breakable.Id = 21;
+	Breakable.Collision = CollisionShape::Solid;
+	Breakable.Breakable = true;
+	assert(Catalog.Register(Breakable).IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 21, 0},
+		{0, 0, 0},
+		{1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {32.0f, 32.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	Player.Step(0.0f, true, Map, Catalog);
+
+	bool FoundHit = false;
+	for (std::size_t Index = 0; Index < Player.Interactions().size(); ++Index) {
+		const TileInteraction& Interaction = Player.Interactions()[Index];
+		if (Interaction.Trigger == TileTrigger::HitFromBelow &&
+			Interaction.Position.Column == 1 && Interaction.Position.Row == 0 &&
+			Interaction.TileId == 21) {
+			FoundHit = true;
+		}
+	}
+	assert(FoundHit);
+
+	TileRuntimeMap Runtime(Map);
+	std::vector<TileEffect> Effects =
+		TileBehaviorSystem::ApplyAll(Player.Interactions(), Map, Catalog, Runtime);
+	assert(*Map.TryGet({1, 0}) == 0);
+	assert(Effects.size() == 1);
+	assert(Effects[0].Type == TileEffectType::TileBroken);
 }
 
 void TestCanvasMasaoTerrainCodesAndCoordinates() {
@@ -1550,6 +1706,11 @@ int main() {
 	TestSlopeSideBlocks();
 	TestSlopeGroundSnap();
 	TestLayeredMap();
+	TestTileRuleCatalogAndLegacyCompatibility();
+	TestTileBehaviorComposesEffectsWithoutManagers();
+	TestLegacyBreakableBecomesRuleDriven();
+	TestCharacterEmitsTouchForCollectible();
+	TestCharacterEmitsHitFromBelowForBlock();
 	TestCanvasMasaoTerrainCodesAndCoordinates();
 	TestCanvasMasaoVerticalCrossings();
 	TestExtended2x1SlopeIsOneContinuousSurface();
