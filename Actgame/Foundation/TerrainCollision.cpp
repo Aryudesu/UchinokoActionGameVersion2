@@ -24,6 +24,8 @@ bool TerrainCollision::TryGetSurfaceY(
 	case CollisionShape::OneWay:
 		SurfaceY = Top;
 		return true;
+	case CollisionShape::HitFromBelowOnly:
+		return false;
 	case CollisionShape::SlopeUpRight:
 		SurfaceY = Top + static_cast<float>(TileHeight) * (1.0f - Ratio);
 		return true;
@@ -71,6 +73,7 @@ bool TerrainCollision::ContainsSolidPoint(
 	int TileWidth,
 	int TileHeight) {
 	if (Shape == CollisionShape::None || Shape == CollisionShape::OneWay ||
+		Shape == CollisionShape::HitFromBelowOnly ||
 		TileWidth <= 0 || TileHeight <= 0) return false;
 
 	const float Left = static_cast<float>(Tile.Column * TileWidth);
@@ -95,7 +98,8 @@ bool TerrainCollision::TryGetSideBlock(
 	float& BlockTop,
 	float& BlockBottom) {
 	if (TileWidth <= 0 || TileHeight <= 0 ||
-		Shape == CollisionShape::None || Shape == CollisionShape::OneWay) return false;
+		Shape == CollisionShape::None || Shape == CollisionShape::OneWay ||
+		Shape == CollisionShape::HitFromBelowOnly) return false;
 	const float Top = static_cast<float>(Tile.Row * TileHeight);
 	const float Bottom = Top + static_cast<float>(TileHeight);
 	BlockBottom = Bottom;
@@ -140,6 +144,7 @@ bool TerrainCollision::TryGetSideBlock(
 	case CollisionShape::None:
 	case CollisionShape::Solid:
 	case CollisionShape::OneWay:
+	case CollisionShape::HitFromBelowOnly:
 		return false;
 	}
 	return BlockTop < BlockBottom;
