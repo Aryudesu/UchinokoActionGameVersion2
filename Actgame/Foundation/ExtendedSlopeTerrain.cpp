@@ -110,9 +110,16 @@ bool ExtendedSlopeTerrain::FollowHorizontal(
 			static_cast<int>(std::floor(NewCenter)),
 			ProbeRow * 32 + 16,
 			CandidateSlope)) continue;
-		const float CandidateY = SurfaceY(CandidateSlope, NewCenter) - 32.0f;
-		if (std::fabs(CandidateY - EdgeY) > 1.0f) continue;
-		NewY = CandidateY;
+
+		// 移動量が3pxでも接続判定がぶれないよう、移動後位置ではなく
+		// 候補坂そのものの接続端の高さを比較する。
+		const float CandidateEdgeX = MovingRight
+			? static_cast<float>(CandidateSlope.LeftColumn * 32)
+			: static_cast<float>((CandidateSlope.LeftColumn + 2) * 32 - 1);
+		const float CandidateEdgeY = SurfaceY(CandidateSlope, CandidateEdgeX) - 32.0f;
+		if (std::fabs(CandidateEdgeY - EdgeY) > 1.0f) continue;
+
+		NewY = SurfaceY(CandidateSlope, NewCenter) - 32.0f;
 		VelocityY10 = 0;
 		Grounded = true;
 		return true;
