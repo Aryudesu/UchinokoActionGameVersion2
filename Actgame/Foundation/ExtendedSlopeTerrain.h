@@ -19,10 +19,12 @@ public:
 	static bool TryCharacterY(const TileMap& Map, const TileCatalog& Catalog,
 		float WorldX, float ProbeY, float& CharacterY, Slope2x1* Found = nullptr);
 	static bool FollowHorizontal(const TileMap& Map, const TileCatalog& Catalog,
-		float OldX, float NewX, float OldY, float& NewY, bool WasGrounded,
-		bool& Grounded);
+		float OldX, float NewX, float OldY, float& NewY,
+		int VelocityX10, int& VelocityY10, bool WasGrounded, bool& Grounded);
 	static bool ResolveHighSide(const TileMap& Map, const TileCatalog& Catalog,
 		float OldX, float& NewX, float Y, bool MovingRight, bool Grounded);
+	static bool ResolveRising(const TileMap& Map, const TileCatalog& Catalog,
+		float X, float OldY, float& NewY);
 	static bool ResolveFalling(const TileMap& Map, const TileCatalog& Catalog,
 		float X, float OldY, float& NewY);
 };
