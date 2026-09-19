@@ -3,6 +3,7 @@
 #include "../Actgame/Foundation/CanvasMasaoTerrain.h"
 #include "../Actgame/Foundation/ExtendedSlopeTerrain.h"
 #include "../Actgame/Foundation/GridDataLoader.h"
+#include "../Actgame/Foundation/ItemSystem.h"
 #include "../Actgame/Foundation/LayeredMap.h"
 #include "../Actgame/Foundation/StageDefinition.h"
 #include "../Actgame/Foundation/TerrainCollision.h"
@@ -387,7 +388,7 @@ void TestExternalInteractionStage() {
 	Result<TerrainStageData> Loaded =
 		TerrainStageLoader::Load("dat/stage/interaction-test/stage.ini");
 	assert(Loaded.IsSuccess());
-	assert(Loaded.Value().Map.Width() == 12);
+	assert(Loaded.Value().Map.Width() == 18);
 	assert(Loaded.Value().Map.Height() == 6);
 	assert(*Loaded.Value().Map.TryGet({2, 2}) == 20);
 	assert(*Loaded.Value().Map.TryGet({5, 1}) == 21);
@@ -395,6 +396,185 @@ void TestExternalInteractionStage() {
 	assert(Loaded.Value().Catalog.Find(20)->Rules.size() == 3);
 	assert(Loaded.Value().Catalog.Find(21) != nullptr);
 	assert(Loaded.Value().Catalog.Find(21)->Rules.size() == 1);
+}
+
+void TestItemBlockDefinitions() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* CoinBlock = Loaded.Value().Find(31);
+	assert(CoinBlock != nullptr);
+	assert(CoinBlock->Collision == CollisionShape::Solid);
+	assert(CoinBlock->Rules.size() == 2);
+	assert(CoinBlock->Rules[0].Trigger == TileTrigger::HitFromBelow);
+	assert(CoinBlock->Rules[0].Action == TileAction::SpawnItem);
+	assert(CoinBlock->Rules[0].Value == static_cast<int>(ItemKind::Coin));
+	assert(CoinBlock->Rules[1].Action == TileAction::ReplaceTile);
+	assert(CoinBlock->Rules[1].Value == 30);
+
+	const TileDefinition* Hidden = Loaded.Value().Find(34);
+	assert(Hidden != nullptr);
+	assert(Hidden->Collision == CollisionShape::HitFromBelowOnly);
+	assert(Hidden->Rules.size() == 2);
+	assert(Hidden->Rules[0].Action == TileAction::SpawnItem);
+}
+
+void TestItemSystemConvertsSpawnToV1Rewards() {
+	ItemSystem Items;
+	const ItemKind Kinds[] = {
+		ItemKind::Coin,
+		ItemKind::Healing,
+		ItemKind::OneUp
+	};
+
+	for (int KindIndex = 0; KindIndex < 3; ++KindIndex) {
+		Items.Reset();
+		TileEffect Spawn;
+		Spawn.Type = TileEffectType::SpawnItem;
+		Spawn.Position = {2, 3};
+		Spawn.Value = static_cast<int>(Kinds[KindIndex]);
+		Items.ConsumeTileEffects({Spawn}, 32, 32);
+		assert(Items.Items().size() == 1);
+		assert(Items.Items()[0].Kind == Kinds[KindIndex]);
+		assert(NearlyEqual(Items.Items()[0].Position.X, 64.0f));
+		assert(NearlyEqual(Items.Items()[0].Position.Y, 64.0f));
+
+		std::vector<TileEffect> Rewards;
+		for (int Frame = 0; Frame < 30; ++Frame) {
+			std::vector<TileEffect> Current = Items.Update();
+			Rewards.insert(Rewards.end(), Current.begin(), Current.end());
+		}
+		assert(Items.Items().empty());
+
+		if (Kinds[KindIndex] == ItemKind::Coin) {
+			assert(Rewards.size() == 2);
+			assert(Rewards[0].Type == TileEffectType::AddCoin);
+			assert(Rewards[0].Value == 1);
+			assert(Rewards[1].Type == TileEffectType::AddScore);
+			assert(Rewards[1].Value == 100);
+		} else if (Kinds[KindIndex] == ItemKind::Healing) {
+			assert(Rewards.size() == 2);
+			assert(Rewards[0].Type == TileEffectType::AddHealth);
+			assert(Rewards[0].Value == 1);
+			assert(Rewards[1].Type == TileEffectType::AddScore);
+			assert(Rewards[1].Value == 1000);
+		} else {
+			assert(Rewards.size() == 1);
+			assert(Rewards[0].Type == TileEffectType::AddLife);
+			assert(Rewards[0].Value == 1);
+		}
+	}
+}
+
+void TestQuestionBlockSpawnsItemAndBecomesUsed() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 31, 0},
+		{0, 0, 0},
+		{1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {32.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	Player.Step(0.0f, true, Map, Loaded.Value());
+
+	bool FoundHit = false;
+	for (std::size_t Index = 0; Index < Player.Interactions().size(); ++Index) {
+		const TileInteraction& Interaction = Player.Interactions()[Index];
+		if (Interaction.Trigger == TileTrigger::HitFromBelow &&
+			Interaction.Position.Column == 1 && Interaction.Position.Row == 1 &&
+			Interaction.TileId == 31) {
+			FoundHit = true;
+		}
+	}
+	assert(FoundHit);
+
+	TileRuntimeMap Runtime(Map);
+	const std::vector<TileEffect> Effects =
+		TileBehaviorSystem::ApplyAll(Player.Interactions(), Map, Loaded.Value(), Runtime);
+	assert(Effects.size() == 1);
+	assert(Effects[0].Type == TileEffectType::SpawnItem);
+	assert(Effects[0].Value == static_cast<int>(ItemKind::Coin));
+	assert(*Map.TryGet({1, 1}) == 30);
+
+	ItemSystem Items;
+	Items.ConsumeTileEffects(Effects);
+	assert(Items.Items().size() == 1);
+}
+
+void TestHiddenItemBlockOnlyBlocksFromBelow() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	// 横からは存在しないものとして通過できる。
+	TileMap SideMap = MakeMap({
+		{0, 0, 0},
+		{0, 34, 0},
+		{1, 1, 1}
+	});
+	CharacterBody SideBody;
+	SideBody.Position = {0.0f, 32.0f};
+	SideBody.Grounded = true;
+	CharacterController SidePlayer(SideBody);
+	for (int Frame = 0; Frame < 15; ++Frame) {
+		SidePlayer.Step(1.0f, false, SideMap, Loaded.Value());
+	}
+	assert(SidePlayer.Body().Position.X > 32.0f);
+
+	// 上から落ちても足場にならない。
+	CharacterBody FallBody;
+	FallBody.Position = {32.0f, -16.0f};
+	FallBody.Velocity.Y = 4.0f;
+	FallBody.Grounded = false;
+	CharacterMotion FallMotion;
+	FallMotion.MoveSpeed = 0.0f;
+	FallMotion.Gravity = 0.0f;
+	CharacterController FallPlayer(FallBody, FallMotion);
+	for (int Frame = 0; Frame < 14; ++Frame) {
+		FallPlayer.Step(0.0f, false, SideMap, Loaded.Value());
+	}
+	assert(FallPlayer.Body().Position.Y > 32.0f);
+
+	// 下からだけ頭を止め、HitFromBelowを通知する。
+	TileMap HitMap = MakeMap({
+		{0, 0, 0},
+		{0, 34, 0},
+		{0, 0, 0},
+		{1, 1, 1}
+	});
+	CharacterBody HitBody;
+	HitBody.Position = {32.0f, 64.0f};
+	HitBody.Grounded = true;
+	CharacterController HitPlayer(HitBody);
+	HitPlayer.Step(0.0f, true, HitMap, Loaded.Value());
+	assert(NearlyEqual(HitPlayer.Body().Position.Y, 64.0f));
+	assert(!HitPlayer.Body().Grounded);
+
+	bool FoundHiddenHit = false;
+	for (std::size_t Index = 0; Index < HitPlayer.Interactions().size(); ++Index) {
+		const TileInteraction& Interaction = HitPlayer.Interactions()[Index];
+		if (Interaction.Trigger == TileTrigger::HitFromBelow &&
+			Interaction.Position.Column == 1 && Interaction.Position.Row == 1 &&
+			Interaction.TileId == 34) {
+			FoundHiddenHit = true;
+		}
+	}
+	assert(FoundHiddenHit);
+
+	TileRuntimeMap Runtime(HitMap);
+	const std::vector<TileEffect> Effects =
+		TileBehaviorSystem::ApplyAll(
+			HitPlayer.Interactions(), HitMap, Loaded.Value(), Runtime);
+	assert(Effects.size() == 1);
+	assert(Effects[0].Type == TileEffectType::SpawnItem);
+	assert(*HitMap.TryGet({1, 1}) == 30);
 }
 
 void TestCharacterEmitsTouchForCollectible() {
@@ -1778,6 +1958,10 @@ int main() {
 	TestLegacyBreakableBecomesRuleDriven();
 	TestTileOnceRulesAreIndependent();
 	TestExternalInteractionStage();
+	TestItemBlockDefinitions();
+	TestItemSystemConvertsSpawnToV1Rewards();
+	TestQuestionBlockSpawnsItemAndBecomesUsed();
+	TestHiddenItemBlockOnlyBlocksFromBelow();
 	TestCharacterEmitsTouchForCollectible();
 	TestCharacterTouchIncludesSolidContact();
 	TestCharacterEmitsHitFromBelowForBlock();
