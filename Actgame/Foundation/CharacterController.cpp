@@ -35,6 +35,13 @@ bool Is2x1Slope(CollisionShape Shape) {
 		Shape == CollisionShape::Stair2x1UpLeftHigh ||
 		Shape == CollisionShape::Stair2x1UpLeftLow;
 }
+
+bool Is1x2Slope(CollisionShape Shape) {
+	return Shape == CollisionShape::Stair1x2UpRightBottom ||
+		Shape == CollisionShape::Stair1x2UpRightTop ||
+		Shape == CollisionShape::Stair1x2UpLeftTop ||
+		Shape == CollisionShape::Stair1x2UpLeftBottom;
+}
 } // namespace
 
 CharacterController::CharacterController(CharacterBody Body, CharacterMotion Motion)
@@ -78,11 +85,14 @@ bool CharacterController::TrySlopeCharacterY(
 	const int Row = TileAt(ProbeY, Map.TileHeight());
 	const CollisionShape Shape = ShapeAt(Map, Catalog, WorldX, ProbeY);
 	if (!IsSlope(Shape)) return false;
-	if (Shape == CollisionShape::Stair2x1UpRightLow ||
-		Shape == CollisionShape::Stair2x1UpRightHigh ||
-		Shape == CollisionShape::Stair2x1UpLeftHigh ||
-		Shape == CollisionShape::Stair2x1UpLeftLow) {
+	if (Is2x1Slope(Shape)) {
 		if (!ExtendedSlopeTerrain::TryCharacterY(
+			Map, Catalog, WorldX, ProbeY, CharacterY)) return false;
+		if (FoundShape != nullptr) *FoundShape = Shape;
+		return true;
+	}
+	if (Is1x2Slope(Shape)) {
+		if (!ExtendedSlopeTerrain::TryCharacterY1x2(
 			Map, Catalog, WorldX, ProbeY, CharacterY)) return false;
 		if (FoundShape != nullptr) *FoundShape = Shape;
 		return true;
@@ -126,8 +136,11 @@ void CharacterController::ResolveHorizontalWall(
 	int X = static_cast<int>(Body_.Position.X);
 	float ExtendedX = Body_.Position.X;
 	if (ExtendedSlopeTerrain::ResolveHighSide(
-		Map, Catalog, OldCenterX - CenterX, ExtendedX, Body_.Position.Y,
-		MovingRight, Body_.Grounded)) {
+			Map, Catalog, OldCenterX - CenterX, ExtendedX, Body_.Position.Y,
+			MovingRight, Body_.Grounded) ||
+		ExtendedSlopeTerrain::ResolveHighSide1x2(
+			Map, Catalog, OldCenterX - CenterX, ExtendedX, Body_.Position.Y,
+			MovingRight, Body_.Grounded)) {
 		Body_.Position.X = ExtendedX;
 		Body_.Velocity.X = 0.0f;
 		VelocityX10_ = 0;
@@ -152,10 +165,14 @@ void CharacterController::ResolveHorizontalWall(
 		const CollisionShape Shape = ShapeAt(Map, Catalog, NewCenterX, ProbeY);
 		if (Shape == CollisionShape::Solid || IsMasaoSlope(Shape)) continue;
 		if (!IsSlope(Shape) || IsMasaoSlope(Shape)) continue;
-		ExtendedSlopeTerrain::Slope2x1 LogicalSlope;
+		ExtendedSlopeTerrain::Slope2x1 LogicalSlope2x1;
 		if (ExtendedSlopeTerrain::TryFind2x1(
 			Map, Catalog, static_cast<int>(NewCenterX), static_cast<int>(ProbeY),
-			LogicalSlope)) continue;
+			LogicalSlope2x1)) continue;
+		ExtendedSlopeTerrain::Slope1x2 LogicalSlope1x2;
+		if (ExtendedSlopeTerrain::TryFind1x2(
+			Map, Catalog, static_cast<int>(NewCenterX), static_cast<int>(ProbeY),
+			LogicalSlope1x2)) continue;
 		float SurfaceY = 0.0f;
 		const bool HasSurface = TerrainCollision::TryGetSurfaceY(
 			Shape, {NewColumn, TileAt(ProbeY, Map.TileHeight())}, NewCenterX,
@@ -189,8 +206,11 @@ void CharacterController::FollowMasaoSlopeAfterHorizontal(
 	float ExtendedY = Body_.Position.Y;
 	bool ExtendedGrounded = WasGrounded;
 	if (ExtendedSlopeTerrain::FollowHorizontal(
-		Map, Catalog, OldX, Body_.Position.X, OldY, ExtendedY,
-		VelocityX10_, VelocityY10_, WasGrounded, ExtendedGrounded)) {
+			Map, Catalog, OldX, Body_.Position.X, OldY, ExtendedY,
+			VelocityX10_, VelocityY10_, WasGrounded, ExtendedGrounded) ||
+		ExtendedSlopeTerrain::FollowHorizontal1x2(
+			Map, Catalog, OldX, Body_.Position.X, OldY, ExtendedY,
+			VelocityX10_, VelocityY10_, WasGrounded, ExtendedGrounded)) {
 		Body_.Position.Y = ExtendedY;
 		Body_.Grounded = ExtendedGrounded;
 		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
@@ -232,7 +252,8 @@ void CharacterController::FollowMasaoSlopeAfterHorizontal(
 		const int* Id = Map.TryGet({NewColumn, Row});
 		const TileDefinition* Definition = Id == nullptr ? nullptr : Catalog.Find(*Id);
 		if (Definition == nullptr || !IsSlope(Definition->Collision) ||
-			IsMasaoSlope(Definition->Collision) || Is2x1Slope(Definition->Collision)) continue;
+			IsMasaoSlope(Definition->Collision) || Is2x1Slope(Definition->Collision) ||
+			Is1x2Slope(Definition->Collision)) continue;
 		float SurfaceY = 0.0f;
 		if (!TerrainCollision::TryGetSurfaceY(
 			Definition->Collision, {NewColumn, Row}, NewCenterX,
@@ -314,7 +335,9 @@ void CharacterController::MoveUp(
 
 	float ExtendedY = Body_.Position.Y;
 	if (ExtendedSlopeTerrain::ResolveRising(
-		Map, Catalog, Body_.Position.X, static_cast<float>(OldY), ExtendedY)) {
+			Map, Catalog, Body_.Position.X, static_cast<float>(OldY), ExtendedY) ||
+		ExtendedSlopeTerrain::ResolveRising1x2(
+			Map, Catalog, Body_.Position.X, static_cast<float>(OldY), ExtendedY)) {
 		Body_.Position.Y = ExtendedY;
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
@@ -330,7 +353,8 @@ void CharacterController::MoveUp(
 	for (int Row = OldRow - 1; Row >= NewRow; --Row) {
 		const float ProbeY = static_cast<float>(Row * Map.TileHeight());
 		const CollisionShape Shape = ShapeAt(Map, Catalog, CenterProbeX, ProbeY);
-		if (!IsSlope(Shape) || IsMasaoSlope(Shape) || Is2x1Slope(Shape)) continue;
+		if (!IsSlope(Shape) || IsMasaoSlope(Shape) ||
+			Is2x1Slope(Shape) || Is1x2Slope(Shape)) continue;
 		Body_.Position.Y = static_cast<float>((Row + 1) * Map.TileHeight());
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
@@ -350,7 +374,9 @@ void CharacterController::MoveDown(
 	const int Direction = HorizontalInput > 0.0f ? 1 : HorizontalInput < 0.0f ? -1 : 0;
 	float ExtendedY = Body_.Position.Y;
 	if (ExtendedSlopeTerrain::ResolveFalling(
-		Map, Catalog, Body_.Position.X, static_cast<float>(OldY), ExtendedY)) {
+			Map, Catalog, Body_.Position.X, static_cast<float>(OldY), ExtendedY) ||
+		ExtendedSlopeTerrain::ResolveFalling1x2(
+			Map, Catalog, Body_.Position.X, static_cast<float>(OldY), ExtendedY)) {
 		Body_.Position.Y = ExtendedY;
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
@@ -376,6 +402,7 @@ void CharacterController::MoveDown(
 	CollisionShape FoundShape = CollisionShape::None;
 	if (TrySlopeCharacterY(Map, Catalog, CenterProbeX, NewFootY, SlopeY, &FoundShape) &&
 		!IsMasaoSlope(FoundShape) && !Is2x1Slope(FoundShape) &&
+		!Is1x2Slope(FoundShape) &&
 		SlopeY < Body_.Position.Y && SlopeY >= OldY) {
 		Body_.Position.Y = SlopeY;
 		Body_.Velocity.Y = 0.0f;
