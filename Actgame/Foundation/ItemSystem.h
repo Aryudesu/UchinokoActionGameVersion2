@@ -17,6 +17,7 @@ enum class ItemKind {
 
 struct SpawnedItem {
 	ItemKind Kind = ItemKind::Coin;
+	TilePosition SourceTile;
 	WorldPosition Position;
 	float VelocityY = -10.0f;
 	bool Active = true;
