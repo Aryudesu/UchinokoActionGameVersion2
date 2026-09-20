@@ -668,8 +668,10 @@ void CharacterController::Step(
 		return;
 	}
 
+	const float HorizontalSpeed = Motion_.MoveSpeed *
+		(InWater_ ? Motion_.WaterHorizontalSpeedScale : 1.0f);
 	VelocityX10_ = static_cast<int>(std::round(
-		Input.Horizontal * Motion_.MoveSpeed * 10.0f));
+		Input.Horizontal * HorizontalSpeed * 10.0f));
 	Body_.Velocity.X = static_cast<float>(VelocityX10_) / 10.0f;
 	const float OldX = Body_.Position.X;
 	const float HorizontalAmount = static_cast<float>(CanvasMasaoTerrain::RoundDown(
