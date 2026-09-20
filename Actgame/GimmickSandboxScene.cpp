@@ -27,7 +27,6 @@ const char* PipePhaseName(uchinoko::PipeTransportPhase Phase) {
 	switch (Phase) {
 	case uchinoko::PipeTransportPhase::Idle: return "IDLE";
 	case uchinoko::PipeTransportPhase::Entering: return "IN";
-	case uchinoko::PipeTransportPhase::WaitingForTransfer: return "WAIT";
 	case uchinoko::PipeTransportPhase::Emerging: return "OUT";
 	}
 	return "?";
@@ -41,7 +40,7 @@ GimmickSandboxScene::GimmickSandboxScene() {
 
 void GimmickSandboxScene::Reload() {
 	uchinoko::Result<uchinoko::TerrainStageData> Loaded =
-		uchinoko::TerrainStageLoader::Load("dat/stage/interaction-test/stage.ini");
+		uchinoko::TerrainStageLoader::Load("dat/stage/pipe-test/stage.ini");
 	if (Loaded.IsFailure()) {
 		LoadError_ = Loaded.Error();
 		return;
@@ -178,15 +177,6 @@ void GimmickSandboxScene::update() {
 	// V1のMovingUpdate相当。土管移動中は通常物理・通常ギミック更新を止める。
 	if (Pipe_.IsActive()) {
 		Pipe_.Update(Player_);
-		if (Pipe_.HasTransferRequest()) {
-			const uchinoko::PipeTransferRequest& Request = Pipe_.TransferRequest();
-			if (Request.TargetStage == ".") {
-				Pipe_.BeginEmergence(
-					Player_, Request.ExitPosition, Request.ExitDirection);
-			} else {
-				LoadError_ = "Pipe target requires stage change: " + Request.TargetStage;
-			}
-		}
 		return;
 	}
 	if (Pipe_.TryBegin(Input, Player_, Pipes_)) {
@@ -320,13 +310,13 @@ void GimmickSandboxScene::draw() {
 		}
 	}
 
-	for (std::size_t Index = 0; Index < Pipes_.Links().size(); ++Index) {
-		const uchinoko::PipeLink& Link = Pipes_.Links()[Index];
+	for (std::size_t Index = 0; Index < Pipes_.size(); ++Index) {
+		const uchinoko::PipeLink& Link = Pipes_[Index];
 		DrawFormatString(
 			static_cast<int>(Link.EntryPosition.X),
 			static_cast<int>(Link.EntryPosition.Y) - 18,
 			GetColor(180, 255, 190),
-			"%s v", Link.Id.c_str());
+			"Pipe %d v", static_cast<int>(Index + 1));
 	}
 
 	for (std::size_t Index = 0; Index < Items_.Items().size(); ++Index) {
@@ -383,18 +373,14 @@ void GimmickSandboxScene::draw() {
 	}
 
 	DrawString(16, 16,
-		"Gimmick: Arrows(move/climb/swim), Z jump/swim, R reload, 1/2/3 coins, Esc",
+		"Pipe test: LEFT/RIGHT move, DOWN enter pipe, Z jump, R reload, Esc",
 		GetColor(255, 255, 255));
 	DrawFormatString(16, 40, GetColor(255, 255, 255),
-		"Coins:%d HP+:%d Lives+:%d Score:%d Mode:%s Water:%s Grav:%s Pipe:%s",
-		Coins_, Health_, Lives_, Score_,
-		Player_.IsClimbing() ? "CLIMB" : "NORMAL",
-		Player_.IsInWater() ? "YES" : "NO",
-		Player_.IsGravityUp() ? "UP" : "DOWN",
-		PipePhaseName(Pipe_.Phase()));
+		"Pipe:%s  Links:%d",
+		PipePhaseName(Pipe_.Phase()), static_cast<int>(Pipes_.size()));
 	DrawString(16, 64,
-		"right green pipes: DOWN to warp / links from pipes.csv / col11:G^ / left:WATER",
-		GetColor(220, 220, 220));
+		"Both green pipes stay on screen. Stand centered on one and press DOWN.",
+		GetColor(210, 230, 255));
 	if (Dead_) {
 		DrawString(16, 88,
 			"CRUSHED - InstantDeath (R: reload)",
