@@ -83,6 +83,91 @@ std::vector<std::string> Split(const std::string& Line, char Delimiter) {
 	return Values;
 }
 
+struct ParsedConditionBinding {
+	GameStateField Field = GameStateField::None;
+	ComparisonOperator Operator = ComparisonOperator::Equal;
+	int Threshold = 0;
+	int TrueTileId = -1;
+	int FalseTileId = -1;
+};
+
+Result<ParsedConditionBinding> ParseConditionBinding(const std::string& Text) {
+	ParsedConditionBinding Binding;
+	const std::string Value = Trim(Text);
+	if (Value.empty() || Value == "-") {
+		return Result<ParsedConditionBinding>::Success(Binding);
+	}
+
+	const std::vector<std::string> Parts = Split(Value, '|');
+	if (Parts.size() != 3) {
+		return Result<ParsedConditionBinding>::Failure(
+			"Invalid condition binding: " + Value);
+	}
+
+	const std::string Expression = Parts[0];
+	struct OperatorToken {
+		const char* Text;
+		ComparisonOperator Operator;
+	};
+	const OperatorToken Operators[] = {
+		{"==", ComparisonOperator::Equal},
+		{"!=", ComparisonOperator::NotEqual},
+		{"<=", ComparisonOperator::LessEqual},
+		{">=", ComparisonOperator::GreaterEqual},
+		{"<", ComparisonOperator::LessThan},
+		{">", ComparisonOperator::GreaterThan}
+	};
+
+	std::size_t OperatorPosition = std::string::npos;
+	std::string OperatorText;
+	for (const OperatorToken& Token : Operators) {
+		OperatorPosition = Expression.find(Token.Text);
+		if (OperatorPosition != std::string::npos) {
+			Binding.Operator = Token.Operator;
+			OperatorText = Token.Text;
+			break;
+		}
+	}
+	if (OperatorPosition == std::string::npos) {
+		return Result<ParsedConditionBinding>::Failure(
+			"Condition comparison operator not found: " + Expression);
+	}
+
+	const std::string FieldText = Trim(Expression.substr(0, OperatorPosition));
+	const std::string ThresholdText =
+		Trim(Expression.substr(OperatorPosition + OperatorText.size()));
+
+	if (FieldText == "Coins") Binding.Field = GameStateField::Coins;
+	else if (FieldText == "Health") Binding.Field = GameStateField::Health;
+	else if (FieldText == "Lives") Binding.Field = GameStateField::Lives;
+	else if (FieldText == "Score") Binding.Field = GameStateField::Score;
+	else {
+		return Result<ParsedConditionBinding>::Failure(
+			"Unknown game state field: " + FieldText);
+	}
+
+	Result<int> Threshold =
+		ParseInteger(ThresholdText, "condition threshold");
+	Result<int> TrueTile =
+		ParseInteger(Parts[1], "condition true tile id");
+	Result<int> FalseTile =
+		ParseInteger(Parts[2], "condition false tile id");
+	if (Threshold.IsFailure()) {
+		return Result<ParsedConditionBinding>::Failure(Threshold.Error());
+	}
+	if (TrueTile.IsFailure()) {
+		return Result<ParsedConditionBinding>::Failure(TrueTile.Error());
+	}
+	if (FalseTile.IsFailure()) {
+		return Result<ParsedConditionBinding>::Failure(FalseTile.Error());
+	}
+
+	Binding.Threshold = Threshold.Value();
+	Binding.TrueTileId = TrueTile.Value();
+	Binding.FalseTileId = FalseTile.Value();
+	return Result<ParsedConditionBinding>::Success(Binding);
+}
+
 Result<TileTrigger> ParseTileTrigger(const std::string& Text) {
 	const std::string Name = Trim(Text);
 	const std::map<std::string, TileTrigger> Triggers = {
@@ -268,8 +353,8 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 		if (Line.empty() || Line.front() == '#') continue;
 		const std::vector<std::string> Cells = Split(Line, ',');
 		if (Cells.size() != 5 && Cells.size() != 6 &&
-			Cells.size() != 9 && Cells.size() != 10) {
-			return Result<TileCatalog>::Failure(FileName + ": expected 5, 6, 9 or 10 columns at line " +
+			Cells.size() != 9 && Cells.size() != 10 && Cells.size() != 11) {
+			return Result<TileCatalog>::Failure(FileName + ": expected 5, 6, 9, 10 or 11 columns at line " +
 				std::to_string(LineNumber));
 		}
 		Result<int> Id = ParseInteger(Cells[0], "tile id");
@@ -290,9 +375,13 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 		Result<int> SwitchOffTile = Cells.size() >= 9
 			? ParseInteger(Cells[8], "switch off tile id")
 			: Result<int>::Success(-1);
-		Result<int> AutoTogglePeriod = Cells.size() == 10
+		Result<int> AutoTogglePeriod = Cells.size() >= 10
 			? ParseInteger(Cells[9], "auto toggle period")
 			: Result<int>::Success(0);
+		Result<ParsedConditionBinding> Condition =
+			Cells.size() == 11
+				? ParseConditionBinding(Cells[10])
+				: Result<ParsedConditionBinding>::Success(ParsedConditionBinding());
 		if (Id.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Id.Error());
 		if (Shape.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Shape.Error());
 		if (Image.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Image.Error());
@@ -304,6 +393,7 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 		if (SwitchOffTile.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + SwitchOffTile.Error());
 		if (AutoTogglePeriod.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + AutoTogglePeriod.Error());
 		if (AutoTogglePeriod.Value() < 0) return Result<TileCatalog>::Failure(FileName + ": auto toggle period must be >= 0");
+		if (Condition.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Condition.Error());
 		TileDefinition Definition;
 		Definition.Id = Id.Value();
 		Definition.Collision = Shape.Value();
@@ -315,6 +405,11 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 		Definition.SwitchOnTileId = SwitchOnTile.Value();
 		Definition.SwitchOffTileId = SwitchOffTile.Value();
 		Definition.AutoTogglePeriod = AutoTogglePeriod.Value();
+		Definition.ConditionField = Condition.Value().Field;
+		Definition.ConditionOperator = Condition.Value().Operator;
+		Definition.ConditionThreshold = Condition.Value().Threshold;
+		Definition.ConditionTrueTileId = Condition.Value().TrueTileId;
+		Definition.ConditionFalseTileId = Condition.Value().FalseTileId;
 		Result<bool> Registered = Catalog.Register(Definition);
 		if (Registered.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Registered.Error());
 	}
