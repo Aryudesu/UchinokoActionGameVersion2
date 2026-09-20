@@ -353,6 +353,7 @@
   <ItemGroup>
     <ClCompile Include="Foundation\AssetPaths.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\CharacterController.cpp"><Filter>Foundation</Filter></ClCompile>
+    <ClCompile Include="Foundation\CharacterSafety.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\CanvasMasaoTerrain.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\ExtendedSlopeTerrain.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="SlopeSandboxScene.cpp"><Filter>ソース ファイル\Scene</Filter></ClCompile>
@@ -366,10 +367,12 @@
     <ClCompile Include="Foundation\TileDefinition.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\TileInteraction.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\TileMap.cpp"><Filter>Foundation</Filter></ClCompile>
+    <ClCompile Include="Foundation\WorldState.cpp"><Filter>Foundation</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Foundation\AssetPaths.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\CharacterController.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\CharacterSafety.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\CanvasMasaoTerrain.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\ExtendedSlopeTerrain.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="SlopeSandboxScene.h"><Filter>ヘッダー ファイル\Scene</Filter></ClInclude>
@@ -385,6 +388,7 @@
     <ClInclude Include="Foundation\TileDefinition.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\TileInteraction.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\TileMap.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\WorldState.h"><Filter>Foundation</Filter></ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\dat\stage\slope-test\stage.ini"><Filter>Stage Data</Filter></None>
