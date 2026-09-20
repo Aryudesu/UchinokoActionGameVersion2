@@ -22,7 +22,8 @@ int TileAt(float Coordinate, int TileSize) {
 
 bool IsSlope(CollisionShape Shape) {
 	return Shape != CollisionShape::None && Shape != CollisionShape::Solid &&
-		Shape != CollisionShape::OneWay;
+		Shape != CollisionShape::OneWay &&
+		Shape != CollisionShape::HitFromBelowOnly;
 }
 
 bool IsMasaoSlope(CollisionShape Shape) {
@@ -319,6 +320,27 @@ void CharacterController::MoveUp(
 	int X = static_cast<int>(Body_.Position.X);
 	int NewY = static_cast<int>(Body_.Position.Y);
 	const int Direction = HorizontalInput > 0.0f ? 1 : HorizontalInput < 0.0f ? -1 : 0;
+
+	// V1 の透明？ブロック(num=13)相当。
+	// 横・上からは存在しないが、下から頭が境界を跨いだ時だけ天井として扱う。
+	const int OldTopRow = TileAt(static_cast<float>(OldY), Map.TileHeight());
+	const int NewTopRow = TileAt(Body_.Position.Y, Map.TileHeight());
+	for (int Row = OldTopRow - 1; Row >= NewTopRow; --Row) {
+		const float Bottom = static_cast<float>((Row + 1) * Map.TileHeight());
+		if (static_cast<float>(OldY) < Bottom || Body_.Position.Y >= Bottom) continue;
+		const float ProbeY = static_cast<float>(Row * Map.TileHeight()) + 0.5f;
+		const float LeftHeadX = Body_.Position.X + 1.0f;
+		const float RightHeadX = Body_.Position.X + Body_.Width - 2.0f;
+		if (ShapeAt(Map, Catalog, LeftHeadX, ProbeY) == CollisionShape::HitFromBelowOnly ||
+			ShapeAt(Map, Catalog, RightHeadX, ProbeY) == CollisionShape::HitFromBelowOnly) {
+			Body_.Position.Y = Bottom;
+			Body_.Velocity.Y = 0.0f;
+			VelocityY10_ = 0;
+			Body_.Grounded = false;
+			return;
+		}
+	}
+
 	if (CanvasMasaoTerrain::ResolveVerticalSolid(Map, Catalog, X, NewY, false) ||
 		CanvasMasaoTerrain::ResolveRisingSlope(Map, Catalog, X, OldY, NewY) ||
 		CanvasMasaoTerrain::ResolveDirectionalVerticalSolid(

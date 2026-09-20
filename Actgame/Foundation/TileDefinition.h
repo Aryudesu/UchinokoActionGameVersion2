@@ -11,6 +11,7 @@ enum class CollisionShape {
 	None,
 	Solid,
 	OneWay,
+	HitFromBelowOnly,
 	SlopeUpRight,
 	SlopeUpLeft,
 	Stair2x1UpRightLow,

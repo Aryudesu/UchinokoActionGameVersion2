@@ -358,6 +358,7 @@
     <ClCompile Include="SlopeSandboxScene.cpp"><Filter>ソース ファイル\Scene</Filter></ClCompile>
     <ClCompile Include="GimmickSandboxScene.cpp"><Filter>ソース ファイル\Scene</Filter></ClCompile>
     <ClCompile Include="Foundation\GridDataLoader.cpp"><Filter>Foundation</Filter></ClCompile>
+    <ClCompile Include="Foundation\ItemSystem.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\LayeredMap.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\StageDefinition.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\TerrainCollision.cpp"><Filter>Foundation</Filter></ClCompile>
@@ -375,6 +376,7 @@
     <ClInclude Include="GimmickSandboxScene.h"><Filter>ヘッダー ファイル\Scene</Filter></ClInclude>
     <ClInclude Include="Foundation\Coordinates.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\GridDataLoader.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\ItemSystem.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\LayeredMap.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\Result.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\StageDefinition.h"><Filter>Foundation</Filter></ClInclude>

@@ -39,6 +39,7 @@
     <ClCompile Include="..\Actgame\Foundation\CanvasMasaoTerrain.cpp" />
     <ClCompile Include="..\Actgame\Foundation\ExtendedSlopeTerrain.cpp" />
     <ClCompile Include="..\Actgame\Foundation\GridDataLoader.cpp" />
+    <ClCompile Include="..\Actgame\Foundation\ItemSystem.cpp" />
     <ClCompile Include="..\Actgame\Foundation\LayeredMap.cpp" />
     <ClCompile Include="..\Actgame\Foundation\StageDefinition.cpp" />
     <ClCompile Include="..\Actgame\Foundation\TerrainCollision.cpp" />

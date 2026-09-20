@@ -34,6 +34,7 @@ void GimmickSandboxScene::Reload() {
 	Map_ = std::move(Loaded.Value().Map);
 	Catalog_ = std::move(Loaded.Value().Catalog);
 	Runtime_.Reset(Map_);
+	Items_.Reset();
 
 	uchinoko::CharacterBody Body;
 	Body.Position = Loaded.Value().PlayerSpawn;
@@ -42,19 +43,24 @@ void GimmickSandboxScene::Reload() {
 
 	Coins_ = 0;
 	Score_ = 0;
+	Health_ = 0;
+	Lives_ = 0;
 	Broken_ = 0;
 	LoadError_.clear();
 }
 
-void GimmickSandboxScene::ApplyEffects() {
-	const std::vector<uchinoko::TileEffect> Effects =
-		uchinoko::TileBehaviorSystem::ApplyAll(
-			Player_.Interactions(), Map_, Catalog_, Runtime_);
-
+void GimmickSandboxScene::ApplyEffectList(
+	const std::vector<uchinoko::TileEffect>& Effects) {
 	for (std::size_t Index = 0; Index < Effects.size(); ++Index) {
 		switch (Effects[Index].Type) {
 		case uchinoko::TileEffectType::AddCoin:
 			Coins_ += Effects[Index].Value;
+			break;
+		case uchinoko::TileEffectType::AddHealth:
+			Health_ += Effects[Index].Value;
+			break;
+		case uchinoko::TileEffectType::AddLife:
+			Lives_ += Effects[Index].Value;
 			break;
 		case uchinoko::TileEffectType::AddScore:
 			Score_ += Effects[Index].Value;
@@ -66,6 +72,17 @@ void GimmickSandboxScene::ApplyEffects() {
 			break;
 		}
 	}
+}
+
+void GimmickSandboxScene::ApplyEffects() {
+	const std::vector<uchinoko::TileEffect> TileEffects =
+		uchinoko::TileBehaviorSystem::ApplyAll(
+			Player_.Interactions(), Map_, Catalog_, Runtime_);
+	Items_.ConsumeTileEffects(TileEffects, Map_.TileWidth(), Map_.TileHeight());
+	ApplyEffectList(TileEffects);
+
+	const std::vector<uchinoko::TileEffect> ItemEffects = Items_.Update();
+	ApplyEffectList(ItemEffects);
 }
 
 void GimmickSandboxScene::update() {
@@ -103,8 +120,18 @@ void GimmickSandboxScene::draw() {
 			const int Right = Left + Map_.TileWidth();
 			const int Bottom = Top + Map_.TileHeight();
 
+			const bool SpawnsItem = HasAction(*Definition, uchinoko::TileAction::SpawnItem);
+			const bool Hidden =
+				Definition->Collision == uchinoko::CollisionShape::HitFromBelowOnly;
+
 			if (Definition->Collision == uchinoko::CollisionShape::Solid) {
-				DrawBox(Left, Top, Right, Bottom, GetColor(80, 130, 190), TRUE);
+				DrawBox(
+					Left, Top, Right, Bottom,
+					SpawnsItem ? GetColor(210, 160, 70) : GetColor(80, 130, 190), TRUE);
+			}
+			if (SpawnsItem && !Hidden) {
+				DrawString(
+					Left + 10, Top + 7, "?", GetColor(255, 255, 255));
 			}
 			if (HasAction(*Definition, uchinoko::TileAction::AddCoin)) {
 				DrawCircle(
@@ -119,6 +146,26 @@ void GimmickSandboxScene::draw() {
 		}
 	}
 
+	for (std::size_t Index = 0; Index < Items_.Items().size(); ++Index) {
+		const uchinoko::SpawnedItem& Item = Items_.Items()[Index];
+		const int X = static_cast<int>(Item.Position.X) + 16;
+		const int Y = static_cast<int>(Item.Position.Y) + 16;
+		switch (Item.Kind) {
+		case uchinoko::ItemKind::Coin:
+			DrawCircle(X, Y, 8, GetColor(240, 210, 70), TRUE);
+			break;
+		case uchinoko::ItemKind::Healing:
+			DrawCircle(X, Y, 8, GetColor(100, 220, 130), TRUE);
+			DrawLine(X - 4, Y, X + 4, Y, GetColor(255, 255, 255), 2);
+			DrawLine(X, Y - 4, X, Y + 4, GetColor(255, 255, 255), 2);
+			break;
+		case uchinoko::ItemKind::OneUp:
+			DrawCircle(X, Y, 9, GetColor(120, 210, 255), TRUE);
+			DrawString(X - 7, Y - 7, "1", GetColor(20, 40, 70));
+			break;
+		}
+	}
+
 	const uchinoko::CharacterBody& Body = Player_.Body();
 	DrawBox(
 		static_cast<int>(Body.Position.X), static_cast<int>(Body.Position.Y),
@@ -130,8 +177,9 @@ void GimmickSandboxScene::draw() {
 		"Gimmick test: Left/Right move, Z jump, R reload, Esc menu",
 		GetColor(255, 255, 255));
 	DrawFormatString(16, 40, GetColor(255, 255, 255),
-		"Coins: %d  Score: %d  Broken: %d", Coins_, Score_, Broken_);
+		"Coins:%d  HP+:%d  Lives+:%d  Score:%d  Broken:%d",
+		Coins_, Health_, Lives_, Score_, Broken_);
 	DrawString(16, 64,
-		"Yellow circles: collectible rules / outlined blocks: breakable rules",
+		"?: item block / invisible columns 8,10,12: hidden item blocks",
 		GetColor(220, 220, 220));
 }
