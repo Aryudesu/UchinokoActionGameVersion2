@@ -607,6 +607,30 @@ void CharacterController::StepClimbing(
 	float Horizontal = std::max(-1.0f, std::min(1.0f, Input.Horizontal));
 	float Vertical = std::max(-1.0f, std::min(1.0f, Input.Vertical));
 
+	// V1のJump()と同じく、はしご中のZは通常ジャンプ扱いで
+	// はしごを離れる。GravityDirectionにも従う。
+	if (Input.JumpPressed) {
+		Mode_ = MovementMode::Normal;
+		Body_.Grounded = false;
+		VelocityX10_ = static_cast<int>(
+			std::round(Horizontal * Motion_.MoveSpeed * 10.0f));
+		VelocityY10_ = -GravitySign() *
+			static_cast<int>(std::round(Motion_.JumpSpeed * 10.0f));
+		Body_.Velocity.X = static_cast<float>(VelocityX10_) / 10.0f;
+		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
+
+		const float HorizontalAmount = static_cast<float>(
+			CanvasMasaoTerrain::RoundDown(
+				static_cast<double>(VelocityX10_) / 10.0));
+		MoveHorizontal(HorizontalAmount, Map, Catalog);
+
+		const float VerticalAmount = static_cast<float>(
+			CanvasMasaoTerrain::RoundDown(
+				static_cast<double>(VelocityY10_) / 10.0));
+		MoveVertical(VerticalAmount, Horizontal, Map, Catalog);
+		return;
+	}
+
 	VelocityX10_ = static_cast<int>(
 		std::round(Horizontal * Motion_.ClimbHorizontalSpeed * 10.0f));
 	VelocityY10_ = static_cast<int>(
