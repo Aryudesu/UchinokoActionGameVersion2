@@ -753,6 +753,16 @@ void CharacterController::Step(
 	Step(Input, Map, Catalog);
 }
 
+void CharacterController::StepWithoutInput(
+	const TileMap& Map, const TileCatalog& Catalog) {
+	// 操作モードだけ解除し、VelocityY10_ は保持する。
+	// これにより横移動・ジャンプ・はしご操作を止めつつ、
+	// 現在の縦方向の慣性と重力はそのまま通常物理へ渡せる。
+	Mode_ = MovementMode::Normal;
+	CharacterInput Input;
+	Step(Input, Map, Catalog);
+}
+
 void CharacterController::Step(
 	const CharacterInput& RawInput,
 	const TileMap& Map, const TileCatalog& Catalog) {
