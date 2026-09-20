@@ -259,6 +259,9 @@
     <None Include="..\dat\stage\pipe-test\terrain.csv" />
     <None Include="..\dat\stage\pipe-test\tiles.csv" />
     <None Include="..\dat\stage\pipe-test\pipes.csv" />
+    <None Include="..\dat\stage\through-test\stage.ini" />
+    <None Include="..\dat\stage\through-test\terrain.csv" />
+    <None Include="..\dat\stage\through-test\tiles.csv" />
 
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
