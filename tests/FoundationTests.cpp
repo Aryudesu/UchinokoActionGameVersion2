@@ -2013,6 +2013,99 @@ void TestWaterHorizontalMovementIsSlower() {
 	assert(NearlyEqual(Player.Body().Velocity.X, 1.0f));
 }
 
+void TestWaterStateStaysTrueAgainstRightWall() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{58, 58, 1},
+		{58, 58, 1},
+		{1, 1, 1}
+	});
+
+	CharacterBody Body;
+	// CanvasMasao互換の右壁接触位置。x+15=63 はWater、
+	// x+16=64 は右隣Solidなので、旧実装ではWater=falseになっていた。
+	Body.Position = {48.0f, 32.0f};
+	Body.Grounded = false;
+	CharacterController Player(Body);
+
+	CharacterInput Right;
+	Right.Horizontal = 1.0f;
+	Player.Step(Right, Map, Loaded.Value());
+
+	assert(NearlyEqual(Player.Body().Position.X, 48.0f));
+	assert(Player.IsInWater());
+}
+
+void TestHorizontalWaterBoundaryDoesNotMultiplyVerticalSpeed() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{58, 0, 0},
+		{58, 0, 0},
+		{58, 0, 0},
+		{58, 0, 0}
+	});
+
+	CharacterBody Body;
+	// x+15=31 でWater。右へ1px動くと x+15=32 で空気へ出る。
+	Body.Position = {16.0f, 48.0f};
+	Body.Velocity.Y = -4.0f;
+	Body.Grounded = false;
+	CharacterMotion Motion;
+	Motion.Gravity = 0.0f;
+	CharacterController Player(Body, Motion);
+
+	CharacterInput Right;
+	Right.Horizontal = 1.0f;
+	Player.Step(Right, Map, Loaded.Value());
+
+	assert(!Player.IsInWater());
+	// V1の2.5倍補正はMoveY内だけ。横境界では -4 -> -10 にしてはいけない。
+	assert(NearlyEqual(Player.Body().Velocity.Y, -4.0f));
+}
+
+void TestRepeatedWallSwimmingDoesNotAccumulateBoundaryBoost() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{58, 58, 1},
+		{58, 58, 1},
+		{58, 58, 1},
+		{58, 58, 1},
+		{1, 1, 1}
+	});
+
+	CharacterBody Body;
+	Body.Position = {48.0f, 64.0f};
+	Body.Grounded = false;
+	CharacterController Player(Body);
+
+	// 報告された「右壁に沿って何度か泳ぐ」状況を簡略再現。
+	for (int Count = 0; Count < 6; ++Count) {
+		CharacterInput SwimRight;
+		SwimRight.Horizontal = 1.0f;
+		SwimRight.JumpPressed = true;
+		Player.Step(SwimRight, Map, Loaded.Value());
+		assert(Player.IsInWater());
+		assert(Player.Body().Velocity.Y >= -6.0f - 0.001f);
+	}
+
+	CharacterInput SwimLeft;
+	SwimLeft.Horizontal = -1.0f;
+	SwimLeft.JumpPressed = true;
+	Player.Step(SwimLeft, Map, Loaded.Value());
+
+	assert(Player.IsInWater());
+	assert(Player.Body().Velocity.Y >= -6.0f - 0.001f);
+}
+
 void TestWaterJumpSpeedsMatchVersion1() {
 	Result<TileCatalog> Loaded =
 		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
@@ -2714,6 +2807,9 @@ int main() {
 	TestWaterDefinition();
 	TestCharacterUsesWaterGravityAndTerminalVelocity();
 	TestWaterHorizontalMovementIsSlower();
+	TestWaterStateStaysTrueAgainstRightWall();
+	TestHorizontalWaterBoundaryDoesNotMultiplyVerticalSpeed();
+	TestRepeatedWallSwimmingDoesNotAccumulateBoundaryBoost();
 	TestWaterJumpSpeedsMatchVersion1();
 	TestWaterJumpCanBeRepeatedWhileAirborne();
 	TestLeavingWaterUpwardBoostsVelocity();
