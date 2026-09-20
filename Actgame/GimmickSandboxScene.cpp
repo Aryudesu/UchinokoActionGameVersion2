@@ -43,7 +43,7 @@ GimmickSandboxScene::GimmickSandboxScene() {
 
 void GimmickSandboxScene::Reload() {
 	uchinoko::Result<uchinoko::TerrainStageData> Loaded =
-		uchinoko::TerrainStageLoader::Load("dat/stage/pipe-test/stage.ini");
+		uchinoko::TerrainStageLoader::Load("dat/stage/through-test/stage.ini");
 	if (Loaded.IsFailure()) {
 		LoadError_ = Loaded.Error();
 		return;
@@ -244,6 +244,11 @@ void GimmickSandboxScene::draw() {
 					DrawBox(Left + 3, Top + 3, Right - 3, Bottom - 3,
 						GetColor(160, 230, 170), FALSE);
 				}
+			} else if (Definition->Collision == uchinoko::CollisionShape::OneWay) {
+				DrawBox(Left, Top, Right, Top + 6, GetColor(90, 180, 230), TRUE);
+			} else if (Definition->Collision == uchinoko::CollisionShape::DropThroughOneWay) {
+				DrawBox(Left, Top, Right, Top + 6, GetColor(230, 170, 80), TRUE);
+				DrawString(Left + 10, Top + 8, "v", GetColor(255, 230, 180));
 			}
 			if (Definition->Movement == uchinoko::MovementRegion::Water) {
 				DrawBox(
@@ -376,13 +381,13 @@ void GimmickSandboxScene::draw() {
 	}
 
 	DrawString(16, 16,
-		"Pipe test: LEFT/RIGHT move, DOWN enter pipe, Z jump, R reload, Esc",
+		"Through test: LEFT/RIGHT move, DOWN drop, Z jump, R reload, Esc",
 		GetColor(255, 255, 255));
-	DrawFormatString(16, 40, GetColor(255, 255, 255),
-		"Pipe:%s  Links:%d",
-		PipePhaseName(Pipe_.Phase()), static_cast<int>(Pipes_.size()));
+	DrawString(16, 40,
+		"Orange(v): Through - DOWN drops / Blue: normal OneWay",
+		GetColor(255, 230, 190));
 	DrawString(16, 64,
-		"Both green pipes stay on screen. Stand centered on one and press DOWN.",
+		"R reloads onto the orange platform.",
 		GetColor(210, 230, 255));
 	if (Dead_) {
 		DrawString(16, 88,
