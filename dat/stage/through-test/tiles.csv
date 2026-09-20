@@ -1,0 +1,7 @@
+# id, collision shape, image index, breakable, damaging, rules [, switch_channel, switch_on_tile, switch_off_tile [, auto_toggle_period [, condition [, movement_region]]]]
+0,None,0,0,0,-
+1,Solid,0,0,0,-
+59,None,0,0,0,-,-1,-1,-1,0,-,GravityUp
+60,None,0,0,0,-,-1,-1,-1,0,-,GravityDown
+61,OneWay,0,0,0,-
+62,DropThroughOneWay,0,0,0,-
