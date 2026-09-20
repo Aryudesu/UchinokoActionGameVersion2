@@ -355,6 +355,24 @@ void GimmickSandboxScene::draw() {
 		static_cast<int>(Body.Position.Y + Body.Height),
 		GetColor(240, 210, 80), TRUE);
 
+	// V1は土管移動中だけ主人公をMapより先に描画していた。
+	// Sandboxでは土管タイルを再描画し、潜り込み/出現部分を隠す。
+	if (Pipe_.IsActive()) {
+		for (int Row = 0; Row < Map_.Height(); ++Row) {
+			for (int Column = 0; Column < Map_.Width(); ++Column) {
+				const int* Id = Map_.TryGet({Column, Row});
+				if (Id == nullptr || !IsPipeTile(*Id)) continue;
+				const int Left = Column * Map_.TileWidth();
+				const int Top = Row * Map_.TileHeight();
+				const int Right = Left + Map_.TileWidth();
+				const int Bottom = Top + Map_.TileHeight();
+				DrawBox(Left, Top, Right, Bottom, GetColor(70, 170, 90), TRUE);
+				DrawBox(Left + 3, Top + 3, Right - 3, Bottom - 3,
+					GetColor(160, 230, 170), FALSE);
+			}
+		}
+	}
+
 	DrawString(16, 16,
 		"Gimmick: Arrows(move/climb/swim), Z jump/swim, R reload, 1/2/3 coins, Esc",
 		GetColor(255, 255, 255));
