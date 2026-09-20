@@ -2,6 +2,7 @@
 
 #include "Result.h"
 #include "TileInteraction.h"
+#include "ConditionalTerrain.h"
 
 #include <vector>
 
@@ -42,6 +43,13 @@ struct TileDefinition {
 	// 0より大きい場合、このスイッチチャネルを指定フレーム周期で自動反転する。
 	// DisAppBlock1/2 のような時間制出現ブロック用。
 	int AutoTogglePeriod = 0;
+
+	// 外部ゲーム状態（Coins/Health/Lives/Score）で地形IDを切り替える。
+	GameStateField ConditionField = GameStateField::None;
+	ComparisonOperator ConditionOperator = ComparisonOperator::Equal;
+	int ConditionThreshold = 0;
+	int ConditionTrueTileId = -1;
+	int ConditionFalseTileId = -1;
 };
 
 class TileCatalog {
