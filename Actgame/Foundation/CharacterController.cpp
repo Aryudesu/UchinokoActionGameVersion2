@@ -462,9 +462,9 @@ void CharacterController::MoveUp(
 		}
 	}
 
-	const float CenterProbeX = Body_.Position.X + CenterX;
+	const float RisingOneWayProbeX = Body_.Position.X + CenterX;
 	const CollisionShape RisingOneWayShape =
-		ShapeAt(Map, Catalog, CenterProbeX, static_cast<float>(NewY));
+		ShapeAt(Map, Catalog, RisingOneWayProbeX, static_cast<float>(NewY));
 	const bool IgnoreDropThroughUp =
 		DroppingThrough_ &&
 		DropThroughRow_ == TileAt(static_cast<float>(NewY), Map.TileHeight()) &&
