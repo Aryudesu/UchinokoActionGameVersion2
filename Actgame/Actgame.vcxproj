@@ -136,6 +136,7 @@
     <ClCompile Include="Action.cpp" />
     <ClCompile Include="Foundation\AssetPaths.cpp" />
     <ClCompile Include="Foundation\CharacterController.cpp" />
+    <ClCompile Include="Foundation\CharacterSafety.cpp" />
     <ClCompile Include="Foundation\CanvasMasaoTerrain.cpp" />
     <ClCompile Include="Foundation\ExtendedSlopeTerrain.cpp" />
     <ClCompile Include="Foundation\GridDataLoader.cpp" />
@@ -147,6 +148,7 @@
     <ClCompile Include="Foundation\TileDefinition.cpp" />
     <ClCompile Include="Foundation\TileInteraction.cpp" />
     <ClCompile Include="Foundation\TileMap.cpp" />
+    <ClCompile Include="Foundation\WorldState.cpp" />
     <ClCompile Include="Base64.cpp" />
     <ClCompile Include="Block.cpp" />
     <ClCompile Include="BlockFactory.cpp" />
@@ -188,6 +190,7 @@
     <ClInclude Include="Action.h" />
     <ClInclude Include="Foundation\AssetPaths.h" />
     <ClInclude Include="Foundation\CharacterController.h" />
+    <ClInclude Include="Foundation\CharacterSafety.h" />
     <ClInclude Include="Foundation\CanvasMasaoTerrain.h" />
     <ClInclude Include="Foundation\ExtendedSlopeTerrain.h" />
     <ClInclude Include="Foundation\Coordinates.h" />
@@ -201,6 +204,7 @@
     <ClInclude Include="Foundation\TileDefinition.h" />
     <ClInclude Include="Foundation\TileInteraction.h" />
     <ClInclude Include="Foundation\TileMap.h" />
+    <ClInclude Include="Foundation\WorldState.h" />
     <ClInclude Include="Base64.h" />
     <ClInclude Include="Block.h" />
     <ClInclude Include="BlockFactory.h" />
