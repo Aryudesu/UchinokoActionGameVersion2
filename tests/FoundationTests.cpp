@@ -8,6 +8,7 @@
 #include "../Actgame/Foundation/ItemSystem.h"
 #include "../Actgame/Foundation/LayeredMap.h"
 #include "../Actgame/Foundation/PipeTransport.h"
+#include "../Actgame/Foundation/StageProgress.h"
 #include "../Actgame/Foundation/StageDefinition.h"
 #include "../Actgame/Foundation/TerrainCollision.h"
 #include "../Actgame/Foundation/TerrainStageLoader.h"
@@ -263,6 +264,128 @@ void TestPipeTileDefinitionsAreSolid() {
 		const TileDefinition* Pipe = Loaded.Value().Find(Id);
 		assert(Pipe != nullptr);
 		assert(Pipe->Collision == CollisionShape::Solid);
+	}
+}
+
+void TestStageProgressSeparatesNormalAndSecret() {
+	StageProgress Progress;
+	assert(!Progress.IsCleared(7, GoalKind::Normal));
+	assert(!Progress.IsCleared(7, GoalKind::Secret));
+	assert(!Progress.Satisfies(7, ClearRequirement::Either));
+	assert(!Progress.Satisfies(7, ClearRequirement::Both));
+
+	assert(Progress.MarkCleared(7, GoalKind::Normal));
+	assert(!Progress.MarkCleared(7, GoalKind::Normal));
+	assert(Progress.IsCleared(7, GoalKind::Normal));
+	assert(!Progress.IsCleared(7, GoalKind::Secret));
+	assert(Progress.Satisfies(7, ClearRequirement::Normal));
+	assert(!Progress.Satisfies(7, ClearRequirement::Secret));
+	assert(Progress.Satisfies(7, ClearRequirement::Either));
+	assert(!Progress.Satisfies(7, ClearRequirement::Both));
+
+	assert(Progress.MarkCleared(7, GoalKind::Secret));
+	assert(Progress.IsCleared(7, GoalKind::Normal));
+	assert(Progress.IsCleared(7, GoalKind::Secret));
+	assert(Progress.Satisfies(7, ClearRequirement::Normal));
+	assert(Progress.Satisfies(7, ClearRequirement::Secret));
+	assert(Progress.Satisfies(7, ClearRequirement::Either));
+	assert(Progress.Satisfies(7, ClearRequirement::Both));
+
+	const StageClearState Other = Progress.GetOrDefault(8);
+	assert(!Other.NormalCleared);
+	assert(!Other.SecretCleared);
+	assert(!Progress.MarkCleared(-1, GoalKind::Normal));
+
+	Progress.Reset();
+	assert(!Progress.IsCleared(7, GoalKind::Normal));
+	assert(!Progress.IsCleared(7, GoalKind::Secret));
+}
+
+void TestGoalKindValueMapping() {
+	GoalKind Kind = GoalKind::Secret;
+	assert(TryParseGoalKind(0, Kind));
+	assert(Kind == GoalKind::Normal);
+	assert(GoalKindValue(Kind) == 0);
+
+	assert(TryParseGoalKind(1, Kind));
+	assert(Kind == GoalKind::Secret);
+	assert(GoalKindValue(Kind) == 1);
+
+	assert(!TryParseGoalKind(2, Kind));
+	assert(!TryParseGoalKind(-1, Kind));
+}
+
+void TestExternalGoalStage() {
+	Result<TerrainStageData> Loaded =
+		TerrainStageLoader::Load("dat/stage/goal-test/stage.ini");
+	assert(Loaded.IsSuccess());
+	assert(Loaded.Value().Map.Width() == 16);
+	assert(Loaded.Value().Map.Height() == 9);
+	assert(NearlyEqual(Loaded.Value().PlayerSpawn.X, 224.0f));
+	assert(NearlyEqual(Loaded.Value().PlayerSpawn.Y, 192.0f));
+
+	const TileDefinition* Normal = Loaded.Value().Catalog.Find(70);
+	const TileDefinition* Secret = Loaded.Value().Catalog.Find(71);
+	assert(Normal != nullptr && Secret != nullptr);
+	assert(Normal->Collision == CollisionShape::None);
+	assert(Secret->Collision == CollisionShape::None);
+
+	bool FoundNormalGoal = false;
+	bool FoundSecretGoal = false;
+	for (const TileRule& Rule : Normal->Rules) {
+		if (Rule.Action == TileAction::Goal) {
+			FoundNormalGoal = true;
+			assert(Rule.Trigger == TileTrigger::Touch);
+			assert(Rule.Value == GoalKindValue(GoalKind::Normal));
+			assert(Rule.Once);
+		}
+	}
+	for (const TileRule& Rule : Secret->Rules) {
+		if (Rule.Action == TileAction::Goal) {
+			FoundSecretGoal = true;
+			assert(Rule.Trigger == TileTrigger::Touch);
+			assert(Rule.Value == GoalKindValue(GoalKind::Secret));
+			assert(Rule.Once);
+		}
+	}
+	assert(FoundNormalGoal);
+	assert(FoundSecretGoal);
+}
+
+void TestGoalTilesProduceDistinctEffectsAndDisappear() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/goal-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	for (int TileId = 70; TileId <= 71; ++TileId) {
+		TileMap Map = MakeMap({{TileId}});
+		TileRuntimeMap Runtime(Map);
+
+		TileInteraction Interaction;
+		Interaction.Trigger = TileTrigger::Touch;
+		Interaction.Position = {0, 0};
+		Interaction.TileId = TileId;
+
+		TileBehaviorResult Result =
+			TileBehaviorSystem::Apply(Interaction, Map, Loaded.Value(), Runtime);
+		assert(Result.Handled);
+		assert(Result.Effects.size() == 2);
+
+		const int ExpectedGoalValue =
+			TileId == 70
+				? GoalKindValue(GoalKind::Normal)
+				: GoalKindValue(GoalKind::Secret);
+		assert(Result.Effects[0].Type == TileEffectType::Goal);
+		assert(Result.Effects[0].Value == ExpectedGoalValue);
+		assert(Result.Effects[1].Type == TileEffectType::AddScore);
+		assert(Result.Effects[1].Value == 1000);
+		assert(*Map.TryGet({0, 0}) == 0);
+		assert(Runtime.TryGet({0, 0})->Used);
+
+		TileBehaviorResult Again =
+			TileBehaviorSystem::Apply(Interaction, Map, Loaded.Value(), Runtime);
+		assert(!Again.Handled);
+		assert(Again.Effects.empty());
 	}
 }
 
@@ -3351,6 +3474,10 @@ int main() {
 	TestSidePipeRequiresGrounded();
 	TestPipeTransportFadesBeforeEmergence();
 	TestPipeTileDefinitionsAreSolid();
+	TestStageProgressSeparatesNormalAndSecret();
+	TestGoalKindValueMapping();
+	TestExternalGoalStage();
+	TestGoalTilesProduceDistinctEffectsAndDisappear();
 	TestTileMapBounds();
 	TestGameModes();
 	TestTileCatalog();
