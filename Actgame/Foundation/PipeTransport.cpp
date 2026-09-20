@@ -55,6 +55,10 @@ bool PipeTransport::TryBegin(
 	for (std::size_t Index = 0; Index < Network.Links().size(); ++Index) {
 		const PipeLink& Link = Network.Links()[Index];
 		if (!MatchesInput(Link.EnterDirection, Input)) continue;
+		// V1の左右土管は MoveX 内で Land 条件付き。
+		if ((Link.EnterDirection == PipeDirection::Right ||
+			 Link.EnterDirection == PipeDirection::Left) &&
+			!Player.Body().Grounded) continue;
 		if (std::fabs(Position.X - Link.EntryPosition.X) > Tolerance) continue;
 		if (std::fabs(Position.Y - Link.EntryPosition.Y) > Tolerance) continue;
 
