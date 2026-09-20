@@ -32,8 +32,18 @@ enum class TileAction {
 	Damage,
 	InstantDeath,
 	SpawnItem,
+	IncrementCount,
 	ToggleSwitch,
 	Goal
+};
+
+enum class TileCountCondition {
+	Any,
+	LessThan,
+	LessEqual,
+	Equal,
+	GreaterEqual,
+	GreaterThan
 };
 
 struct TileRule {
@@ -41,6 +51,8 @@ struct TileRule {
 	TileAction Action = TileAction::None;
 	int Value = 0;
 	bool Once = false;
+	TileCountCondition CountCondition = TileCountCondition::Any;
+	int CountValue = 0;
 };
 
 struct TileInteraction {

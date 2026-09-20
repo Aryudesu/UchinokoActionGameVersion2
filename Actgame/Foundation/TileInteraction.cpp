@@ -47,6 +47,24 @@ bool MatchesCurrentTile(const TileInteraction& Interaction, const TileMap& Map) 
 	return Current != nullptr && *Current == Interaction.TileId;
 }
 
+bool MatchesCount(const TileRule& Rule, int Count) {
+	switch (Rule.CountCondition) {
+	case TileCountCondition::Any:
+		return true;
+	case TileCountCondition::LessThan:
+		return Count < Rule.CountValue;
+	case TileCountCondition::LessEqual:
+		return Count <= Rule.CountValue;
+	case TileCountCondition::Equal:
+		return Count == Rule.CountValue;
+	case TileCountCondition::GreaterEqual:
+		return Count >= Rule.CountValue;
+	case TileCountCondition::GreaterThan:
+		return Count > Rule.CountValue;
+	}
+	return false;
+}
+
 } // namespace
 
 TileBehaviorResult TileBehaviorSystem::Apply(
@@ -67,6 +85,7 @@ TileBehaviorResult TileBehaviorSystem::Apply(
 		const TileRule& Rule = Definition->Rules[Index];
 		if (Rule.Trigger != Interaction.Trigger) continue;
 		if (Rule.Once && State->ConsumedRules[Index]) continue;
+		if (!MatchesCount(Rule, State->Count)) continue;
 
 		Result.Handled = true;
 
@@ -104,6 +123,9 @@ TileBehaviorResult TileBehaviorSystem::Apply(
 			break;
 		case TileAction::SpawnItem:
 			AddEffect(Result, TileEffectType::SpawnItem, Interaction, Rule.Value);
+			break;
+		case TileAction::IncrementCount:
+			State->Count += Rule.Value;
 			break;
 		case TileAction::ToggleSwitch:
 			AddEffect(Result, TileEffectType::ToggleSwitch, Interaction, Rule.Value);

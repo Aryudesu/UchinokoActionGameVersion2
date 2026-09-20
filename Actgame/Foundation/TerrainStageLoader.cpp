@@ -112,6 +112,7 @@ Result<TileAction> ParseTileAction(const std::string& Text) {
 		{"Damage", TileAction::Damage},
 		{"InstantDeath", TileAction::InstantDeath},
 		{"SpawnItem", TileAction::SpawnItem},
+		{"IncrementCount", TileAction::IncrementCount},
 		{"ToggleSwitch", TileAction::ToggleSwitch},
 		{"Goal", TileAction::Goal}
 	};
@@ -132,7 +133,7 @@ Result<std::vector<TileRule>> ParseTileRules(const std::string& Text) {
 	const std::vector<std::string> RuleTexts = Split(Value, ';');
 	for (std::size_t Index = 0; Index < RuleTexts.size(); ++Index) {
 		const std::vector<std::string> Parts = Split(RuleTexts[Index], ':');
-		if (Parts.size() < 2 || Parts.size() > 4) {
+		if (Parts.size() < 2 || Parts.size() > 5) {
 			return Result<std::vector<TileRule>>::Failure(
 				"Invalid tile rule: " + RuleTexts[Index]);
 		}
@@ -163,6 +164,34 @@ Result<std::vector<TileRule>> ParseTileRules(const std::string& Text) {
 				return Result<std::vector<TileRule>>::Failure(
 					"Unknown tile rule lifetime: " + Parts[3]);
 			}
+		}
+		if (Parts.size() >= 5 && !Parts[4].empty() && Parts[4] != "any") {
+			const std::string Condition = Parts[4];
+			std::string Number;
+			if (Condition.compare(0, 6, "count<") == 0 && Condition.compare(0, 7, "count<=") != 0) {
+				Rule.CountCondition = TileCountCondition::LessThan;
+				Number = Condition.substr(6);
+			} else if (Condition.compare(0, 7, "count<=") == 0) {
+				Rule.CountCondition = TileCountCondition::LessEqual;
+				Number = Condition.substr(7);
+			} else if (Condition.compare(0, 7, "count==") == 0) {
+				Rule.CountCondition = TileCountCondition::Equal;
+				Number = Condition.substr(7);
+			} else if (Condition.compare(0, 7, "count>=") == 0) {
+				Rule.CountCondition = TileCountCondition::GreaterEqual;
+				Number = Condition.substr(7);
+			} else if (Condition.compare(0, 6, "count>") == 0) {
+				Rule.CountCondition = TileCountCondition::GreaterThan;
+				Number = Condition.substr(6);
+			} else {
+				return Result<std::vector<TileRule>>::Failure(
+					"Unknown tile count condition: " + Condition);
+			}
+			Result<int> ParsedCount = ParseInteger(Number, "tile rule count condition");
+			if (ParsedCount.IsFailure()) {
+				return Result<std::vector<TileRule>>::Failure(ParsedCount.Error());
+			}
+			Rule.CountValue = ParsedCount.Value();
 		}
 		Rules.push_back(Rule);
 	}
