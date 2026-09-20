@@ -36,7 +36,7 @@ void GimmickSandboxScene::Reload() {
 	Runtime_.Reset(Map_);
 	Items_.Reset();
 	// Version1 の GameData 初期値と同じく ON から開始する。
-	World_.Reset(1, true);
+	World_.Reset(2, true);
 	World_.Synchronize(Map_, Catalog_);
 
 	uchinoko::CharacterBody Body;
@@ -95,6 +95,16 @@ void GimmickSandboxScene::ApplyEffects() {
 		uchinoko::CharacterSafety::ResolveActivatedSolids(
 			Player_, Map_, Catalog_, WorldUpdate.ActivatedSolidTiles);
 	ApplyEffectList(Safety.Effects);
+	if (Dead_) return;
+
+	// V1 の HiddenTime と同様、毎フレーム進めて周期到達時だけ反転する。
+	const uchinoko::WorldStateUpdate TimedUpdate =
+		World_.AdvanceFrame(Map_, Catalog_);
+	const uchinoko::CharacterSafetyResult TimedSafety =
+		uchinoko::CharacterSafety::ResolveActivatedSolids(
+			Player_, Map_, Catalog_, TimedUpdate.ActivatedSolidTiles);
+	ApplyEffectList(TimedSafety.Effects);
+	if (Dead_) return;
 
 	const std::vector<uchinoko::TileEffect> ItemEffects = Items_.Update();
 	ApplyEffectList(ItemEffects);
@@ -159,6 +169,9 @@ void GimmickSandboxScene::draw() {
 				DrawBox(Left, Top, Right, Bottom, GetColor(80, 190, 110), TRUE);
 				DrawString(Left + 10, Top + 7, "S", GetColor(255, 255, 255));
 			}
+			if (Definition->AutoTogglePeriod > 0) {
+				DrawString(Left + 10, Top + 7, "T", GetColor(255, 255, 255));
+			}
 			if (SpawnsItem && !Hidden) {
 				DrawString(
 					Left + 10, Top + 7, "?", GetColor(255, 255, 255));
@@ -213,11 +226,12 @@ void GimmickSandboxScene::draw() {
 		"Gimmick test: Left/Right move, Z jump, R reload, Esc menu",
 		GetColor(255, 255, 255));
 	DrawFormatString(16, 40, GetColor(255, 255, 255),
-		"Coins:%d HP+:%d Lives+:%d Score:%d Broken:%d Switch:%s",
+		"Coins:%d HP+:%d Lives+:%d Score:%d Broken:%d Switch:%s Timer:%02d",
 		Coins_, Health_, Lives_, Score_, Broken_,
-		World_.GetSwitch(0) ? "ON" : "OFF");
+		World_.GetSwitch(0) ? "ON" : "OFF",
+		World_.GetAutoToggleCounter(1));
 	DrawString(16, 64,
-		"?: item / col16:10coin / col18:S + 19-20:ONOFF / col23:S crush test",
+		"?:item / col14-15:timed / col18:S+19-20:ONOFF / col22:S crush",
 		GetColor(220, 220, 220));
 	if (Dead_) {
 		DrawString(16, 88,

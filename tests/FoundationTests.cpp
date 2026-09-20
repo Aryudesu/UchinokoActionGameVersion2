@@ -542,6 +542,57 @@ void TestOnOffDefinitionsAndWorldState() {
 	assert(On.ActivatedSolidTiles[0].Column == 0);
 }
 
+void TestTimedDisappearingBlocksToggleEvery80Frames() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* PhaseASolid = Loaded.Value().Find(45);
+	const TileDefinition* PhaseAEmpty = Loaded.Value().Find(46);
+	const TileDefinition* PhaseBEmpty = Loaded.Value().Find(47);
+	const TileDefinition* PhaseBSolid = Loaded.Value().Find(48);
+	assert(PhaseASolid != nullptr && PhaseAEmpty != nullptr &&
+		PhaseBEmpty != nullptr && PhaseBSolid != nullptr);
+	assert(PhaseASolid->SwitchChannel == 1);
+	assert(PhaseASolid->AutoTogglePeriod == 80);
+	assert(PhaseBEmpty->SwitchChannel == 1);
+	assert(PhaseBEmpty->AutoTogglePeriod == 80);
+
+	TileMap Map = MakeMap({{45, 47}});
+	WorldState World;
+	World.Reset(2, true);
+	World.Synchronize(Map, Loaded.Value());
+
+	// V1 の HiddenTime と同じく、79フレームまでは初期相を保つ。
+	for (int Frame = 1; Frame <= 79; ++Frame) {
+		WorldStateUpdate Update = World.AdvanceFrame(Map, Loaded.Value());
+		assert(Update.ChangedTiles.empty());
+		assert(*Map.TryGet({0, 0}) == 45);
+		assert(*Map.TryGet({1, 0}) == 47);
+		assert(World.GetSwitch(1));
+		assert(World.GetSwitch(0));
+	}
+	assert(World.GetAutoToggleCounter(1) == 79);
+
+	// 80フレーム目で反転。47(None) -> 48(Solid) が安全判定対象になる。
+	WorldStateUpdate Eightieth = World.AdvanceFrame(Map, Loaded.Value());
+	assert(!World.GetSwitch(1));
+	assert(World.GetSwitch(0));
+	assert(World.GetAutoToggleCounter(1) == 0);
+	assert(*Map.TryGet({0, 0}) == 46);
+	assert(*Map.TryGet({1, 0}) == 48);
+	assert(Eightieth.ChangedTiles.size() == 2);
+	assert(Eightieth.ActivatedSolidTiles.size() == 1);
+	assert(Eightieth.ActivatedSolidTiles[0].Column == 1);
+
+	for (int Frame = 1; Frame <= 80; ++Frame) {
+		World.AdvanceFrame(Map, Loaded.Value());
+	}
+	assert(World.GetSwitch(1));
+	assert(*Map.TryGet({0, 0}) == 45);
+	assert(*Map.TryGet({1, 0}) == 47);
+}
+
 void TestOnOffSwitchRuleProducesToggleEffect() {
 	Result<TileCatalog> Loaded =
 		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
@@ -2191,6 +2242,7 @@ int main() {
 	TestItemBlockDefinitions();
 	TestTenCoinBlockUsesGenericCountRules();
 	TestOnOffDefinitionsAndWorldState();
+	TestTimedDisappearingBlocksToggleEvery80Frames();
 	TestOnOffSwitchRuleProducesToggleEffect();
 	TestActivatedOnOffBlockPushesCharacterToSafety();
 	TestActivatedOnOffBlocksKillWhenCharacterIsCrushed();

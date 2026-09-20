@@ -1,4 +1,4 @@
-﻿# id, collision shape, image index, breakable, damaging, rules [, switch_channel, switch_on_tile, switch_off_tile]
+﻿# id, collision shape, image index, breakable, damaging, rules [, switch_channel, switch_on_tile, switch_off_tile [, auto_toggle_period]]
 0,None,0,0,0,-
 1,Solid,0,0,0,-
 20,None,0,0,0,Touch:AddCoin:1:once;Touch:AddScore:100:once;Touch:ReplaceTile:0:once
@@ -17,3 +17,7 @@
 42,None,0,0,0,-,0,41,42
 43,None,0,0,0,-,0,43,44
 44,Solid,0,0,0,-,0,43,44
+45,Solid,0,0,0,-,1,45,46,80
+46,None,0,0,0,-,1,45,46,80
+47,None,0,0,0,-,1,47,48,80
+48,Solid,0,0,0,-,1,47,48,80

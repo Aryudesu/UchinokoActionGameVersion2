@@ -267,8 +267,9 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 		Line = Trim(Line);
 		if (Line.empty() || Line.front() == '#') continue;
 		const std::vector<std::string> Cells = Split(Line, ',');
-		if (Cells.size() != 5 && Cells.size() != 6 && Cells.size() != 9) {
-			return Result<TileCatalog>::Failure(FileName + ": expected 5, 6 or 9 columns at line " +
+		if (Cells.size() != 5 && Cells.size() != 6 &&
+			Cells.size() != 9 && Cells.size() != 10) {
+			return Result<TileCatalog>::Failure(FileName + ": expected 5, 6, 9 or 10 columns at line " +
 				std::to_string(LineNumber));
 		}
 		Result<int> Id = ParseInteger(Cells[0], "tile id");
@@ -280,15 +281,18 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 			Cells.size() >= 6
 				? ParseTileRules(Cells[5])
 				: Result<std::vector<TileRule>>::Success(std::vector<TileRule>());
-		Result<int> SwitchChannel = Cells.size() == 9
+		Result<int> SwitchChannel = Cells.size() >= 9
 			? ParseInteger(Cells[6], "switch channel")
 			: Result<int>::Success(-1);
-		Result<int> SwitchOnTile = Cells.size() == 9
+		Result<int> SwitchOnTile = Cells.size() >= 9
 			? ParseInteger(Cells[7], "switch on tile id")
 			: Result<int>::Success(-1);
-		Result<int> SwitchOffTile = Cells.size() == 9
+		Result<int> SwitchOffTile = Cells.size() >= 9
 			? ParseInteger(Cells[8], "switch off tile id")
 			: Result<int>::Success(-1);
+		Result<int> AutoTogglePeriod = Cells.size() == 10
+			? ParseInteger(Cells[9], "auto toggle period")
+			: Result<int>::Success(0);
 		if (Id.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Id.Error());
 		if (Shape.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Shape.Error());
 		if (Image.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Image.Error());
@@ -298,6 +302,8 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 		if (SwitchChannel.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + SwitchChannel.Error());
 		if (SwitchOnTile.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + SwitchOnTile.Error());
 		if (SwitchOffTile.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + SwitchOffTile.Error());
+		if (AutoTogglePeriod.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + AutoTogglePeriod.Error());
+		if (AutoTogglePeriod.Value() < 0) return Result<TileCatalog>::Failure(FileName + ": auto toggle period must be >= 0");
 		TileDefinition Definition;
 		Definition.Id = Id.Value();
 		Definition.Collision = Shape.Value();
@@ -308,6 +314,7 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 		Definition.SwitchChannel = SwitchChannel.Value();
 		Definition.SwitchOnTileId = SwitchOnTile.Value();
 		Definition.SwitchOffTileId = SwitchOffTile.Value();
+		Definition.AutoTogglePeriod = AutoTogglePeriod.Value();
 		Result<bool> Registered = Catalog.Register(Definition);
 		if (Registered.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Registered.Error());
 	}
