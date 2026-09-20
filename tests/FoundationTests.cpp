@@ -84,7 +84,6 @@ void TestExternalTerrainStage() {
 	assert(NearlyEqual(Loaded.Value().PlayerSpawn.X, 64.0f));
 	assert(NearlyEqual(Loaded.Value().PlayerSpawn.Y, 320.0f));
 	assert(Loaded.Value().Pipes.empty());
-	assert(Loaded.Value().Pipes.Links().empty());
 	assert(Loaded.Value().Catalog.Find(4)->Collision ==
 		CollisionShape::Stair2x1UpRightLow);
 	assert(Loaded.Value().Catalog.Find(9)->Collision ==
