@@ -267,8 +267,8 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 		Line = Trim(Line);
 		if (Line.empty() || Line.front() == '#') continue;
 		const std::vector<std::string> Cells = Split(Line, ',');
-		if (Cells.size() != 5 && Cells.size() != 6) {
-			return Result<TileCatalog>::Failure(FileName + ": expected 5 or 6 columns at line " +
+		if (Cells.size() != 5 && Cells.size() != 6 && Cells.size() != 9) {
+			return Result<TileCatalog>::Failure(FileName + ": expected 5, 6 or 9 columns at line " +
 				std::to_string(LineNumber));
 		}
 		Result<int> Id = ParseInteger(Cells[0], "tile id");
@@ -277,15 +277,27 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 		Result<bool> Breakable = ParseBoolean(Cells[3], "breakable");
 		Result<bool> Damaging = ParseBoolean(Cells[4], "damaging");
 		Result<std::vector<TileRule>> Rules =
-			Cells.size() == 6
+			Cells.size() >= 6
 				? ParseTileRules(Cells[5])
 				: Result<std::vector<TileRule>>::Success(std::vector<TileRule>());
+		Result<int> SwitchChannel = Cells.size() == 9
+			? ParseInteger(Cells[6], "switch channel")
+			: Result<int>::Success(-1);
+		Result<int> SwitchOnTile = Cells.size() == 9
+			? ParseInteger(Cells[7], "switch on tile id")
+			: Result<int>::Success(-1);
+		Result<int> SwitchOffTile = Cells.size() == 9
+			? ParseInteger(Cells[8], "switch off tile id")
+			: Result<int>::Success(-1);
 		if (Id.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Id.Error());
 		if (Shape.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Shape.Error());
 		if (Image.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Image.Error());
 		if (Breakable.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Breakable.Error());
 		if (Damaging.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Damaging.Error());
 		if (Rules.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Rules.Error());
+		if (SwitchChannel.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + SwitchChannel.Error());
+		if (SwitchOnTile.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + SwitchOnTile.Error());
+		if (SwitchOffTile.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + SwitchOffTile.Error());
 		TileDefinition Definition;
 		Definition.Id = Id.Value();
 		Definition.Collision = Shape.Value();
@@ -293,6 +305,9 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 		Definition.Breakable = Breakable.Value();
 		Definition.Damaging = Damaging.Value();
 		Definition.Rules = std::move(Rules.Value());
+		Definition.SwitchChannel = SwitchChannel.Value();
+		Definition.SwitchOnTileId = SwitchOnTile.Value();
+		Definition.SwitchOffTileId = SwitchOffTile.Value();
 		Result<bool> Registered = Catalog.Register(Definition);
 		if (Registered.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Registered.Error());
 	}
