@@ -2106,6 +2106,50 @@ void TestRepeatedWallSwimmingDoesNotAccumulateBoundaryBoost() {
 	assert(Player.Body().Velocity.Y >= -6.0f - 0.001f);
 }
 
+void TestJumpingLeftIntoWaterFromAirDoesNotLaunch() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{58, 58, 0, 0},
+		{58, 58, 0, 0},
+		{1, 1, 1, 1}
+	});
+
+	CharacterBody Body;
+	// x+15=64 で右側の空気、床上から左へジャンプして入水する。
+	Body.Position = {49.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterMotion Motion;
+	Motion.Gravity = 0.0f;
+	CharacterController Player(Body, Motion);
+
+	CharacterInput JumpLeft;
+	JumpLeft.Horizontal = -1.0f;
+	JumpLeft.JumpPressed = true;
+	Player.Step(JumpLeft, Map, Loaded.Value());
+
+	// 入水した同じフレームは通常ジャンプの -9 のまま。
+	assert(Player.IsInWater());
+	assert(NearlyEqual(Player.Body().Position.X, 46.0f));
+	assert(NearlyEqual(Player.Body().Velocity.Y, -9.0f));
+
+	// そのままZを押さずに水面を抜けても、通常ジャンプを2.5倍しない。
+	float MostNegativeVelocity = Player.Body().Velocity.Y;
+	CharacterInput Idle;
+	for (int Frame = 0; Frame < 8 && Player.IsInWater(); ++Frame) {
+		Player.Step(Idle, Map, Loaded.Value());
+		MostNegativeVelocity =
+			std::min(MostNegativeVelocity, Player.Body().Velocity.Y);
+	}
+
+	assert(!Player.IsInWater());
+	assert(MostNegativeVelocity >= -9.0f - 0.001f);
+	assert(NearlyEqual(Player.Body().Velocity.Y, -9.0f));
+}
+
 void TestWaterJumpSpeedsMatchVersion1() {
 	Result<TileCatalog> Loaded =
 		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
@@ -2810,6 +2854,7 @@ int main() {
 	TestWaterStateStaysTrueAgainstRightWall();
 	TestHorizontalWaterBoundaryDoesNotMultiplyVerticalSpeed();
 	TestRepeatedWallSwimmingDoesNotAccumulateBoundaryBoost();
+	TestJumpingLeftIntoWaterFromAirDoesNotLaunch();
 	TestWaterJumpSpeedsMatchVersion1();
 	TestWaterJumpCanBeRepeatedWhileAirborne();
 	TestLeavingWaterUpwardBoostsVelocity();
