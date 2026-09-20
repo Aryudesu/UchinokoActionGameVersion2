@@ -5,6 +5,7 @@
 #include "../Actgame/Foundation/CanvasMasaoTerrain.h"
 #include "../Actgame/Foundation/ExtendedSlopeTerrain.h"
 #include "../Actgame/Foundation/GridDataLoader.h"
+#include "../Actgame/Foundation/GoalState.h"
 #include "../Actgame/Foundation/ItemSystem.h"
 #include "../Actgame/Foundation/LayeredMap.h"
 #include "../Actgame/Foundation/PipeTransport.h"
@@ -95,6 +96,145 @@ TileMap MakeMap(IntegerGrid Tiles) {
 	Result<TileMap> Created = TileMap::Create(Tiles);
 	assert(Created.IsSuccess());
 	return Created.Value();
+}
+
+void TestGoalStageDefinitionsAndEffects() {
+	Result<TerrainStageData> Loaded =
+		TerrainStageLoader::Load("dat/stage/goal-test/stage.ini");
+	assert(Loaded.IsSuccess());
+	assert(Loaded.Value().Map.Width() == 16);
+	assert(Loaded.Value().Map.Height() == 9);
+	assert(NearlyEqual(Loaded.Value().PlayerSpawn.X, 96.0f));
+	assert(NearlyEqual(Loaded.Value().PlayerSpawn.Y, 160.0f));
+
+	const TileDefinition* Normal = Loaded.Value().Catalog.Find(70);
+	const TileDefinition* Secret = Loaded.Value().Catalog.Find(71);
+	assert(Normal != nullptr && Secret != nullptr);
+	assert(Normal->Rules.size() == 3);
+	assert(Secret->Rules.size() == 3);
+	assert(Normal->Rules[0].Action == TileAction::Goal);
+	assert(Normal->Rules[0].Value == static_cast<int>(GoalKind::Normal));
+	assert(Secret->Rules[0].Action == TileAction::Goal);
+	assert(Secret->Rules[0].Value == static_cast<int>(GoalKind::Secret));
+
+	TileMap NormalMap = MakeMap({{70}});
+	TileRuntimeMap NormalRuntime(NormalMap);
+	TileInteraction Touch;
+	Touch.Trigger = TileTrigger::Touch;
+	Touch.Position = {0, 0};
+	Touch.TileId = 70;
+	const TileBehaviorResult NormalResult =
+		TileBehaviorSystem::Apply(Touch, NormalMap, Loaded.Value().Catalog, NormalRuntime);
+	assert(NormalResult.Handled);
+	assert(NormalResult.Effects.size() == 2);
+	assert(NormalResult.Effects[0].Type == TileEffectType::Goal);
+	assert(NormalResult.Effects[0].Value == static_cast<int>(GoalKind::Normal));
+	assert(NormalResult.Effects[1].Type == TileEffectType::AddScore);
+	assert(NormalResult.Effects[1].Value == 1000);
+	assert(*NormalMap.TryGet({0, 0}) == 0);
+
+	TileMap SecretMap = MakeMap({{71}});
+	TileRuntimeMap SecretRuntime(SecretMap);
+	Touch.TileId = 71;
+	const TileBehaviorResult SecretResult =
+		TileBehaviorSystem::Apply(Touch, SecretMap, Loaded.Value().Catalog, SecretRuntime);
+	assert(SecretResult.Handled);
+	assert(SecretResult.Effects.size() == 2);
+	assert(SecretResult.Effects[0].Type == TileEffectType::Goal);
+	assert(SecretResult.Effects[0].Value == static_cast<int>(GoalKind::Secret));
+	assert(SecretResult.Effects[1].Type == TileEffectType::AddScore);
+	assert(SecretResult.Effects[1].Value == 1000);
+	assert(*SecretMap.TryGet({0, 0}) == 0);
+}
+
+void TestNormalAndSecretGoalProgressAreIndependent() {
+	StageClearState State;
+	assert(!State.NormalCleared);
+	assert(!State.SecretCleared);
+	assert(!State.AllCleared());
+
+	State.Record(GoalKind::Normal);
+	assert(State.NormalCleared);
+	assert(!State.SecretCleared);
+	assert(State.IsCleared(GoalKind::Normal));
+	assert(!State.IsCleared(GoalKind::Secret));
+	assert(!State.AllCleared());
+
+	State.Record(GoalKind::Secret);
+	assert(State.NormalCleared);
+	assert(State.SecretCleared);
+	assert(State.IsCleared(GoalKind::Secret));
+	assert(State.AllCleared());
+
+	GoalKind Parsed = GoalKind::Normal;
+	assert(TryGoalKindFromValue(0, Parsed));
+	assert(Parsed == GoalKind::Normal);
+	assert(TryGoalKindFromValue(1, Parsed));
+	assert(Parsed == GoalKind::Secret);
+	assert(!TryGoalKindFromValue(2, Parsed));
+}
+
+void TestStageCompletionEndsRunWithOneGoal() {
+	StageCompletionState Completion;
+	assert(!Completion.Cleared);
+
+	Completion.Complete(GoalKind::Normal);
+	assert(Completion.Cleared);
+	assert(Completion.Goal == GoalKind::Normal);
+
+	// ステージ終了後に別ゴールが届いても、今回の結果は上書きしない。
+	Completion.Complete(GoalKind::Secret);
+	assert(Completion.Goal == GoalKind::Normal);
+
+	Completion.Reset();
+	assert(!Completion.Cleared);
+
+	Completion.Complete(GoalKind::Secret);
+	assert(Completion.Cleared);
+	assert(Completion.Goal == GoalKind::Secret);
+}
+
+void TestStepWithoutInputStopsHorizontalAndSettlesVertically() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/goal-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 0, 0},
+		{1, 1, 1}
+	});
+
+	CharacterBody Body;
+	Body.Position = {32.0f, 32.0f};
+	Body.Velocity = {4.0f, -3.0f};
+	Body.Grounded = false;
+	CharacterController Player(Body);
+
+	const float StartX = Player.Body().Position.X;
+	const float StartY = Player.Body().Position.Y;
+
+	Player.StepWithoutInput(Map, Loaded.Value());
+
+	// 横入力は受け付けず、そのフレームからX座標を固定する。
+	assert(NearlyEqual(Player.Body().Position.X, StartX));
+	assert(NearlyEqual(Player.Body().Velocity.X, 0.0f));
+
+	// 縦速度は消さず、取得時の上向き慣性へ重力だけを加える。
+	assert(Player.Body().Position.Y < StartY);
+	assert(Player.Body().Velocity.Y < 0.0f);
+
+	for (int Frame = 0; Frame < 120 && !Player.Body().Grounded; ++Frame) {
+		Player.StepWithoutInput(Map, Loaded.Value());
+		assert(NearlyEqual(Player.Body().Position.X, StartX));
+	}
+
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.X, StartX));
+	assert(NearlyEqual(Player.Body().Position.Y, 96.0f));
+	assert(NearlyEqual(Player.Body().Velocity.Y, 0.0f));
 }
 
 void TestExternalPipeStage() {
@@ -3345,6 +3485,10 @@ int main() {
 	TestAssetPaths();
 	TestGridDataLoader();
 	TestExternalTerrainStage();
+	TestGoalStageDefinitionsAndEffects();
+	TestNormalAndSecretGoalProgressAreIndependent();
+	TestStageCompletionEndsRunWithOneGoal();
+	TestStepWithoutInputStopsHorizontalAndSettlesVertically();
 	TestExternalPipeStage();
 	TestPipeDirectionInputMatching();
 	TestPipeTransportRequiresDirectionAndAlignment();

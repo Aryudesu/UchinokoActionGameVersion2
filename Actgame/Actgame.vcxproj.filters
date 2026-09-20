@@ -385,6 +385,7 @@
     <ClInclude Include="Foundation\ItemSystem.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\LayeredMap.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\PipeTransport.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\GoalState.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\Result.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\StageDefinition.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\TerrainCollision.h"><Filter>Foundation</Filter></ClInclude>
@@ -408,6 +409,9 @@
     <None Include="..\dat\stage\through-test\stage.ini"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\through-test\terrain.csv"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\through-test\tiles.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\goal-test\stage.ini"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\goal-test\terrain.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\goal-test\tiles.csv"><Filter>Stage Data</Filter></None>
 
   </ItemGroup>
 </Project>

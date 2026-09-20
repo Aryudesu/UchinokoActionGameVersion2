@@ -35,6 +35,10 @@ const char* PipePhaseName(uchinoko::PipeTransportPhase Phase) {
 	return "?";
 }
 
+const char* GoalKindName(uchinoko::GoalKind Kind) {
+	return Kind == uchinoko::GoalKind::Normal ? "NORMAL" : "SECRET";
+}
+
 } // namespace
 
 GimmickSandboxScene::GimmickSandboxScene() {
@@ -43,7 +47,7 @@ GimmickSandboxScene::GimmickSandboxScene() {
 
 void GimmickSandboxScene::Reload() {
 	uchinoko::Result<uchinoko::TerrainStageData> Loaded =
-		uchinoko::TerrainStageLoader::Load("dat/stage/through-test/stage.ini");
+		uchinoko::TerrainStageLoader::Load("dat/stage/goal-test/stage.ini");
 	if (Loaded.IsFailure()) {
 		LoadError_ = Loaded.Error();
 		return;
@@ -69,6 +73,7 @@ void GimmickSandboxScene::Reload() {
 	Health_ = 0;
 	Lives_ = 0;
 	Broken_ = 0;
+	Completion_.Reset();
 	Dead_ = false;
 	SynchronizeConditionalTerrain();
 	LoadError_.clear();
@@ -96,6 +101,15 @@ void GimmickSandboxScene::ApplyEffectList(
 		case uchinoko::TileEffectType::InstantDeath:
 			Dead_ = true;
 			break;
+		case uchinoko::TileEffectType::Goal: {
+			uchinoko::GoalKind Kind;
+			if (!Completion_.Cleared &&
+				uchinoko::TryGoalKindFromValue(Effects[Index].Value, Kind)) {
+				ClearState_.Record(Kind);
+				Completion_.Complete(Kind);
+			}
+			break;
+		}
 		default:
 			break;
 		}
@@ -127,6 +141,10 @@ void GimmickSandboxScene::ApplyEffects() {
 			Player_.Interactions(), Map_, Catalog_, Runtime_);
 	Items_.ConsumeTileEffects(TileEffects, Map_.TileWidth(), Map_.TileHeight());
 	ApplyEffectList(TileEffects);
+
+	// ゴール取得フレームではGoalと同時に発生したScore等だけ反映し、
+	// その後の地形・Item更新へ進まずステージ終了状態で止める。
+	if (Completion_.Cleared) return;
 
 	// 共有状態を切り替えて地形を同期した直後だけ、安全判定を行う。
 	const uchinoko::WorldStateUpdate WorldUpdate =
@@ -162,8 +180,19 @@ void GimmickSandboxScene::update() {
 		SceneChanger::GetInstance().Change(MENU);
 		return;
 	}
-	if (ReturnKey(KEY_INPUT_R) == 1) Reload();
+	if (ReturnKey(KEY_INPUT_R) == 1) {
+		Reload();
+		return;
+	}
 	if (!LoadError_.empty() || Dead_) return;
+
+	// ゴール取得後はプレイヤー入力を受け付けず、横移動を0にする。
+	// CharacterControllerの通常物理だけを継続し、取得時のY速度と重力で
+	// 支持面へ着地するまで移動させる。
+	if (Completion_.Cleared) {
+		Player_.StepWithoutInput(Map_, Catalog_);
+		return;
+	}
 
 	// 条件ブロックの境界値確認用デバッグキー。
 	if (ReturnKey(KEY_INPUT_1) == 1) Coins_ = 0;
@@ -309,6 +338,29 @@ void GimmickSandboxScene::draw() {
 				DrawBox(Left + 2, Top + 2, Right - 2, Bottom - 2,
 					GetColor(190, 110, 70), FALSE);
 			}
+			if (HasAction(*Definition, uchinoko::TileAction::Goal)) {
+				int GoalValue = 0;
+				for (std::size_t RuleIndex = 0;
+					RuleIndex < Definition->Rules.size(); ++RuleIndex) {
+					if (Definition->Rules[RuleIndex].Action ==
+						uchinoko::TileAction::Goal) {
+						GoalValue = Definition->Rules[RuleIndex].Value;
+						break;
+					}
+				}
+				const bool Secret =
+					GoalValue == static_cast<int>(uchinoko::GoalKind::Secret);
+				DrawCircle(
+					Left + Map_.TileWidth() / 2,
+					Top + Map_.TileHeight() / 2,
+					11,
+					Secret ? GetColor(210, 120, 230) : GetColor(100, 220, 150),
+					TRUE);
+				DrawString(
+					Left + 11, Top + 8,
+					Secret ? "S" : "N",
+					GetColor(255, 255, 255));
+			}
 			const uchinoko::TileRuntimeState* State = Runtime_.TryGet({Column, Row});
 			if (State != nullptr && State->Count > 0) {
 				DrawFormatString(
@@ -381,16 +433,25 @@ void GimmickSandboxScene::draw() {
 	}
 
 	DrawString(16, 16,
-		"Through test: LEFT/RIGHT move, DOWN drop, Z jump, R reload, Esc",
+		"Goal test: LEFT/RIGHT move, Z jump, R retry, Esc",
 		GetColor(255, 255, 255));
 	DrawString(16, 40,
-		"Orange(v): Through - DOWN drops / Blue: normal OneWay",
-		GetColor(255, 230, 190));
-	DrawString(16, 64,
-		"R reloads onto the orange platform.",
-		GetColor(210, 230, 255));
+		"Green N: Normal Goal / Purple S: Secret Goal",
+		GetColor(220, 240, 255));
+	DrawFormatString(16, 64, GetColor(255, 255, 255),
+		"Record Normal:%s  Secret:%s  All:%s  RunScore:%d",
+		ClearState_.NormalCleared ? "CLEAR" : "-",
+		ClearState_.SecretCleared ? "CLEAR" : "-",
+		ClearState_.AllCleared() ? "CLEAR" : "-",
+		Score_);
+	if (Completion_.Cleared) {
+		DrawFormatString(16, 88, GetColor(120, 255, 160),
+			"STAGE CLEAR (%s) - %s  R: retry / Esc: menu",
+			GoalKindName(Completion_.Goal),
+			Player_.Body().Grounded ? "LANDED" : "settling...");
+	}
 	if (Dead_) {
-		DrawString(16, 88,
+		DrawString(16, 112,
 			"CRUSHED - InstantDeath (R: reload)",
 			GetColor(255, 100, 100));
 	}

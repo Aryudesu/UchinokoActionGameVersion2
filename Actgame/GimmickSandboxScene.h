@@ -7,6 +7,7 @@
 #include "Foundation/CharacterSafety.h"
 #include "Foundation/ConditionalTerrain.h"
 #include "Foundation/WorldState.h"
+#include "Foundation/GoalState.h"
 #include "Scene.h"
 
 #include <string>
@@ -39,5 +40,7 @@ private:
 	int Health_ = 0;
 	int Lives_ = 0;
 	int Broken_ = 0;
+	uchinoko::StageClearState ClearState_;
+	uchinoko::StageCompletionState Completion_;
 	bool Dead_ = false;
 };
