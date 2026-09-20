@@ -535,7 +535,36 @@ void CharacterController::StepClimbing(
 
 	const float HorizontalAmount = static_cast<float>(
 		CanvasMasaoTerrain::RoundDown(static_cast<double>(VelocityX10_) / 10.0));
+	const float OldX = Body_.Position.X;
 	MoveHorizontal(HorizontalAmount, Map, Catalog);
+
+	const float ActualHorizontal = Body_.Position.X - OldX;
+	if (HorizontalAmount > 0.0f && ActualHorizontal < HorizontalAmount - 0.01f) {
+		const float ProbeX = Body_.Position.X + Body_.Width + 0.01f;
+		EmitInteractionAtWorld(
+			TileTrigger::PushFromLeft, Map, ProbeX, Body_.Position.Y + 1.0f);
+		EmitInteractionAtWorld(
+			TileTrigger::Touch, Map, ProbeX, Body_.Position.Y + 1.0f);
+		EmitInteractionAtWorld(
+			TileTrigger::PushFromLeft, Map, ProbeX,
+			Body_.Position.Y + Body_.Height - 2.0f);
+		EmitInteractionAtWorld(
+			TileTrigger::Touch, Map, ProbeX,
+			Body_.Position.Y + Body_.Height - 2.0f);
+	} else if (HorizontalAmount < 0.0f &&
+		ActualHorizontal > HorizontalAmount + 0.01f) {
+		const float ProbeX = Body_.Position.X - 0.01f;
+		EmitInteractionAtWorld(
+			TileTrigger::PushFromRight, Map, ProbeX, Body_.Position.Y + 1.0f);
+		EmitInteractionAtWorld(
+			TileTrigger::Touch, Map, ProbeX, Body_.Position.Y + 1.0f);
+		EmitInteractionAtWorld(
+			TileTrigger::PushFromRight, Map, ProbeX,
+			Body_.Position.Y + Body_.Height - 2.0f);
+		EmitInteractionAtWorld(
+			TileTrigger::Touch, Map, ProbeX,
+			Body_.Position.Y + Body_.Height - 2.0f);
+	}
 
 	// V1 は横移動後に Lad() を再判定する。はしごから外れたらそのフレームで通常へ戻す。
 	if (!IsInsideLadder(Map, Catalog)) {
@@ -548,6 +577,20 @@ void CharacterController::StepClimbing(
 	const float VerticalAmount = static_cast<float>(
 		CanvasMasaoTerrain::RoundDown(static_cast<double>(VelocityY10_) / 10.0));
 	MoveVertical(VerticalAmount, Horizontal, Map, Catalog);
+
+	if (VerticalAmount < 0.0f && VelocityY10_ == 0) {
+		const float ProbeY = Body_.Position.Y - 0.01f;
+		EmitInteractionAtWorld(
+			TileTrigger::HitFromBelow, Map, Body_.Position.X + 1.0f, ProbeY);
+		EmitInteractionAtWorld(
+			TileTrigger::Touch, Map, Body_.Position.X + 1.0f, ProbeY);
+		EmitInteractionAtWorld(
+			TileTrigger::HitFromBelow, Map,
+			Body_.Position.X + Body_.Width - 2.0f, ProbeY);
+		EmitInteractionAtWorld(
+			TileTrigger::Touch, Map,
+			Body_.Position.X + Body_.Width - 2.0f, ProbeY);
+	}
 
 	if (!IsInsideLadder(Map, Catalog)) {
 		Mode_ = MovementMode::Normal;
