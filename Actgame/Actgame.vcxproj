@@ -144,6 +144,7 @@
     <ClCompile Include="Foundation\ItemSystem.cpp" />
     <ClCompile Include="Foundation\LayeredMap.cpp" />
     <ClCompile Include="Foundation\PipeTransport.cpp" />
+    <ClCompile Include="Foundation\StageProgress.cpp" />
     <ClCompile Include="Foundation\StageDefinition.cpp" />
     <ClCompile Include="Foundation\TerrainCollision.cpp" />
     <ClCompile Include="Foundation\TerrainStageLoader.cpp" />
@@ -202,6 +203,7 @@
     <ClInclude Include="Foundation\LayeredMap.h" />
     <ClInclude Include="Foundation\PipeTransport.h" />
     <ClInclude Include="Foundation\Result.h" />
+    <ClInclude Include="Foundation\StageProgress.h" />
     <ClInclude Include="Foundation\StageDefinition.h" />
     <ClInclude Include="Foundation\TerrainCollision.h" />
     <ClInclude Include="Foundation\TerrainStageLoader.h" />
@@ -262,6 +264,9 @@
     <None Include="..\dat\stage\through-test\stage.ini" />
     <None Include="..\dat\stage\through-test\terrain.csv" />
     <None Include="..\dat\stage\through-test\tiles.csv" />
+    <None Include="..\dat\stage\goal-test\stage.ini" />
+    <None Include="..\dat\stage\goal-test\terrain.csv" />
+    <None Include="..\dat\stage\goal-test\tiles.csv" />
 
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
