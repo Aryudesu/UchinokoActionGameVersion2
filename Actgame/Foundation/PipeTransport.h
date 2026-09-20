@@ -32,7 +32,7 @@ enum class PipeTransportPhase {
 class PipeTransport {
 public:
 	static constexpr int TransitionFrames = 32;
-	static constexpr int FadeStep = 32;
+	static constexpr int FadeStep = 16;
 
 	void Reset();
 
