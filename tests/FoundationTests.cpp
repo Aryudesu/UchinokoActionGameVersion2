@@ -1931,10 +1931,11 @@ void TestLadderJumpFollowsReversedGravity() {
 	if (Player.Gravity() != GravityDirection::Up) {
 		Player.Step(Idle, Map, Loaded.Value());
 	}
-	while (!Player.Body().Grounded) {
+	for (int Frame = 0; Frame < 50 && !Player.Body().Grounded; ++Frame) {
 		Player.Step(Idle, Map, Loaded.Value());
 	}
 	assert(Player.Gravity() == GravityDirection::Up);
+	assert(Player.Body().Grounded);
 	assert(NearlyEqual(Player.Body().Position.Y, 32.0f));
 
 	CharacterInput Up;
