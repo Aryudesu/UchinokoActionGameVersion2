@@ -578,9 +578,11 @@ void TestActivatedOnOffBlockPushesCharacterToSafety() {
 	Body.Position = {32.0f, 32.0f};
 	Body.Grounded = true;
 
+	CharacterController Controller(Body);
 	CharacterSafetyResult Safety =
 		CharacterSafety::ResolveActivatedSolids(
-			Body, Map, Loaded.Value(), {{1, 1}});
+			Controller, Map, Loaded.Value(), {{1, 1}});
+	Body = Controller.Body();
 	assert(!Safety.Crushed);
 	assert(Safety.Repositioned);
 	assert(Safety.Effects.empty());
@@ -607,9 +609,11 @@ void TestActivatedOnOffBlocksKillWhenCharacterIsCrushed() {
 	const std::vector<TilePosition> Activated = {
 		{0, 1}, {1, 1}, {2, 1}
 	};
+	CharacterController Controller(Body);
 	CharacterSafetyResult Safety =
 		CharacterSafety::ResolveActivatedSolids(
-			Body, Map, Loaded.Value(), Activated);
+			Controller, Map, Loaded.Value(), Activated);
+	Body = Controller.Body();
 	assert(Safety.Crushed);
 	assert(!Safety.Repositioned);
 	assert(Safety.Effects.size() == 1);
