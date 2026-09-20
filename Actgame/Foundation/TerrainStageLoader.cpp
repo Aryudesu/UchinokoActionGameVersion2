@@ -75,6 +75,17 @@ Result<CollisionShape> ParseCollisionShape(const std::string& Text) {
 	return Result<CollisionShape>::Success(Found->second);
 }
 
+Result<MovementRegion> ParseMovementRegion(const std::string& Text) {
+	const std::string Name = Trim(Text);
+	if (Name.empty() || Name == "-" || Name == "None") {
+		return Result<MovementRegion>::Success(MovementRegion::None);
+	}
+	if (Name == "Ladder") {
+		return Result<MovementRegion>::Success(MovementRegion::Ladder);
+	}
+	return Result<MovementRegion>::Failure("Unknown movement region: " + Name);
+}
+
 std::vector<std::string> Split(const std::string& Line, char Delimiter) {
 	std::vector<std::string> Values;
 	std::istringstream Stream(Line);
@@ -353,8 +364,9 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 		if (Line.empty() || Line.front() == '#') continue;
 		const std::vector<std::string> Cells = Split(Line, ',');
 		if (Cells.size() != 5 && Cells.size() != 6 &&
-			Cells.size() != 9 && Cells.size() != 10 && Cells.size() != 11) {
-			return Result<TileCatalog>::Failure(FileName + ": expected 5, 6, 9, 10 or 11 columns at line " +
+			Cells.size() != 9 && Cells.size() != 10 &&
+			Cells.size() != 11 && Cells.size() != 12) {
+			return Result<TileCatalog>::Failure(FileName + ": expected 5, 6, 9, 10, 11 or 12 columns at line " +
 				std::to_string(LineNumber));
 		}
 		Result<int> Id = ParseInteger(Cells[0], "tile id");
@@ -379,9 +391,13 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 			? ParseInteger(Cells[9], "auto toggle period")
 			: Result<int>::Success(0);
 		Result<ParsedConditionBinding> Condition =
-			Cells.size() == 11
+			Cells.size() >= 11
 				? ParseConditionBinding(Cells[10])
 				: Result<ParsedConditionBinding>::Success(ParsedConditionBinding());
+		Result<MovementRegion> Movement =
+			Cells.size() == 12
+				? ParseMovementRegion(Cells[11])
+				: Result<MovementRegion>::Success(MovementRegion::None);
 		if (Id.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Id.Error());
 		if (Shape.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Shape.Error());
 		if (Image.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Image.Error());
@@ -394,6 +410,7 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 		if (AutoTogglePeriod.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + AutoTogglePeriod.Error());
 		if (AutoTogglePeriod.Value() < 0) return Result<TileCatalog>::Failure(FileName + ": auto toggle period must be >= 0");
 		if (Condition.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Condition.Error());
+		if (Movement.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Movement.Error());
 		TileDefinition Definition;
 		Definition.Id = Id.Value();
 		Definition.Collision = Shape.Value();
@@ -410,6 +427,7 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 		Definition.ConditionThreshold = Condition.Value().Threshold;
 		Definition.ConditionTrueTileId = Condition.Value().TrueTileId;
 		Definition.ConditionFalseTileId = Condition.Value().FalseTileId;
+		Definition.Movement = Movement.Value();
 		Result<bool> Registered = Catalog.Register(Definition);
 		if (Registered.IsFailure()) return Result<TileCatalog>::Failure(FileName + ": " + Registered.Error());
 	}

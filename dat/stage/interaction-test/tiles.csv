@@ -1,4 +1,4 @@
-﻿# id, collision shape, image index, breakable, damaging, rules [, switch_channel, switch_on_tile, switch_off_tile [, auto_toggle_period [, condition]]]
+﻿# id, collision shape, image index, breakable, damaging, rules [, switch_channel, switch_on_tile, switch_off_tile [, auto_toggle_period [, condition [, movement_region]]]]
 0,None,0,0,0,-
 1,Solid,0,0,0,-
 20,None,0,0,0,Touch:AddCoin:1:once;Touch:AddScore:100:once;Touch:ReplaceTile:0:once
@@ -27,3 +27,6 @@
 52,Solid,0,0,0,-,-1,-1,-1,0,Coins>=50|51|52
 53,None,0,0,0,-,-1,-1,-1,0,Coins<50|53|54
 54,Solid,0,0,0,-,-1,-1,-1,0,Coins<50|53|54
+55,None,0,0,0,-,-1,-1,-1,0,-,Ladder
+56,Solid,0,0,0,HitFromBelow:SpawnItem:4:once;HitFromBelow:ReplaceTile:30:once
+57,HitFromBelowOnly,0,0,0,HitFromBelow:SpawnItem:4:once;HitFromBelow:ReplaceTile:30:once

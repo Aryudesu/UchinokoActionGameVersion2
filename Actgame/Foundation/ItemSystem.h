@@ -12,7 +12,8 @@ namespace uchinoko {
 enum class ItemKind {
 	Coin = 1,
 	Healing = 2,
-	OneUp = 3
+	OneUp = 3,
+	LadderBuilder = 4
 };
 
 struct SpawnedItem {
@@ -21,6 +22,7 @@ struct SpawnedItem {
 	WorldPosition Position;
 	float VelocityY = -10.0f;
 	bool Active = true;
+	int LastTerrainRow = -1000000;
 };
 
 class ItemSystem {
@@ -37,6 +39,10 @@ public:
 	// 返された TileEffect をゲーム側が Player / Score / SE 等へ接続する。
 	std::vector<TileEffect> Update(float Gravity = 0.5f);
 
+	// LadderBuilderのように、地形そのものへ作用するアイテムだけを更新する。
+	void UpdateTerrainItems(
+		TileMap& Map, const TileCatalog& Catalog, int LadderTileId);
+
 	const std::vector<SpawnedItem>& Items() const { return Items_; }
 
 private:
@@ -44,6 +50,8 @@ private:
 	static bool TryParseKind(int Value, ItemKind& Kind);
 	static void AddRewardEffects(
 		std::vector<TileEffect>& Effects, const SpawnedItem& Item);
+	static bool IsSolidAt(
+		const TileMap& Map, const TileCatalog& Catalog, float X, float Y);
 
 	std::vector<SpawnedItem> Items_;
 };
