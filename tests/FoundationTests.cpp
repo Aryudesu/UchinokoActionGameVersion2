@@ -392,9 +392,12 @@ void TestExternalInteractionStage() {
 		TerrainStageLoader::Load("dat/stage/interaction-test/stage.ini");
 	assert(Loaded.IsSuccess());
 	assert(Loaded.Value().Map.Width() == 24);
-	assert(Loaded.Value().Map.Height() == 6);
-	assert(*Loaded.Value().Map.TryGet({2, 2}) == 20);
-	assert(*Loaded.Value().Map.TryGet({5, 1}) == 21);
+	assert(Loaded.Value().Map.Height() == 9);
+	assert(NearlyEqual(Loaded.Value().PlayerSpawn.X, 96.0f));
+	assert(NearlyEqual(Loaded.Value().PlayerSpawn.Y, 160.0f));
+	assert(*Loaded.Value().Map.TryGet({2, 5}) == 20);
+	assert(*Loaded.Value().Map.TryGet({5, 4}) == 21);
+	assert(*Loaded.Value().Map.TryGet({0, 4}) == 58);
 	assert(Loaded.Value().Catalog.Find(20) != nullptr);
 	assert(Loaded.Value().Catalog.Find(20)->Rules.size() == 3);
 	assert(Loaded.Value().Catalog.Find(21) != nullptr);
@@ -1946,6 +1949,158 @@ void TestLadderBuilderCreatesTilesUntilSolidCeiling() {
 	assert(*Map.TryGet({1, 0}) == 1);
 }
 
+void TestWaterDefinition() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* Water = Loaded.Value().Find(58);
+	assert(Water != nullptr);
+	assert(Water->Collision == CollisionShape::None);
+	assert(Water->Movement == MovementRegion::Water);
+}
+
+void TestCharacterUsesWaterGravityAndTerminalVelocity() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	IntegerGrid WaterRows(
+		30, std::vector<int>(3, 58));
+	TileMap WaterMap = MakeMap(WaterRows);
+
+	CharacterBody WaterBody;
+	WaterBody.Position = {32.0f, 64.0f};
+	WaterBody.Grounded = false;
+	CharacterController WaterPlayer(WaterBody);
+
+	CharacterInput Idle;
+	WaterPlayer.Step(Idle, WaterMap, Loaded.Value());
+	assert(WaterPlayer.IsInWater());
+	// 0.5 / 3 は0.1刻み速度へ丸められ、この実装では0.2になる。
+	assert(NearlyEqual(WaterPlayer.Body().Velocity.Y, 0.2f));
+
+	for (int Frame = 0; Frame < 100; ++Frame) {
+		WaterPlayer.Step(Idle, WaterMap, Loaded.Value());
+	}
+	assert(WaterPlayer.IsInWater());
+	assert(WaterPlayer.Body().Velocity.Y <= 5.0f + 0.001f);
+	assert(NearlyEqual(WaterPlayer.Body().Velocity.Y, 5.0f));
+}
+
+void TestWaterJumpSpeedsMatchVersion1() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{58, 58, 58},
+		{58, 58, 58},
+		{58, 58, 58},
+		{58, 58, 58}
+	});
+
+	auto MakeWaterPlayer = []() {
+		CharacterBody Body;
+		Body.Position = {32.0f, 48.0f};
+		Body.Grounded = false;
+		return CharacterController(Body);
+	};
+
+	CharacterInput Neutral;
+	Neutral.JumpPressed = true;
+	CharacterController NeutralPlayer = MakeWaterPlayer();
+	NeutralPlayer.Step(Neutral, Map, Loaded.Value());
+	assert(NeutralPlayer.IsInWater());
+	assert(NearlyEqual(NeutralPlayer.Body().Velocity.Y, -4.0f));
+
+	CharacterInput Up = Neutral;
+	Up.Vertical = -1.0f;
+	CharacterController UpPlayer = MakeWaterPlayer();
+	UpPlayer.Step(Up, Map, Loaded.Value());
+	assert(UpPlayer.IsInWater());
+	assert(NearlyEqual(UpPlayer.Body().Velocity.Y, -6.0f));
+
+	CharacterInput Down = Neutral;
+	Down.Vertical = 1.0f;
+	CharacterController DownPlayer = MakeWaterPlayer();
+	DownPlayer.Step(Down, Map, Loaded.Value());
+	assert(DownPlayer.IsInWater());
+	assert(NearlyEqual(DownPlayer.Body().Velocity.Y, -2.0f));
+}
+
+void TestWaterJumpCanBeRepeatedWhileAirborne() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{58, 58, 58},
+		{58, 58, 58},
+		{58, 58, 58},
+		{58, 58, 58}
+	});
+	CharacterBody Body;
+	Body.Position = {32.0f, 48.0f};
+	Body.Velocity.Y = 3.0f;
+	Body.Grounded = false;
+	CharacterController Player(Body);
+
+	CharacterInput Swim;
+	Swim.JumpPressed = true;
+	Player.Step(Swim, Map, Loaded.Value());
+	assert(Player.IsInWater());
+	assert(!Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Velocity.Y, -4.0f));
+}
+
+void TestLeavingWaterUpwardBoostsVelocity() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{58, 58, 58},
+		{58, 58, 58},
+		{58, 58, 58}
+	});
+	CharacterBody Body;
+	// 中心Y=33で水中。-4移動すると中心Y=29となり水面を上へ抜ける。
+	Body.Position = {32.0f, 17.0f};
+	Body.Grounded = false;
+	CharacterController Player(Body);
+
+	CharacterInput Swim;
+	Swim.JumpPressed = true;
+	Player.Step(Swim, Map, Loaded.Value());
+
+	assert(!Player.IsInWater());
+	// V1の水面遷移: speed.y *= 2.5
+	assert(NearlyEqual(Player.Body().Velocity.Y, -10.0f));
+}
+
+void TestWaterUsesCharacterCenterPoint() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{58, 0, 0},
+		{58, 0, 0},
+		{1, 1, 1}
+	});
+	CharacterBody Body;
+	// 左端はWaterにかかるが、中心X=39は隣の空気タイル。
+	Body.Position = {23.0f, 32.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	CharacterInput Idle;
+	Player.Step(Idle, Map, Loaded.Value());
+	assert(!Player.IsInWater());
+}
+
 void TestCharacterMovement() {
 	TileMap FlatMap = MakeMap({{0, 0, 0}, {1, 1, 1}, {0, 0, 0}});
 	TileCatalog Catalog = MakeTerrainCatalog();
@@ -2531,6 +2686,12 @@ int main() {
 	TestCharacterClimbsLadderWithoutGravity();
 	TestLadderEntryRulesMatchVersion1();
 	TestLadderBuilderCreatesTilesUntilSolidCeiling();
+	TestWaterDefinition();
+	TestCharacterUsesWaterGravityAndTerminalVelocity();
+	TestWaterJumpSpeedsMatchVersion1();
+	TestWaterJumpCanBeRepeatedWhileAirborne();
+	TestLeavingWaterUpwardBoostsVelocity();
+	TestWaterUsesCharacterCenterPoint();
 	TestCharacterMovement();
 	TestCharacterRecomputesGroundFromMasaoProbes();
 	TestCharacterUsesGetSakamichiYCoordinates();
