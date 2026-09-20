@@ -83,6 +83,9 @@ Result<MovementRegion> ParseMovementRegion(const std::string& Text) {
 	if (Name == "Ladder") {
 		return Result<MovementRegion>::Success(MovementRegion::Ladder);
 	}
+	if (Name == "Water") {
+		return Result<MovementRegion>::Success(MovementRegion::Water);
+	}
 	return Result<MovementRegion>::Failure("Unknown movement region: " + Name);
 }
 
