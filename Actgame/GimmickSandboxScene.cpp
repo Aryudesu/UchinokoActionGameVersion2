@@ -35,6 +35,10 @@ const char* PipePhaseName(uchinoko::PipeTransportPhase Phase) {
 	return "?";
 }
 
+const char* GoalKindName(uchinoko::GoalKind Kind) {
+	return Kind == uchinoko::GoalKind::Normal ? "NORMAL" : "SECRET";
+}
+
 } // namespace
 
 GimmickSandboxScene::GimmickSandboxScene() {
@@ -69,7 +73,7 @@ void GimmickSandboxScene::Reload() {
 	Health_ = 0;
 	Lives_ = 0;
 	Broken_ = 0;
-	ClearState_ = uchinoko::StageClearState();
+	Completion_.Reset();
 	Dead_ = false;
 	SynchronizeConditionalTerrain();
 	LoadError_.clear();
@@ -101,6 +105,7 @@ void GimmickSandboxScene::ApplyEffectList(
 			uchinoko::GoalKind Kind;
 			if (uchinoko::TryGoalKindFromValue(Effects[Index].Value, Kind)) {
 				ClearState_.Record(Kind);
+				Completion_.Complete(Kind);
 			}
 			break;
 		}
@@ -136,6 +141,10 @@ void GimmickSandboxScene::ApplyEffects() {
 	Items_.ConsumeTileEffects(TileEffects, Map_.TileWidth(), Map_.TileHeight());
 	ApplyEffectList(TileEffects);
 
+	// ゴール取得フレームではGoalと同時に発生したScore等だけ反映し、
+	// その後の地形・Item更新へ進まずステージ終了状態で止める。
+	if (Completion_.Cleared) return;
+
 	// 共有状態を切り替えて地形を同期した直後だけ、安全判定を行う。
 	const uchinoko::WorldStateUpdate WorldUpdate =
 		World_.ApplyEffects(TileEffects, Map_, Catalog_);
@@ -170,8 +179,11 @@ void GimmickSandboxScene::update() {
 		SceneChanger::GetInstance().Change(MENU);
 		return;
 	}
-	if (ReturnKey(KEY_INPUT_R) == 1) Reload();
-	if (!LoadError_.empty() || Dead_) return;
+	if (ReturnKey(KEY_INPUT_R) == 1) {
+		Reload();
+		return;
+	}
+	if (!LoadError_.empty() || Dead_ || Completion_.Cleared) return;
 
 	// 条件ブロックの境界値確認用デバッグキー。
 	if (ReturnKey(KEY_INPUT_1) == 1) Coins_ = 0;
@@ -412,19 +424,24 @@ void GimmickSandboxScene::draw() {
 	}
 
 	DrawString(16, 16,
-		"Goal test: LEFT/RIGHT move, Z jump, R reload, Esc",
+		"Goal test: LEFT/RIGHT move, Z jump, R retry, Esc",
 		GetColor(255, 255, 255));
 	DrawString(16, 40,
 		"Green N: Normal Goal / Purple S: Secret Goal",
 		GetColor(220, 240, 255));
 	DrawFormatString(16, 64, GetColor(255, 255, 255),
-		"Normal:%s  Secret:%s  All:%s  Score:%d",
+		"Record Normal:%s  Secret:%s  All:%s  RunScore:%d",
 		ClearState_.NormalCleared ? "CLEAR" : "-",
 		ClearState_.SecretCleared ? "CLEAR" : "-",
 		ClearState_.AllCleared() ? "CLEAR" : "-",
 		Score_);
+	if (Completion_.Cleared) {
+		DrawFormatString(16, 88, GetColor(120, 255, 160),
+			"STAGE CLEAR (%s) - R: retry / Esc: menu",
+			GoalKindName(Completion_.Goal));
+	}
 	if (Dead_) {
-		DrawString(16, 88,
+		DrawString(16, 112,
 			"CRUSHED - InstantDeath (R: reload)",
 			GetColor(255, 100, 100));
 	}
