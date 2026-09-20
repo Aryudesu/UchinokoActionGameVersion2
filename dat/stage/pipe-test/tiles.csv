@@ -1,0 +1,11 @@
+# id, collision shape, image index, breakable, damaging, rules
+0,None,0,0,0,-
+1,Solid,0,0,0,-
+61,Solid,0,0,0,-
+62,Solid,0,0,0,-
+63,Solid,0,0,0,-
+64,Solid,0,0,0,-
+65,Solid,0,0,0,-
+66,Solid,0,0,0,-
+67,Solid,0,0,0,-
+68,Solid,0,0,0,-
