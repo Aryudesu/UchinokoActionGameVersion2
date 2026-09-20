@@ -126,6 +126,9 @@ void GimmickSandboxScene::ApplyEffects() {
 	ApplyEffectList(TimedSafety.Effects);
 	if (Dead_) return;
 
+	// V1のLadderMaker相当。報酬Itemとは別に地形生成Itemを先に進める。
+	Items_.UpdateTerrainItems(Map_, Catalog_, 55);
+
 	const std::vector<uchinoko::TileEffect> ItemEffects = Items_.Update();
 	ApplyEffectList(ItemEffects);
 	if (Dead_) return;
@@ -147,11 +150,14 @@ void GimmickSandboxScene::update() {
 	if (ReturnKey(KEY_INPUT_2) == 1) Coins_ = 49;
 	if (ReturnKey(KEY_INPUT_3) == 1) Coins_ = 50;
 
-	float Horizontal = 0.0f;
-	if (ReturnKey(KEY_INPUT_LEFT) != 0) Horizontal -= 1.0f;
-	if (ReturnKey(KEY_INPUT_RIGHT) != 0) Horizontal += 1.0f;
+	uchinoko::CharacterInput Input;
+	if (ReturnKey(KEY_INPUT_LEFT) != 0) Input.Horizontal -= 1.0f;
+	if (ReturnKey(KEY_INPUT_RIGHT) != 0) Input.Horizontal += 1.0f;
+	if (ReturnKey(KEY_INPUT_UP) != 0) Input.Vertical -= 1.0f;
+	if (ReturnKey(KEY_INPUT_DOWN) != 0) Input.Vertical += 1.0f;
+	Input.JumpPressed = ReturnKey(KEY_INPUT_Z) == 1;
 
-	Player_.Step(Horizontal, ReturnKey(KEY_INPUT_Z) == 1, Map_, Catalog_);
+	Player_.Step(Input, Map_, Catalog_);
 	ApplyEffects();
 }
 
@@ -202,6 +208,17 @@ void GimmickSandboxScene::draw() {
 				DrawBox(
 					Left, Top, Right, Bottom,
 					SpawnsItem ? GetColor(210, 160, 70) : GetColor(80, 130, 190), TRUE);
+			}
+			if (Definition->Movement == uchinoko::MovementRegion::Ladder) {
+				const int Center = Left + Map_.TileWidth() / 2;
+				DrawLine(Center - 7, Top + 2, Center - 7, Bottom - 2,
+					GetColor(190, 150, 80), 2);
+				DrawLine(Center + 7, Top + 2, Center + 7, Bottom - 2,
+					GetColor(190, 150, 80), 2);
+				for (int Y = Top + 6; Y < Bottom; Y += 8) {
+					DrawLine(Center - 7, Y, Center + 7, Y,
+						GetColor(220, 190, 120), 2);
+				}
 			}
 			if (SwitchTile) {
 				DrawBox(Left, Top, Right, Bottom, GetColor(80, 190, 110), TRUE);
@@ -259,6 +276,14 @@ void GimmickSandboxScene::draw() {
 			DrawCircle(X, Y, 9, GetColor(120, 210, 255), TRUE);
 			DrawString(X - 7, Y - 7, "1", GetColor(20, 40, 70));
 			break;
+		case uchinoko::ItemKind::LadderBuilder:
+			DrawLine(X - 6, Y - 10, X - 6, Y + 10,
+				GetColor(220, 190, 120), 2);
+			DrawLine(X + 6, Y - 10, X + 6, Y + 10,
+				GetColor(220, 190, 120), 2);
+			DrawLine(X - 6, Y, X + 6, Y,
+				GetColor(220, 190, 120), 2);
+			break;
 		}
 	}
 
@@ -270,15 +295,16 @@ void GimmickSandboxScene::draw() {
 		GetColor(240, 210, 80), TRUE);
 
 	DrawString(16, 16,
-		"Gimmick: Arrows/Z, R reload, 1=0 coins, 2=49, 3=50, Esc menu",
+		"Gimmick: Arrows(move/climb), Z jump, R reload, 1/2/3 coins, Esc",
 		GetColor(255, 255, 255));
 	DrawFormatString(16, 40, GetColor(255, 255, 255),
-		"Coins:%d HP+:%d Lives+:%d Score:%d Broken:%d Switch:%s Timer:%02d",
-		Coins_, Health_, Lives_, Score_, Broken_,
+		"Coins:%d HP+:%d Lives+:%d Score:%d Mode:%s Switch:%s Timer:%02d",
+		Coins_, Health_, Lives_, Score_,
+		Player_.IsClimbing() ? "CLIMB" : "NORMAL",
 		World_.GetSwitch(0) ? "ON" : "OFF",
 		World_.GetAutoToggleCounter(1));
 	DrawString(16, 64,
-		"col3:C0 / col5:C+ / col7:C- / col14-15:timed / col18+:ONOFF",
+		"col9:ladder / col10:?ladder / col12:hidden ladder / col18+:ONOFF",
 		GetColor(220, 220, 220));
 	if (Dead_) {
 		DrawString(16, 88,
