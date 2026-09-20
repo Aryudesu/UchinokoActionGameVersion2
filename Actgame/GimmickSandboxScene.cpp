@@ -1,6 +1,7 @@
 #include "GimmickSandboxScene.h"
 
 #include "DxLib.h"
+#include "Conf.h"
 #include "InputKey.h"
 #include "SceneChanger.h"
 #include "Foundation/TerrainStageLoader.h"
@@ -27,6 +28,8 @@ const char* PipePhaseName(uchinoko::PipeTransportPhase Phase) {
 	switch (Phase) {
 	case uchinoko::PipeTransportPhase::Idle: return "IDLE";
 	case uchinoko::PipeTransportPhase::Entering: return "IN";
+	case uchinoko::PipeTransportPhase::FadeOut: return "FADE OUT";
+	case uchinoko::PipeTransportPhase::FadeIn: return "FADE IN";
 	case uchinoko::PipeTransportPhase::Emerging: return "OUT";
 	}
 	return "?";
@@ -385,5 +388,14 @@ void GimmickSandboxScene::draw() {
 		DrawString(16, 88,
 			"CRUSHED - InstantDeath (R: reload)",
 			GetColor(255, 100, 100));
+	}
+
+	// V1のSetBrightによる暗転と同じタイミングを、
+	// Sandboxでは黒いオーバーレイで再現する。
+	const int FadeAlpha = Pipe_.FadeAlpha();
+	if (FadeAlpha > 0) {
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, FadeAlpha);
+		DrawBox(0, 0, WINDOWX, WINDOWY, GetColor(0, 0, 0), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 	}
 }
