@@ -184,7 +184,7 @@ void TestSidePipeRequiresGrounded() {
 	assert(Pipe.TryBegin(Right, Player, Links));
 }
 
-void TestPipeTransportMovesDirectlyToExitAndEmerges() {
+void TestPipeTransportFadesBeforeEmergence() {
 	std::vector<PipeLink> Links(1);
 	Links[0].EntryPosition = {100.0f, 200.0f};
 	Links[0].EnterDirection = PipeDirection::Down;
@@ -205,8 +205,41 @@ void TestPipeTransportMovesDirectlyToExitAndEmerges() {
 		Pipe.Update(Player);
 	}
 
-	// Waiting/TransferRequestはなく、そのまま出口内部へ移ってEmergingになる。
+	// 32F潜った直後はまだ入口側。ここから暗転を始める。
+	assert(Pipe.Phase() == PipeTransportPhase::FadeOut);
+	assert(Pipe.FadeAlpha() == 0);
+	assert(NearlyEqual(Player.Body().Position.X, 100.0f));
+	assert(NearlyEqual(Player.Body().Position.Y, 232.0f));
+
+	// V1同様32ずつ暗くする。完全暗転までは座標を切り替えない。
+	for (int Step = 0; Step < 7; ++Step) {
+		Pipe.Update(Player);
+		assert(Pipe.Phase() == PipeTransportPhase::FadeOut);
+		assert(Pipe.FadeAlpha() == (Step + 1) * PipeTransport::FadeStep);
+		assert(NearlyEqual(Player.Body().Position.X, 100.0f));
+		assert(NearlyEqual(Player.Body().Position.Y, 232.0f));
+	}
+
+	// 8回目で255へ到達し、その瞬間だけ出口内部へ移る。
+	Pipe.Update(Player);
+	assert(Pipe.Phase() == PipeTransportPhase::FadeIn);
+	assert(Pipe.FadeAlpha() == 255);
+	assert(NearlyEqual(Player.Body().Position.X, 300.0f));
+	assert(NearlyEqual(Player.Body().Position.Y, 192.0f));
+
+	// 明るく戻っている間も出口内部で静止する。
+	for (int Step = 0; Step < 7; ++Step) {
+		Pipe.Update(Player);
+		assert(Pipe.Phase() == PipeTransportPhase::FadeIn);
+		assert(Pipe.FadeAlpha() == 255 - (Step + 1) * PipeTransport::FadeStep);
+		assert(NearlyEqual(Player.Body().Position.X, 300.0f));
+		assert(NearlyEqual(Player.Body().Position.Y, 192.0f));
+	}
+
+	// 8回目で完全に明るく戻ってからEmergingへ入る。
+	Pipe.Update(Player);
 	assert(Pipe.Phase() == PipeTransportPhase::Emerging);
+	assert(Pipe.FadeAlpha() == 0);
 	assert(NearlyEqual(Player.Body().Position.X, 300.0f));
 	assert(NearlyEqual(Player.Body().Position.Y, 192.0f));
 
@@ -216,9 +249,11 @@ void TestPipeTransportMovesDirectlyToExitAndEmerges() {
 
 	assert(Pipe.Phase() == PipeTransportPhase::Idle);
 	assert(!Pipe.IsActive());
+	assert(Pipe.FadeAlpha() == 0);
 	assert(NearlyEqual(Player.Body().Position.X, 300.0f));
 	assert(NearlyEqual(Player.Body().Position.Y, 160.0f));
 }
+
 
 void TestPipeTileDefinitionsAreSolid() {
 	Result<TileCatalog> Loaded =
@@ -3144,7 +3179,7 @@ int main() {
 	TestPipeDirectionInputMatching();
 	TestPipeTransportRequiresDirectionAndAlignment();
 	TestSidePipeRequiresGrounded();
-	TestPipeTransportMovesDirectlyToExitAndEmerges();
+	TestPipeTransportFadesBeforeEmergence();
 	TestPipeTileDefinitionsAreSolid();
 	TestTileMapBounds();
 	TestGameModes();
