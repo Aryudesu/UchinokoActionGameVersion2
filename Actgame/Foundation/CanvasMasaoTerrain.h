@@ -34,6 +34,8 @@ public:
 		int X, int OldY, int& NewY);
 	static bool ResolveFallingOneWay(const TileMap& Map, const TileCatalog& Catalog,
 		int X, int OldY, int& NewY);
+	static bool ResolveRisingOneWay(const TileMap& Map, const TileCatalog& Catalog,
+		int X, int OldY, int& NewY);
 	static bool ResolveDirectionalVerticalSolid(const TileMap& Map, const TileCatalog& Catalog,
 		int& X, int OldY, int& NewY, int Direction, bool MovingDown);
 };
