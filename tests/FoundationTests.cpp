@@ -2201,6 +2201,176 @@ void TestLadderBuilderCreatesTilesUntilSolidCeiling() {
 	assert(*Map.TryGet({1, 0}) == 1);
 }
 
+void TestDropThroughOneWayDefinition() {
+	Result<TerrainStageData> Loaded =
+		TerrainStageLoader::Load("dat/stage/through-test/stage.ini");
+	assert(Loaded.IsSuccess());
+	assert(Loaded.Value().Map.Width() == 16);
+	assert(Loaded.Value().Map.Height() == 9);
+	assert(NearlyEqual(Loaded.Value().PlayerSpawn.X, 128.0f));
+	assert(NearlyEqual(Loaded.Value().PlayerSpawn.Y, 128.0f));
+
+	const TileDefinition* Normal = Loaded.Value().Catalog.Find(61);
+	const TileDefinition* Through = Loaded.Value().Catalog.Find(62);
+	assert(Normal != nullptr && Through != nullptr);
+	assert(Normal->Collision == CollisionShape::OneWay);
+	assert(Through->Collision == CollisionShape::DropThroughOneWay);
+	assert(CanvasMasaoTerrain::CodeFor(Through->Collision) ==
+		CanvasMasaoTerrain::OneWayCode);
+}
+
+void TestCharacterLandsOnDropThroughPlatformNormally() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/through-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 62, 0},
+		{0, 0, 0},
+		{1, 1, 1}
+	});
+
+	CharacterBody Body;
+	Body.Position = {32.0f, 0.0f};
+	Body.Grounded = false;
+	CharacterController Player(Body);
+
+	CharacterInput Idle;
+	for (int Frame = 0; Frame < 40 && !Player.Body().Grounded; ++Frame) {
+		Player.Step(Idle, Map, Loaded.Value());
+	}
+
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 32.0f));
+}
+
+void TestCharacterDropsThroughPlatformWithDown() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/through-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 62, 0},
+		{0, 0, 0},
+		{1, 1, 1}
+	});
+
+	CharacterBody Body;
+	Body.Position = {32.0f, 32.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	CharacterInput Down;
+	Down.Vertical = 1.0f;
+
+	// 最初の0.5px/frame相当は整数移動0px。次フレームで床面を跨ぐ。
+	Player.Step(Down, Map, Loaded.Value());
+	assert(!Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 32.0f));
+
+	Player.Step(Down, Map, Loaded.Value());
+	assert(Player.Body().Position.Y > 32.0f);
+	assert(!Player.Body().Grounded);
+
+	CharacterInput Idle;
+	for (int Frame = 0; Frame < 60 && !Player.Body().Grounded; ++Frame) {
+		Player.Step(Idle, Map, Loaded.Value());
+	}
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 96.0f));
+}
+
+void TestNormalOneWayDoesNotDropWithDown() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/through-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 61, 0},
+		{0, 0, 0}
+	});
+
+	CharacterBody Body;
+	Body.Position = {32.0f, 32.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	CharacterInput Down;
+	Down.Vertical = 1.0f;
+	for (int Frame = 0; Frame < 8; ++Frame) {
+		Player.Step(Down, Map, Loaded.Value());
+	}
+
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 32.0f));
+}
+
+void TestReverseGravityDropsThroughPlatformWithUp() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/through-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 62, 0},
+		{0, 59, 0},
+		{0, 0, 0}
+	});
+
+	CharacterBody Body;
+	// row1のThrough下面(y=64)に逆向きで立つ。
+	Body.Position = {32.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	CharacterInput Up;
+	Up.Vertical = -1.0f;
+
+	Player.Step(Up, Map, Loaded.Value());
+	assert(Player.Gravity() == GravityDirection::Up);
+	assert(!Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 64.0f));
+
+	Player.Step(Up, Map, Loaded.Value());
+	assert(Player.Gravity() == GravityDirection::Up);
+	assert(Player.Body().Position.Y < 64.0f);
+	assert(!Player.Body().Grounded);
+}
+
+void TestReverseGravityNormalOneWayDoesNotDropWithUp() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/through-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 61, 0},
+		{0, 59, 0},
+		{0, 0, 0}
+	});
+
+	CharacterBody Body;
+	Body.Position = {32.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	CharacterInput Up;
+	Up.Vertical = -1.0f;
+	for (int Frame = 0; Frame < 8; ++Frame) {
+		Player.Step(Up, Map, Loaded.Value());
+	}
+
+	assert(Player.Gravity() == GravityDirection::Up);
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 64.0f));
+}
+
 void TestGravityRegionDefinitions() {
 	Result<TileCatalog> Loaded =
 		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
@@ -3247,6 +3417,12 @@ int main() {
 	TestLadderJumpFollowsReversedGravity();
 	TestLadderEntryRulesMatchVersion1();
 	TestLadderBuilderCreatesTilesUntilSolidCeiling();
+	TestDropThroughOneWayDefinition();
+	TestCharacterLandsOnDropThroughPlatformNormally();
+	TestCharacterDropsThroughPlatformWithDown();
+	TestNormalOneWayDoesNotDropWithDown();
+	TestReverseGravityDropsThroughPlatformWithUp();
+	TestReverseGravityNormalOneWayDoesNotDropWithUp();
 	TestGravityRegionDefinitions();
 	TestGravityUpFallsToCeilingAndJumpsAway();
 	TestGravityDownRegionRestoresNormalGravity();

@@ -13,7 +13,9 @@ int FloorDiv32(int Value) {
 int CanvasMasaoTerrain::CodeFor(CollisionShape Shape) {
 	switch (Shape) {
 	case CollisionShape::Solid: return SolidCode;
-	case CollisionShape::OneWay: return OneWayCode;
+	case CollisionShape::OneWay:
+	case CollisionShape::DropThroughOneWay:
+		return OneWayCode;
 	case CollisionShape::SlopeUpRight: return SlopeUpRightCode;
 	case CollisionShape::SlopeUpLeft: return SlopeUpLeftCode;
 	default: return EmptyCode;
@@ -148,6 +150,15 @@ bool CanvasMasaoTerrain::ResolveFallingOneWay(
 	const int NewRow = FloorDiv32(NewY + 31);
 	if (NewRow <= OldRow || CodeAt(Map, Catalog, X + 15, NewY + 31) != OneWayCode) return false;
 	NewY = NewRow * 32 - 32;
+	return true;
+}
+
+bool CanvasMasaoTerrain::ResolveRisingOneWay(
+	const TileMap& Map, const TileCatalog& Catalog, int X, int OldY, int& NewY) {
+	const int OldRow = FloorDiv32(OldY);
+	const int NewRow = FloorDiv32(NewY);
+	if (NewRow >= OldRow || CodeAt(Map, Catalog, X + 15, NewY) != OneWayCode) return false;
+	NewY = (NewRow + 1) * 32;
 	return true;
 }
 

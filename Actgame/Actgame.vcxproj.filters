@@ -405,6 +405,9 @@
     <None Include="..\dat\stage\pipe-test\terrain.csv"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\pipe-test\tiles.csv"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\pipe-test\pipes.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\through-test\stage.ini"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\through-test\terrain.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\through-test\tiles.csv"><Filter>Stage Data</Filter></None>
 
   </ItemGroup>
 </Project>
