@@ -55,6 +55,7 @@ void CharacterController::Reposition(WorldPosition Position, bool ResetVelocity)
 	Body_.Grounded = false;
 	Mode_ = MovementMode::Normal;
 	InWater_ = false;
+	WaterExitBoostArmed_ = false;
 	if (!ResetVelocity) return;
 	Body_.Velocity = {0.0f, 0.0f};
 	VelocityX10_ = 0;
@@ -112,15 +113,21 @@ bool CharacterController::IsCenterInWater(
 
 void CharacterController::ApplyWaterBoundaryTransition(
 	bool WasInWater, bool IsInWater) {
-	// 横からの入水・上からの入水では増幅しない。
-	// 水中から空気へ上向きに抜ける時だけ、水面ジャンプとして補正する。
-	if (!WasInWater || IsInWater || VelocityY10_ >= 0) return;
+	// 水中でZを押して泳いだ上昇だけを水面ブースト対象にする。
+	// 空中ジャンプのまま横から入水したケースではArmedされないため、
+	// 水面を抜けても通常ジャンプ速度を2.5倍しない。
+	if (!WasInWater || IsInWater) return;
+	if (VelocityY10_ >= 0 || !WaterExitBoostArmed_) {
+		WaterExitBoostArmed_ = false;
+		return;
+	}
 
 	if (VelocityY10_ < 0) {
 		VelocityY10_ = static_cast<int>(std::round(
 			static_cast<float>(VelocityY10_) *
 			Motion_.WaterBoundaryVelocityScale));
 		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
+		WaterExitBoostArmed_ = false;
 	}
 }
 
@@ -726,7 +733,9 @@ void CharacterController::Step(
 		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
 		Body_.Grounded = false;
 		WaterJumped = true;
+		WaterExitBoostArmed_ = true;
 	} else if (Input.JumpPressed && Body_.Grounded) {
+		WaterExitBoostArmed_ = false;
 		VelocityY10_ = -static_cast<int>(std::round(Motion_.JumpSpeed * 10.0f));
 		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
 		Body_.Grounded = false;
@@ -771,6 +780,9 @@ void CharacterController::Step(
 
 	if (Body_.Grounded) {
 		InWater_ = WaterAfterHorizontal;
+	}
+	if (InWater_ && VelocityY10_ >= 0) {
+		WaterExitBoostArmed_ = false;
 	}
 
 	EmitTouchInteractions(Map);
