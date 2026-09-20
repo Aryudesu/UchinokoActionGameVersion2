@@ -3,6 +3,7 @@
 #include "Foundation/CharacterController.h"
 #include "Foundation/TileInteraction.h"
 #include "Foundation/ItemSystem.h"
+#include "Foundation/PipeTransport.h"
 #include "Foundation/CharacterSafety.h"
 #include "Foundation/ConditionalTerrain.h"
 #include "Foundation/WorldState.h"
@@ -29,6 +30,8 @@ private:
 	uchinoko::TileRuntimeMap Runtime_;
 	uchinoko::ItemSystem Items_;
 	uchinoko::WorldState World_;
+	uchinoko::PipeNetwork Pipes_;
+	uchinoko::PipeTransport Pipe_;
 	uchinoko::CharacterController Player_;
 	std::string LoadError_;
 	int Coins_ = 0;
