@@ -50,6 +50,16 @@ CharacterController::CharacterController(CharacterBody Body, CharacterMotion Mot
 	  VelocityX10_(static_cast<int>(std::round(Body.Velocity.X * 10.0f))),
 	  VelocityY10_(static_cast<int>(std::round(Body.Velocity.Y * 10.0f))) {}
 
+void CharacterController::Reposition(WorldPosition Position, bool ResetVelocity) {
+	Body_.Position = Position;
+	Body_.Grounded = false;
+	if (!ResetVelocity) return;
+	Body_.Velocity = {0.0f, 0.0f};
+	VelocityX10_ = 0;
+	VelocityY10_ = 0;
+}
+
+
 CollisionShape CharacterController::ShapeAt(
 	const TileMap& Map, const TileCatalog& Catalog, float X, float Y) const {
 	const int Column = TileAt(X, Map.TileWidth());
