@@ -161,6 +161,32 @@ void TestPipeTransportRequiresDirectionAndAlignment() {
 	assert(Pipe.Frame() == 0);
 }
 
+void TestSidePipeRequiresGrounded() {
+	PipeNetwork Network;
+	PipeLink Link;
+	Link.Id = "side";
+	Link.EntryPosition = {64.0f, 64.0f};
+	Link.EnterDirection = PipeDirection::Right;
+	Link.TargetStage = ".";
+	Link.ExitPosition = {160.0f, 64.0f};
+	Link.ExitDirection = PipeDirection::Left;
+	assert(Network.Add(Link));
+
+	CharacterBody Body;
+	Body.Position = Link.EntryPosition;
+	Body.Grounded = false;
+	CharacterController Player(Body);
+	PipeTransport Pipe;
+
+	CharacterInput Right;
+	Right.Horizontal = 1.0f;
+	assert(!Pipe.TryBegin(Right, Player, Network));
+
+	Player.Body().Grounded = true;
+	assert(Pipe.TryBegin(Right, Player, Network));
+	assert(Pipe.Phase() == PipeTransportPhase::Entering);
+}
+
 void TestPipeTransportMoves32FramesAndEmerges() {
 	PipeNetwork Network;
 	PipeLink Link;
@@ -3149,6 +3175,7 @@ int main() {
 	TestExternalTerrainStage();
 	TestPipeDirectionInputMatching();
 	TestPipeTransportRequiresDirectionAndAlignment();
+	TestSidePipeRequiresGrounded();
 	TestPipeTransportMoves32FramesAndEmerges();
 	TestPipeTileDefinitionsAreSolid();
 	TestTileMapBounds();
