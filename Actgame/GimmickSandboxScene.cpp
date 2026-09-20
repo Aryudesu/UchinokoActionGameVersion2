@@ -169,6 +169,9 @@ void GimmickSandboxScene::draw() {
 				DrawBox(Left, Top, Right, Bottom, GetColor(80, 190, 110), TRUE);
 				DrawString(Left + 10, Top + 7, "S", GetColor(255, 255, 255));
 			}
+			if (Definition->AutoTogglePeriod > 0) {
+				DrawString(Left + 10, Top + 7, "T", GetColor(255, 255, 255));
+			}
 			if (SpawnsItem && !Hidden) {
 				DrawString(
 					Left + 10, Top + 7, "?", GetColor(255, 255, 255));
