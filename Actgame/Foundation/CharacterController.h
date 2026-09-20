@@ -23,6 +23,12 @@ struct CharacterMotion {
 	float MaxFallSpeed = 10.0f;
 	float ClimbHorizontalSpeed = 2.0f;
 	float ClimbVerticalSpeed = 3.0f;
+	float WaterGravityScale = 1.0f / 3.0f;
+	float WaterMaxFallSpeedScale = 0.5f;
+	float WaterJumpSpeed = 4.0f;
+	float WaterJumpUpSpeed = 6.0f;
+	float WaterJumpDownSpeed = 2.0f;
+	float WaterBoundaryVelocityScale = 2.5f;
 };
 
 struct CharacterInput {
@@ -48,6 +54,7 @@ public:
 	const std::vector<TileInteraction>& Interactions() const { return Interactions_; }
 	MovementMode Mode() const { return Mode_; }
 	bool IsClimbing() const { return Mode_ == MovementMode::Climbing; }
+	bool IsInWater() const { return InWater_; }
 
 private:
 	CollisionShape ShapeAt(const TileMap& Map, const TileCatalog& Catalog,
@@ -57,6 +64,8 @@ private:
 	MovementRegion MovementRegionAt(
 		const TileMap& Map, const TileCatalog& Catalog, float X, float Y) const;
 	bool IsInsideLadder(const TileMap& Map, const TileCatalog& Catalog) const;
+	bool IsCenterInWater(const TileMap& Map, const TileCatalog& Catalog) const;
+	void ApplyWaterBoundaryTransition(bool WasInWater, bool IsInWater);
 	void StepClimbing(
 		const CharacterInput& Input, const TileMap& Map, const TileCatalog& Catalog);
 	float SlopeCharacterY(CollisionShape Shape, int Column, int Row,
@@ -85,6 +94,7 @@ private:
 	int VelocityY10_ = 0;
 	std::vector<TileInteraction> Interactions_;
 	MovementMode Mode_ = MovementMode::Normal;
+	bool InWater_ = false;
 };
 
 } // namespace uchinoko
