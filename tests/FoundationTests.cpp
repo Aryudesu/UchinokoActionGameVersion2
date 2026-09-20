@@ -174,6 +174,26 @@ void TestNormalAndSecretGoalProgressAreIndependent() {
 	assert(!TryGoalKindFromValue(2, Parsed));
 }
 
+void TestStageCompletionEndsRunWithOneGoal() {
+	StageCompletionState Completion;
+	assert(!Completion.Cleared);
+
+	Completion.Complete(GoalKind::Normal);
+	assert(Completion.Cleared);
+	assert(Completion.Goal == GoalKind::Normal);
+
+	// ステージ終了後に別ゴールが届いても、今回の結果は上書きしない。
+	Completion.Complete(GoalKind::Secret);
+	assert(Completion.Goal == GoalKind::Normal);
+
+	Completion.Reset();
+	assert(!Completion.Cleared);
+
+	Completion.Complete(GoalKind::Secret);
+	assert(Completion.Cleared);
+	assert(Completion.Goal == GoalKind::Secret);
+}
+
 void TestExternalPipeStage() {
 	Result<TerrainStageData> Loaded =
 		TerrainStageLoader::Load("dat/stage/pipe-test/stage.ini");
@@ -3424,6 +3444,7 @@ int main() {
 	TestExternalTerrainStage();
 	TestGoalStageDefinitionsAndEffects();
 	TestNormalAndSecretGoalProgressAreIndependent();
+	TestStageCompletionEndsRunWithOneGoal();
 	TestExternalPipeStage();
 	TestPipeDirectionInputMatching();
 	TestPipeTransportRequiresDirectionAndAlignment();
