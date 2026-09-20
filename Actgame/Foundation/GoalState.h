@@ -24,6 +24,7 @@ struct StageCompletionState {
 	GoalKind Goal = GoalKind::Normal;
 
 	void Complete(GoalKind Kind) {
+		if (Cleared) return;
 		Cleared = true;
 		Goal = Kind;
 	}
