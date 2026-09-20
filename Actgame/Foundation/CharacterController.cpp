@@ -112,9 +112,10 @@ bool CharacterController::IsCenterInWater(
 
 void CharacterController::ApplyWaterBoundaryTransition(
 	bool WasInWater, bool IsInWater) {
-	if (WasInWater == IsInWater) return;
+	// 横からの入水・上からの入水では増幅しない。
+	// 水中から空気へ上向きに抜ける時だけ、水面ジャンプとして補正する。
+	if (!WasInWater || IsInWater || VelocityY10_ >= 0) return;
 
-	// V1: 水面を上向きに跨いだ時だけ speed.y *= 2.5。
 	if (VelocityY10_ < 0) {
 		VelocityY10_ = static_cast<int>(std::round(
 			static_cast<float>(VelocityY10_) *
@@ -709,11 +710,9 @@ void CharacterController::Step(
 			Body_.Position.Y + Body_.Height - 2.0f);
 	}
 
-	// 横方向の移動でもWater状態自体は即時更新する。
-	// ただしV1の speed.y *= 2.5 は MoveY 内だけなので、
-	// 横移動によるWater境界通過では縦速度を増幅しない。
-	InWater_ = IsCenterInWater(Map, Catalog);
-
+	// V1は MoveX 後も UpdateSpeedY / Jump では直前フレームのWater状態を使い、
+	// Water状態そのものは MoveY の後で更新する。
+	// そのため横から水へ入った同じフレームに水中ジャンプへ切り替えない。
 	bool WaterJumped = false;
 	if (Input.JumpPressed && InWater_) {
 		float JumpSpeed = Motion_.WaterJumpSpeed;
@@ -764,6 +763,10 @@ void CharacterController::Step(
 				TileTrigger::Touch, Map,
 				Body_.Position.X + Body_.Width - 2.0f, ProbeY);
 		}
+	}
+
+	if (Body_.Grounded) {
+		InWater_ = IsCenterInWater(Map, Catalog);
 	}
 
 	EmitTouchInteractions(Map);
