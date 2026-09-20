@@ -101,7 +101,10 @@ bool CharacterController::IsInsideLadder(
 bool CharacterController::IsCenterInWater(
 	const TileMap& Map, const TileCatalog& Catalog) const {
 	// V1 の MapHitCC(M) == 5 と同じく、中心点だけで水中判定する。
-	const float CenterWorldX = Body_.Position.X + Body_.Width * 0.5f;
+	// 横衝突で使う中心軸 x+15 と揃える。
+	// x+16 を使うと、右壁へ接した x=48 で 64px 境界の右タイルを
+	// 誤って参照し、水中なのに Water=false になる。
+	const float CenterWorldX = Body_.Position.X + CenterX;
 	const float CenterWorldY = Body_.Position.Y + Body_.Height * 0.5f;
 	return MovementRegionAt(
 		Map, Catalog, CenterWorldX, CenterWorldY) == MovementRegion::Water;
@@ -706,10 +709,10 @@ void CharacterController::Step(
 			Body_.Position.Y + Body_.Height - 2.0f);
 	}
 
-	// 横方向から水へ出入りした場合も、V1の中心点判定を即時反映する。
-	const bool WaterBeforeHorizontal = InWater_;
+	// 横方向の移動でもWater状態自体は即時更新する。
+	// ただしV1の speed.y *= 2.5 は MoveY 内だけなので、
+	// 横移動によるWater境界通過では縦速度を増幅しない。
 	InWater_ = IsCenterInWater(Map, Catalog);
-	ApplyWaterBoundaryTransition(WaterBeforeHorizontal, InWater_);
 
 	bool WaterJumped = false;
 	if (Input.JumpPressed && InWater_) {
