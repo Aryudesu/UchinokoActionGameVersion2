@@ -1988,6 +1988,31 @@ void TestCharacterUsesWaterGravityAndTerminalVelocity() {
 	assert(NearlyEqual(WaterPlayer.Body().Velocity.Y, 5.0f));
 }
 
+void TestWaterHorizontalMovementIsSlower() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{58, 58, 58, 58},
+		{58, 58, 58, 58},
+		{58, 58, 58, 58},
+		{58, 58, 58, 58}
+	});
+	CharacterBody Body;
+	Body.Position = {32.0f, 48.0f};
+	Body.Grounded = false;
+	CharacterController Player(Body);
+
+	CharacterInput Right;
+	Right.Horizontal = 1.0f;
+	const float OldX = Player.Body().Position.X;
+	Player.Step(Right, Map, Loaded.Value());
+	assert(Player.IsInWater());
+	assert(NearlyEqual(Player.Body().Position.X, OldX + 1.0f));
+	assert(NearlyEqual(Player.Body().Velocity.X, 1.0f));
+}
+
 void TestWaterJumpSpeedsMatchVersion1() {
 	Result<TileCatalog> Loaded =
 		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
@@ -2688,6 +2713,7 @@ int main() {
 	TestLadderBuilderCreatesTilesUntilSolidCeiling();
 	TestWaterDefinition();
 	TestCharacterUsesWaterGravityAndTerminalVelocity();
+	TestWaterHorizontalMovementIsSlower();
 	TestWaterJumpSpeedsMatchVersion1();
 	TestWaterJumpCanBeRepeatedWhileAirborne();
 	TestLeavingWaterUpwardBoostsVelocity();
