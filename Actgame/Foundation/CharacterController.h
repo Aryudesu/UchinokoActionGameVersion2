@@ -97,6 +97,7 @@ private:
 	std::vector<TileInteraction> Interactions_;
 	MovementMode Mode_ = MovementMode::Normal;
 	bool InWater_ = false;
+	bool WaterExitBoostArmed_ = false;
 };
 
 } // namespace uchinoko
