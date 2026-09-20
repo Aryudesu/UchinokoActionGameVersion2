@@ -53,6 +53,7 @@ CharacterController::CharacterController(CharacterBody Body, CharacterMotion Mot
 void CharacterController::Reposition(WorldPosition Position, bool ResetVelocity) {
 	Body_.Position = Position;
 	Body_.Grounded = false;
+	Mode_ = MovementMode::Normal;
 	if (!ResetVelocity) return;
 	Body_.Velocity = {0.0f, 0.0f};
 	VelocityX10_ = 0;
