@@ -93,7 +93,7 @@ void GimmickSandboxScene::ApplyEffects() {
 		World_.ApplyEffects(TileEffects, Map_, Catalog_);
 	const uchinoko::CharacterSafetyResult Safety =
 		uchinoko::CharacterSafety::ResolveActivatedSolids(
-			Player_.Body(), Map_, Catalog_, WorldUpdate.ActivatedSolidTiles);
+			Player_, Map_, Catalog_, WorldUpdate.ActivatedSolidTiles);
 	ApplyEffectList(Safety.Effects);
 
 	const std::vector<uchinoko::TileEffect> ItemEffects = Items_.Update();
