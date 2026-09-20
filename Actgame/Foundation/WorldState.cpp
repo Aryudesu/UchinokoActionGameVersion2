@@ -8,12 +8,16 @@ namespace uchinoko {
 void WorldState::Reset(int SwitchCount, bool InitialValue) {
 	if (SwitchCount < 0) SwitchCount = 0;
 	Switches_.assign(static_cast<std::size_t>(SwitchCount), InitialValue);
+	AutoToggleCounters_.assign(static_cast<std::size_t>(SwitchCount), 0);
 }
 
 void WorldState::EnsureSwitch(int Channel) {
 	if (Channel < 0) return;
 	if (Channel >= static_cast<int>(Switches_.size())) {
 		Switches_.resize(static_cast<std::size_t>(Channel + 1), false);
+	}
+	if (Channel >= static_cast<int>(AutoToggleCounters_.size())) {
+		AutoToggleCounters_.resize(static_cast<std::size_t>(Channel + 1), 0);
 	}
 }
 
@@ -44,6 +48,51 @@ WorldStateUpdate WorldState::ApplyEffects(
 		}
 	}
 	return Synchronize(Map, Catalog);
+}
+
+int WorldState::GetAutoToggleCounter(int Channel) const {
+	if (Channel < 0 || Channel >= static_cast<int>(AutoToggleCounters_.size())) return 0;
+	return AutoToggleCounters_[Channel];
+}
+
+WorldStateUpdate WorldState::AdvanceFrame(
+	TileMap& Map, const TileCatalog& Catalog) {
+	std::vector<int> Periods(Switches_.size(), 0);
+
+	for (int Row = 0; Row < Map.Height(); ++Row) {
+		for (int Column = 0; Column < Map.Width(); ++Column) {
+			const int* Id = Map.TryGet({Column, Row});
+			const TileDefinition* Definition =
+				Id == nullptr ? nullptr : Catalog.Find(*Id);
+			if (Definition == nullptr ||
+				Definition->SwitchChannel < 0 ||
+				Definition->AutoTogglePeriod <= 0) continue;
+
+			EnsureSwitch(Definition->SwitchChannel);
+			if (Periods.size() < Switches_.size()) {
+				Periods.resize(Switches_.size(), 0);
+			}
+			const int Channel = Definition->SwitchChannel;
+			if (Periods[Channel] == 0) {
+				Periods[Channel] = Definition->AutoTogglePeriod;
+			}
+		}
+	}
+
+	bool Changed = false;
+	for (std::size_t Channel = 0; Channel < Periods.size(); ++Channel) {
+		const int Period = Periods[Channel];
+		if (Period <= 0) continue;
+
+		++AutoToggleCounters_[Channel];
+		if (AutoToggleCounters_[Channel] >= Period) {
+			AutoToggleCounters_[Channel] = 0;
+			Switches_[Channel] = !Switches_[Channel];
+			Changed = true;
+		}
+	}
+
+	return Changed ? Synchronize(Map, Catalog) : WorldStateUpdate();
 }
 
 WorldStateUpdate WorldState::Synchronize(
