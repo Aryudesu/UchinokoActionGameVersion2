@@ -19,6 +19,20 @@ bool HasAction(const uchinoko::TileDefinition& Definition, uchinoko::TileAction 
 	return false;
 }
 
+bool IsPipeTile(int Id) {
+	return Id >= 61 && Id <= 68;
+}
+
+const char* PipePhaseName(uchinoko::PipeTransportPhase Phase) {
+	switch (Phase) {
+	case uchinoko::PipeTransportPhase::Idle: return "IDLE";
+	case uchinoko::PipeTransportPhase::Entering: return "IN";
+	case uchinoko::PipeTransportPhase::WaitingForTransfer: return "WAIT";
+	case uchinoko::PipeTransportPhase::Emerging: return "OUT";
+	}
+	return "?";
+}
+
 } // namespace
 
 GimmickSandboxScene::GimmickSandboxScene() {
@@ -35,6 +49,8 @@ void GimmickSandboxScene::Reload() {
 
 	Map_ = std::move(Loaded.Value().Map);
 	Catalog_ = std::move(Loaded.Value().Catalog);
+	Pipes_ = std::move(Loaded.Value().Pipes);
+	Pipe_.Reset();
 	Runtime_.Reset(Map_);
 	Items_.Reset();
 	// Version1 の GameData 初期値と同じく ON から開始する。
@@ -159,6 +175,24 @@ void GimmickSandboxScene::update() {
 	if (ReturnKey(KEY_INPUT_DOWN) != 0) Input.Vertical += 1.0f;
 	Input.JumpPressed = ReturnKey(KEY_INPUT_Z) == 1;
 
+	// V1のMovingUpdate相当。土管移動中は通常物理・通常ギミック更新を止める。
+	if (Pipe_.IsActive()) {
+		Pipe_.Update(Player_);
+		if (Pipe_.HasTransferRequest()) {
+			const uchinoko::PipeTransferRequest& Request = Pipe_.TransferRequest();
+			if (Request.TargetStage == ".") {
+				Pipe_.BeginEmergence(
+					Player_, Request.ExitPosition, Request.ExitDirection);
+			} else {
+				LoadError_ = "Pipe target requires stage change: " + Request.TargetStage;
+			}
+		}
+		return;
+	}
+	if (Pipe_.TryBegin(Input, Player_, Pipes_)) {
+		return;
+	}
+
 	Player_.Step(Input, Map_, Catalog_);
 	ApplyEffects();
 }
@@ -209,7 +243,14 @@ void GimmickSandboxScene::draw() {
 			} else if (Definition->Collision == uchinoko::CollisionShape::Solid) {
 				DrawBox(
 					Left, Top, Right, Bottom,
-					SpawnsItem ? GetColor(210, 160, 70) : GetColor(80, 130, 190), TRUE);
+					IsPipeTile(*Id)
+						? GetColor(70, 170, 90)
+						: (SpawnsItem ? GetColor(210, 160, 70) : GetColor(80, 130, 190)),
+					TRUE);
+				if (IsPipeTile(*Id)) {
+					DrawBox(Left + 3, Top + 3, Right - 3, Bottom - 3,
+						GetColor(160, 230, 170), FALSE);
+				}
 			}
 			if (Definition->Movement == uchinoko::MovementRegion::Water) {
 				DrawBox(
@@ -318,15 +359,14 @@ void GimmickSandboxScene::draw() {
 		"Gimmick: Arrows(move/climb/swim), Z jump/swim, R reload, 1/2/3 coins, Esc",
 		GetColor(255, 255, 255));
 	DrawFormatString(16, 40, GetColor(255, 255, 255),
-		"Coins:%d HP+:%d Lives+:%d Score:%d Mode:%s Water:%s Grav:%s Switch:%s T:%02d",
+		"Coins:%d HP+:%d Lives+:%d Score:%d Mode:%s Water:%s Grav:%s Pipe:%s",
 		Coins_, Health_, Lives_, Score_,
 		Player_.IsClimbing() ? "CLIMB" : "NORMAL",
 		Player_.IsInWater() ? "YES" : "NO",
 		Player_.IsGravityUp() ? "UP" : "DOWN",
-		World_.GetSwitch(0) ? "ON" : "OFF",
-		World_.GetAutoToggleCounter(1));
+		PipePhaseName(Pipe_.Phase()));
 	DrawString(16, 64,
-		"col11:G^ -> ceiling / ceiling col13:Gv / left pool:WATER / col9:ladder",
+		"right green pipes: DOWN to warp / links from pipes.csv / col11:G^ / left:WATER",
 		GetColor(220, 220, 220));
 	if (Dead_) {
 		DrawString(16, 88,
