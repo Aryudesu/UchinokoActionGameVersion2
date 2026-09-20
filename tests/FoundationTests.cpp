@@ -1803,6 +1803,149 @@ void TestCharacterRepositionResetsInternalVelocity() {
 	assert(NearlyEqual(Player.Body().Position.Y, 10.0f));
 }
 
+void TestLadderDefinitions() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* Ladder = Loaded.Value().Find(55);
+	assert(Ladder != nullptr);
+	assert(Ladder->Collision == CollisionShape::None);
+	assert(Ladder->Movement == MovementRegion::Ladder);
+
+	const TileDefinition* Maker = Loaded.Value().Find(56);
+	assert(Maker != nullptr);
+	assert(Maker->Collision == CollisionShape::Solid);
+	assert(Maker->Rules.size() == 2);
+	assert(Maker->Rules[0].Action == TileAction::SpawnItem);
+	assert(Maker->Rules[0].Value == static_cast<int>(ItemKind::LadderBuilder));
+	assert(Maker->Rules[1].Action == TileAction::ReplaceTile);
+	assert(Maker->Rules[1].Value == 30);
+
+	const TileDefinition* HiddenMaker = Loaded.Value().Find(57);
+	assert(HiddenMaker != nullptr);
+	assert(HiddenMaker->Collision == CollisionShape::HitFromBelowOnly);
+	assert(HiddenMaker->Rules[0].Value ==
+		static_cast<int>(ItemKind::LadderBuilder));
+}
+
+void TestCharacterClimbsLadderWithoutGravity() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 55, 0},
+		{0, 55, 0},
+		{0, 55, 0},
+		{1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {32.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	CharacterInput Up;
+	Up.Vertical = -1.0f;
+	Player.Step(Up, Map, Loaded.Value());
+	assert(Player.Mode() == MovementMode::Climbing);
+	assert(!Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 61.0f));
+	assert(NearlyEqual(Player.Body().Velocity.Y, -3.0f));
+
+	// 入力を離しても重力で落ちず、その場に留まる。
+	const float HoldY = Player.Body().Position.Y;
+	CharacterInput Idle;
+	Player.Step(Idle, Map, Loaded.Value());
+	assert(Player.Mode() == MovementMode::Climbing);
+	assert(NearlyEqual(Player.Body().Position.Y, HoldY));
+	assert(NearlyEqual(Player.Body().Velocity.Y, 0.0f));
+
+	// V1のLadderActと同じく登攀中の横速度は2。
+	CharacterInput Right;
+	Right.Horizontal = 1.0f;
+	const float OldX = Player.Body().Position.X;
+	Player.Step(Right, Map, Loaded.Value());
+	assert(Player.Mode() == MovementMode::Climbing);
+	assert(NearlyEqual(Player.Body().Position.X, OldX + 2.0f));
+}
+
+void TestLadderEntryRulesMatchVersion1() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 55, 0},
+		{0, 55, 0},
+		{0, 55, 0},
+		{1, 1, 1}
+	});
+
+	// 地上で下を押しても登攀モードには入らない。
+	CharacterBody GroundBody;
+	GroundBody.Position = {32.0f, 64.0f};
+	GroundBody.Grounded = true;
+	CharacterController GroundPlayer(GroundBody);
+	CharacterInput Down;
+	Down.Vertical = 1.0f;
+	GroundPlayer.Step(Down, Map, Loaded.Value());
+	assert(GroundPlayer.Mode() == MovementMode::Normal);
+	assert(GroundPlayer.Body().Grounded);
+
+	// 空中では下入力でもはしごを掴める。
+	CharacterBody AirBody;
+	AirBody.Position = {32.0f, 60.0f};
+	AirBody.Grounded = false;
+	CharacterController AirPlayer(AirBody);
+	AirPlayer.Step(Down, Map, Loaded.Value());
+	assert(AirPlayer.Mode() == MovementMode::Climbing);
+	assert(NearlyEqual(AirPlayer.Body().Position.Y, 63.0f));
+
+	// 横へ外れれば通常モードへ戻る。
+	CharacterInput Right;
+	Right.Horizontal = 1.0f;
+	for (int Frame = 0; Frame < 8 &&
+		AirPlayer.Mode() == MovementMode::Climbing; ++Frame) {
+		AirPlayer.Step(Right, Map, Loaded.Value());
+	}
+	assert(AirPlayer.Mode() == MovementMode::Normal);
+}
+
+void TestLadderBuilderCreatesTilesUntilSolidCeiling() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{1, 1, 1},
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 0, 0},
+		{1, 1, 1}
+	});
+
+	ItemSystem Items;
+	TileEffect Spawn;
+	Spawn.Type = TileEffectType::SpawnItem;
+	Spawn.Position = {1, 4};
+	Spawn.Value = static_cast<int>(ItemKind::LadderBuilder);
+	Items.ConsumeTileEffects({Spawn}, 32, 32);
+	assert(Items.Items().size() == 1);
+	assert(Items.Items()[0].Kind == ItemKind::LadderBuilder);
+	assert(NearlyEqual(Items.Items()[0].VelocityY, -4.0f));
+
+	for (int Frame = 0; Frame < 40 && !Items.Items().empty(); ++Frame) {
+		Items.UpdateTerrainItems(Map, Loaded.Value(), 55);
+	}
+
+	assert(Items.Items().empty());
+	assert(*Map.TryGet({1, 3}) == 55);
+	assert(*Map.TryGet({1, 2}) == 55);
+	assert(*Map.TryGet({1, 1}) == 55);
+	assert(*Map.TryGet({1, 0}) == 1);
+}
+
 void TestCharacterMovement() {
 	TileMap FlatMap = MakeMap({{0, 0, 0}, {1, 1, 1}, {0, 0, 0}});
 	TileCatalog Catalog = MakeTerrainCatalog();
@@ -2384,6 +2527,10 @@ int main() {
 	TestCharacterCannotEnter1x2HighSide();
 	TestCharacterLandsOn1x2Slope();
 	TestCharacterRepositionResetsInternalVelocity();
+	TestLadderDefinitions();
+	TestCharacterClimbsLadderWithoutGravity();
+	TestLadderEntryRulesMatchVersion1();
+	TestLadderBuilderCreatesTilesUntilSolidCeiling();
 	TestCharacterMovement();
 	TestCharacterRecomputesGroundFromMasaoProbes();
 	TestCharacterUsesGetSakamichiYCoordinates();
