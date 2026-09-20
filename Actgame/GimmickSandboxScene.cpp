@@ -10,6 +10,8 @@
 
 namespace {
 
+constexpr int LadderTileId = 55;
+
 bool HasAction(const uchinoko::TileDefinition& Definition, uchinoko::TileAction Action) {
 	for (std::size_t Index = 0; Index < Definition.Rules.size(); ++Index) {
 		if (Definition.Rules[Index].Action == Action) return true;
@@ -127,7 +129,7 @@ void GimmickSandboxScene::ApplyEffects() {
 	if (Dead_) return;
 
 	// V1のLadderMaker相当。報酬Itemとは別に地形生成Itemを先に進める。
-	Items_.UpdateTerrainItems(Map_, Catalog_, 55);
+	Items_.UpdateTerrainItems(Map_, Catalog_, LadderTileId);
 
 	const std::vector<uchinoko::TileEffect> ItemEffects = Items_.Update();
 	ApplyEffectList(ItemEffects);
