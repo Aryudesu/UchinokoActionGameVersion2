@@ -23,7 +23,8 @@ struct CharacterMotion {
 	float MaxFallSpeed = 10.0f;
 	float ClimbHorizontalSpeed = 2.0f;
 	float ClimbVerticalSpeed = 3.0f;
-	float WaterHorizontalSpeedScale = 0.3f;
+	// V2は横移動を整数pxで処理するため、V1の0.3倍加速を1px/frame相当にする。
+	float WaterMoveSpeed = 1.0f;
 	float WaterGravityScale = 1.0f / 3.0f;
 	float WaterMaxFallSpeedScale = 0.5f;
 	float WaterJumpSpeed = 4.0f;
