@@ -30,6 +30,7 @@ public:
 	void Step(float HorizontalInput, bool JumpPressed, const TileMap& Map, const TileCatalog& Catalog);
 	const CharacterBody& Body() const { return Body_; }
 	CharacterBody& Body() { return Body_; }
+	void Reposition(WorldPosition Position, bool ResetVelocity = true);
 	const std::vector<TileInteraction>& Interactions() const { return Interactions_; }
 
 private:
