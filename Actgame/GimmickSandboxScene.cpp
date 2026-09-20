@@ -35,6 +35,9 @@ void GimmickSandboxScene::Reload() {
 	Catalog_ = std::move(Loaded.Value().Catalog);
 	Runtime_.Reset(Map_);
 	Items_.Reset();
+	// Version1 の GameData 初期値と同じく ON から開始する。
+	World_.Reset(1, true);
+	World_.Synchronize(Map_, Catalog_);
 
 	uchinoko::CharacterBody Body;
 	Body.Position = Loaded.Value().PlayerSpawn;
@@ -46,6 +49,7 @@ void GimmickSandboxScene::Reload() {
 	Health_ = 0;
 	Lives_ = 0;
 	Broken_ = 0;
+	Dead_ = false;
 	LoadError_.clear();
 }
 
@@ -68,6 +72,9 @@ void GimmickSandboxScene::ApplyEffectList(
 		case uchinoko::TileEffectType::TileBroken:
 			++Broken_;
 			break;
+		case uchinoko::TileEffectType::InstantDeath:
+			Dead_ = true;
+			break;
 		default:
 			break;
 		}
@@ -81,6 +88,14 @@ void GimmickSandboxScene::ApplyEffects() {
 	Items_.ConsumeTileEffects(TileEffects, Map_.TileWidth(), Map_.TileHeight());
 	ApplyEffectList(TileEffects);
 
+	// 共有状態を切り替えて地形を同期した直後だけ、安全判定を行う。
+	const uchinoko::WorldStateUpdate WorldUpdate =
+		World_.ApplyEffects(TileEffects, Map_, Catalog_);
+	const uchinoko::CharacterSafetyResult Safety =
+		uchinoko::CharacterSafety::ResolveActivatedSolids(
+			Player_.Body(), Map_, Catalog_, WorldUpdate.ActivatedSolidTiles);
+	ApplyEffectList(Safety.Effects);
+
 	const std::vector<uchinoko::TileEffect> ItemEffects = Items_.Update();
 	ApplyEffectList(ItemEffects);
 }
@@ -91,7 +106,7 @@ void GimmickSandboxScene::update() {
 		return;
 	}
 	if (ReturnKey(KEY_INPUT_R) == 1) Reload();
-	if (!LoadError_.empty()) return;
+	if (!LoadError_.empty() || Dead_) return;
 
 	float Horizontal = 0.0f;
 	if (ReturnKey(KEY_INPUT_LEFT) != 0) Horizontal -= 1.0f;
@@ -124,10 +139,25 @@ void GimmickSandboxScene::draw() {
 			const bool Hidden =
 				Definition->Collision == uchinoko::CollisionShape::HitFromBelowOnly;
 
-			if (Definition->Collision == uchinoko::CollisionShape::Solid) {
+			const bool SwitchBound = Definition->SwitchChannel >= 0;
+			const bool SwitchTile =
+				HasAction(*Definition, uchinoko::TileAction::ToggleSwitch);
+
+			if (SwitchBound) {
+				DrawBox(
+					Left + 1, Top + 1, Right - 1, Bottom - 1,
+					Definition->Collision == uchinoko::CollisionShape::Solid
+						? GetColor(210, 90, 90)
+						: GetColor(80, 110, 180),
+					Definition->Collision == uchinoko::CollisionShape::Solid ? TRUE : FALSE);
+			} else if (Definition->Collision == uchinoko::CollisionShape::Solid) {
 				DrawBox(
 					Left, Top, Right, Bottom,
 					SpawnsItem ? GetColor(210, 160, 70) : GetColor(80, 130, 190), TRUE);
+			}
+			if (SwitchTile) {
+				DrawBox(Left, Top, Right, Bottom, GetColor(80, 190, 110), TRUE);
+				DrawString(Left + 10, Top + 7, "S", GetColor(255, 255, 255));
 			}
 			if (SpawnsItem && !Hidden) {
 				DrawString(
@@ -183,9 +213,15 @@ void GimmickSandboxScene::draw() {
 		"Gimmick test: Left/Right move, Z jump, R reload, Esc menu",
 		GetColor(255, 255, 255));
 	DrawFormatString(16, 40, GetColor(255, 255, 255),
-		"Coins:%d  HP+:%d  Lives+:%d  Score:%d  Broken:%d",
-		Coins_, Health_, Lives_, Score_, Broken_);
+		"Coins:%d HP+:%d Lives+:%d Score:%d Broken:%d Switch:%s",
+		Coins_, Health_, Lives_, Score_, Broken_,
+		World_.GetSwitch(0) ? "ON" : "OFF");
 	DrawString(16, 64,
-		"?: item block / invisible 8,10,12 / column 16: 10-coin block",
+		"?: item / col16:10coin / col18:S + 19-20:ONOFF / col23:S crush test",
 		GetColor(220, 220, 220));
+	if (Dead_) {
+		DrawString(16, 88,
+			"CRUSHED - InstantDeath (R: reload)",
+			GetColor(255, 100, 100));
+	}
 }
