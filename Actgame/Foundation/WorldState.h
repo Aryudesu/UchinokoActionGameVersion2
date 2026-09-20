@@ -30,9 +30,16 @@ public:
 
 	WorldStateUpdate Synchronize(TileMap& Map, const TileCatalog& Catalog) const;
 
+	// タイル定義の AutoTogglePeriod を見てタイマーを進める。
+	// 周期到達時だけ対象チャネルを反転して地形を同期する。
+	WorldStateUpdate AdvanceFrame(TileMap& Map, const TileCatalog& Catalog);
+
+	int GetAutoToggleCounter(int Channel) const;
+
 private:
 	void EnsureSwitch(int Channel);
 	std::vector<bool> Switches_;
+	std::vector<int> AutoToggleCounters_;
 };
 
 } // namespace uchinoko
