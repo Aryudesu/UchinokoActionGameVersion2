@@ -242,7 +242,8 @@ Result<TileAction> ParseTileAction(const std::string& Text) {
 		{"SpawnItem", TileAction::SpawnItem},
 		{"IncrementCount", TileAction::IncrementCount},
 		{"ToggleSwitch", TileAction::ToggleSwitch},
-		{"Goal", TileAction::Goal}
+		{"Goal", TileAction::Goal},
+		{"HitBrick", TileAction::HitBrick}
 	};
 	const auto Found = Actions.find(Name);
 	if (Found == Actions.end()) {
