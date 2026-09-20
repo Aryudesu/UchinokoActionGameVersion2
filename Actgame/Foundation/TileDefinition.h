@@ -10,7 +10,8 @@ namespace uchinoko {
 
 enum class MovementRegion {
 	None,
-	Ladder
+	Ladder,
+	Water
 };
 
 enum class CollisionShape {

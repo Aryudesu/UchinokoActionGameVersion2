@@ -54,6 +54,8 @@ void CharacterController::Reposition(WorldPosition Position, bool ResetVelocity)
 	Body_.Position = Position;
 	Body_.Grounded = false;
 	Mode_ = MovementMode::Normal;
+	InWater_ = false;
+	WaterExitBoostArmed_ = false;
 	if (!ResetVelocity) return;
 	Body_.Velocity = {0.0f, 0.0f};
 	VelocityX10_ = 0;
@@ -95,6 +97,38 @@ bool CharacterController::IsInsideLadder(
 		MovementRegionAt(Map, Catalog, Right, Top) == MovementRegion::Ladder &&
 		MovementRegionAt(Map, Catalog, Left, Bottom) == MovementRegion::Ladder &&
 		MovementRegionAt(Map, Catalog, Right, Bottom) == MovementRegion::Ladder;
+}
+
+bool CharacterController::IsCenterInWater(
+	const TileMap& Map, const TileCatalog& Catalog) const {
+	// V1 の MapHitCC(M) == 5 と同じく、中心点だけで水中判定する。
+	// 横衝突で使う中心軸 x+15 と揃える。
+	// x+16 を使うと、右壁へ接した x=48 で 64px 境界の右タイルを
+	// 誤って参照し、水中なのに Water=false になる。
+	const float CenterWorldX = Body_.Position.X + CenterX;
+	const float CenterWorldY = Body_.Position.Y + Body_.Height * 0.5f;
+	return MovementRegionAt(
+		Map, Catalog, CenterWorldX, CenterWorldY) == MovementRegion::Water;
+}
+
+void CharacterController::ApplyWaterBoundaryTransition(
+	bool WasInWater, bool IsInWater) {
+	// 水中でZを押して泳いだ上昇だけを水面ブースト対象にする。
+	// 空中ジャンプのまま横から入水したケースではArmedされないため、
+	// 水面を抜けても通常ジャンプ速度を2.5倍しない。
+	if (!WasInWater || IsInWater) return;
+	if (VelocityY10_ >= 0 || !WaterExitBoostArmed_) {
+		WaterExitBoostArmed_ = false;
+		return;
+	}
+
+	if (VelocityY10_ < 0) {
+		VelocityY10_ = static_cast<int>(std::round(
+			static_cast<float>(VelocityY10_) *
+			Motion_.WaterBoundaryVelocityScale));
+		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
+		WaterExitBoostArmed_ = false;
+	}
 }
 
 float CharacterController::SlopeCharacterY(
@@ -619,6 +653,7 @@ void CharacterController::Step(
 	// jM100 と同じく、入力処理より前に現在座標から接地を再判定する。
 	RefreshGround(Map, Catalog);
 	const bool OnLadder = IsInsideLadder(Map, Catalog);
+	InWater_ = IsCenterInWater(Map, Catalog);
 
 	if (Mode_ == MovementMode::Climbing) {
 		if (!OnLadder || (Body_.Grounded && Input.Vertical > 0.0f)) {
@@ -644,8 +679,10 @@ void CharacterController::Step(
 		return;
 	}
 
+	const float HorizontalSpeed =
+		InWater_ ? Motion_.WaterMoveSpeed : Motion_.MoveSpeed;
 	VelocityX10_ = static_cast<int>(std::round(
-		Input.Horizontal * Motion_.MoveSpeed * 10.0f));
+		Input.Horizontal * HorizontalSpeed * 10.0f));
 	Body_.Velocity.X = static_cast<float>(VelocityX10_) / 10.0f;
 	const float OldX = Body_.Position.X;
 	const float HorizontalAmount = static_cast<float>(CanvasMasaoTerrain::RoundDown(
@@ -680,20 +717,50 @@ void CharacterController::Step(
 			Body_.Position.Y + Body_.Height - 2.0f);
 	}
 
-	if (Input.JumpPressed && Body_.Grounded) {
+	// これは「横移動後の実際の位置」でのWater判定。
+	// 物理計算にはフレーム開始時の InWater_ を使い続ける。
+	const bool WaterAfterHorizontal = IsCenterInWater(Map, Catalog);
+
+	// V1は MoveX 後も UpdateSpeedY / Jump では直前フレームのWater状態を使い、
+	// Water状態そのものは MoveY の後で更新する。
+	// そのため横から水へ入った同じフレームに水中ジャンプへ切り替えない。
+	bool WaterJumped = false;
+	if (Input.JumpPressed && InWater_) {
+		float JumpSpeed = Motion_.WaterJumpSpeed;
+		if (Input.Vertical < 0.0f) JumpSpeed = Motion_.WaterJumpUpSpeed;
+		else if (Input.Vertical > 0.0f) JumpSpeed = Motion_.WaterJumpDownSpeed;
+		VelocityY10_ = -static_cast<int>(std::round(JumpSpeed * 10.0f));
+		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
+		Body_.Grounded = false;
+		WaterJumped = true;
+		WaterExitBoostArmed_ = true;
+	} else if (Input.JumpPressed && Body_.Grounded) {
+		WaterExitBoostArmed_ = false;
 		VelocityY10_ = -static_cast<int>(std::round(Motion_.JumpSpeed * 10.0f));
 		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
 		Body_.Grounded = false;
 	}
 	if (!Body_.Grounded) {
-		VelocityY10_ += static_cast<int>(std::round(Motion_.Gravity * 10.0f));
-		VelocityY10_ = std::min(
-			static_cast<int>(std::round(Motion_.MaxFallSpeed * 10.0f)), VelocityY10_);
-		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
+		if (!WaterJumped) {
+			const float GravityScale =
+				InWater_ ? Motion_.WaterGravityScale : 1.0f;
+			const float MaxFallScale =
+				InWater_ ? Motion_.WaterMaxFallSpeedScale : 1.0f;
+			VelocityY10_ += static_cast<int>(std::round(
+				Motion_.Gravity * GravityScale * 10.0f));
+			VelocityY10_ = std::min(
+				static_cast<int>(std::round(
+					Motion_.MaxFallSpeed * MaxFallScale * 10.0f)),
+				VelocityY10_);
+			Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
+		}
 
 		const float VerticalAmount = static_cast<float>(CanvasMasaoTerrain::RoundDown(
 			static_cast<double>(VelocityY10_) / 10.0));
+		const bool WaterBeforeVertical = WaterAfterHorizontal;
 		MoveVertical(VerticalAmount, Input.Horizontal, Map, Catalog);
+		InWater_ = IsCenterInWater(Map, Catalog);
+		ApplyWaterBoundaryTransition(WaterBeforeVertical, InWater_);
 
 		// 上昇が地形で止められた場合、V1 の Hited() 相当を左右2点から通知する。
 		if (VerticalAmount < 0.0f && VelocityY10_ == 0) {
@@ -709,6 +776,13 @@ void CharacterController::Step(
 				TileTrigger::Touch, Map,
 				Body_.Position.X + Body_.Width - 2.0f, ProbeY);
 		}
+	}
+
+	if (Body_.Grounded) {
+		InWater_ = WaterAfterHorizontal;
+	}
+	if (!InWater_ || VelocityY10_ >= 0) {
+		WaterExitBoostArmed_ = false;
 	}
 
 	EmitTouchInteractions(Map);
