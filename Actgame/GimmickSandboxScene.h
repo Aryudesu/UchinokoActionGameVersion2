@@ -3,6 +3,8 @@
 #include "Foundation/CharacterController.h"
 #include "Foundation/TileInteraction.h"
 #include "Foundation/ItemSystem.h"
+#include "Foundation/CharacterSafety.h"
+#include "Foundation/WorldState.h"
 #include "Scene.h"
 
 #include <string>
@@ -23,6 +25,7 @@ private:
 	uchinoko::TileCatalog Catalog_;
 	uchinoko::TileRuntimeMap Runtime_;
 	uchinoko::ItemSystem Items_;
+	uchinoko::WorldState World_;
 	uchinoko::CharacterController Player_;
 	std::string LoadError_;
 	int Coins_ = 0;
@@ -30,4 +33,5 @@ private:
 	int Health_ = 0;
 	int Lives_ = 0;
 	int Broken_ = 0;
+	bool Dead_ = false;
 };
