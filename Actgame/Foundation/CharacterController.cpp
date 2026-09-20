@@ -74,6 +74,28 @@ bool CharacterController::IsSolidAt(
 	return ShapeAt(Map, Catalog, X, Y) == CollisionShape::Solid;
 }
 
+MovementRegion CharacterController::MovementRegionAt(
+	const TileMap& Map, const TileCatalog& Catalog, float X, float Y) const {
+	const int Column = TileAt(X, Map.TileWidth());
+	const int Row = TileAt(Y, Map.TileHeight());
+	const int* Id = Map.TryGet({Column, Row});
+	const TileDefinition* Definition = Id == nullptr ? nullptr : Catalog.Find(*Id);
+	return Definition == nullptr ? MovementRegion::None : Definition->Movement;
+}
+
+bool CharacterController::IsInsideLadder(
+	const TileMap& Map, const TileCatalog& Catalog) const {
+	// V1 の Object::gap.x=8 に相当する、少し内側の4点で判定する。
+	const float Left = Body_.Position.X + 8.0f;
+	const float Right = Body_.Position.X + Body_.Width - 9.0f;
+	const float Top = Body_.Position.Y + 1.0f;
+	const float Bottom = Body_.Position.Y + Body_.Height - 2.0f;
+	return MovementRegionAt(Map, Catalog, Left, Top) == MovementRegion::Ladder &&
+		MovementRegionAt(Map, Catalog, Right, Top) == MovementRegion::Ladder &&
+		MovementRegionAt(Map, Catalog, Left, Bottom) == MovementRegion::Ladder &&
+		MovementRegionAt(Map, Catalog, Right, Bottom) == MovementRegion::Ladder;
+}
+
 float CharacterController::SlopeCharacterY(
 	CollisionShape Shape, int Column, int Row, float WorldX,
 	const TileMap& Map, const TileCatalog& Catalog) const {
@@ -497,15 +519,89 @@ void CharacterController::EmitStandInteractions(const TileMap& Map) {
 	EmitInteractionAtWorld(TileTrigger::Touch, Map, Right, ProbeY);
 }
 
+void CharacterController::StepClimbing(
+	const CharacterInput& Input,
+	const TileMap& Map, const TileCatalog& Catalog) {
+	float Horizontal = std::max(-1.0f, std::min(1.0f, Input.Horizontal));
+	float Vertical = std::max(-1.0f, std::min(1.0f, Input.Vertical));
+
+	VelocityX10_ = static_cast<int>(
+		std::round(Horizontal * Motion_.ClimbHorizontalSpeed * 10.0f));
+	VelocityY10_ = static_cast<int>(
+		std::round(Vertical * Motion_.ClimbVerticalSpeed * 10.0f));
+	Body_.Velocity.X = static_cast<float>(VelocityX10_) / 10.0f;
+	Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
+	Body_.Grounded = false;
+
+	const float HorizontalAmount = static_cast<float>(
+		CanvasMasaoTerrain::RoundDown(static_cast<double>(VelocityX10_) / 10.0));
+	MoveHorizontal(HorizontalAmount, Map, Catalog);
+
+	// V1 は横移動後に Lad() を再判定する。はしごから外れたらそのフレームで通常へ戻す。
+	if (!IsInsideLadder(Map, Catalog)) {
+		Mode_ = MovementMode::Normal;
+		VelocityY10_ = 0;
+		Body_.Velocity.Y = 0.0f;
+		return;
+	}
+
+	const float VerticalAmount = static_cast<float>(
+		CanvasMasaoTerrain::RoundDown(static_cast<double>(VelocityY10_) / 10.0));
+	MoveVertical(VerticalAmount, Horizontal, Map, Catalog);
+
+	if (!IsInsideLadder(Map, Catalog)) {
+		Mode_ = MovementMode::Normal;
+	}
+}
+
 void CharacterController::Step(
 	float HorizontalInput, bool JumpPressed,
 	const TileMap& Map, const TileCatalog& Catalog) {
+	CharacterInput Input;
+	Input.Horizontal = HorizontalInput;
+	Input.JumpPressed = JumpPressed;
+	Step(Input, Map, Catalog);
+}
+
+void CharacterController::Step(
+	const CharacterInput& RawInput,
+	const TileMap& Map, const TileCatalog& Catalog) {
 	Interactions_.clear();
-	HorizontalInput = std::max(-1.0f, std::min(1.0f, HorizontalInput));
+
+	CharacterInput Input = RawInput;
+	Input.Horizontal = std::max(-1.0f, std::min(1.0f, Input.Horizontal));
+	Input.Vertical = std::max(-1.0f, std::min(1.0f, Input.Vertical));
+
 	// jM100 と同じく、入力処理より前に現在座標から接地を再判定する。
 	RefreshGround(Map, Catalog);
+	const bool OnLadder = IsInsideLadder(Map, Catalog);
 
-	VelocityX10_ = static_cast<int>(std::round(HorizontalInput * Motion_.MoveSpeed * 10.0f));
+	if (Mode_ == MovementMode::Climbing) {
+		if (!OnLadder || (Body_.Grounded && Input.Vertical > 0.0f)) {
+			Mode_ = MovementMode::Normal;
+		}
+	} else {
+		// V1: 上入力で開始。空中なら下入力でもはしごへ移れる。
+		if (OnLadder &&
+			(Input.Vertical < 0.0f ||
+			 (!Body_.Grounded && Input.Vertical > 0.0f))) {
+			Mode_ = MovementMode::Climbing;
+			VelocityX10_ = 0;
+			VelocityY10_ = 0;
+			Body_.Velocity = {0.0f, 0.0f};
+			Body_.Grounded = false;
+		}
+	}
+
+	if (Mode_ == MovementMode::Climbing) {
+		StepClimbing(Input, Map, Catalog);
+		EmitTouchInteractions(Map);
+		EmitStandInteractions(Map);
+		return;
+	}
+
+	VelocityX10_ = static_cast<int>(std::round(
+		Input.Horizontal * Motion_.MoveSpeed * 10.0f));
 	Body_.Velocity.X = static_cast<float>(VelocityX10_) / 10.0f;
 	const float OldX = Body_.Position.X;
 	const float HorizontalAmount = static_cast<float>(CanvasMasaoTerrain::RoundDown(
@@ -540,7 +636,7 @@ void CharacterController::Step(
 			Body_.Position.Y + Body_.Height - 2.0f);
 	}
 
-	if (JumpPressed && Body_.Grounded) {
+	if (Input.JumpPressed && Body_.Grounded) {
 		VelocityY10_ = -static_cast<int>(std::round(Motion_.JumpSpeed * 10.0f));
 		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
 		Body_.Grounded = false;
@@ -553,7 +649,7 @@ void CharacterController::Step(
 
 		const float VerticalAmount = static_cast<float>(CanvasMasaoTerrain::RoundDown(
 			static_cast<double>(VelocityY10_) / 10.0));
-		MoveVertical(VerticalAmount, HorizontalInput, Map, Catalog);
+		MoveVertical(VerticalAmount, Input.Horizontal, Map, Catalog);
 
 		// 上昇が地形で止められた場合、V1 の Hited() 相当を左右2点から通知する。
 		if (VerticalAmount < 0.0f && VelocityY10_ == 0) {
