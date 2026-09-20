@@ -43,6 +43,27 @@ Result<int> ParseInteger(const std::string& Text, const std::string& Name) {
 	return Result<int>::Success(static_cast<int>(Parsed));
 }
 
+Result<float> ParseFloat(const std::string& Text, const std::string& Name) {
+	const std::string Value = Trim(Text);
+	errno = 0;
+	char* End = nullptr;
+	const float Parsed = std::strtof(Value.c_str(), &End);
+	if (Value.empty() || errno == ERANGE ||
+		End == Value.c_str() || *End != '\0') {
+		return Result<float>::Failure("Invalid float for " + Name + ": " + Value);
+	}
+	return Result<float>::Success(Parsed);
+}
+
+Result<PipeDirection> ParsePipeDirection(const std::string& Text) {
+	const std::string Name = Trim(Text);
+	if (Name == "Down") return Result<PipeDirection>::Success(PipeDirection::Down);
+	if (Name == "Up") return Result<PipeDirection>::Success(PipeDirection::Up);
+	if (Name == "Right") return Result<PipeDirection>::Success(PipeDirection::Right);
+	if (Name == "Left") return Result<PipeDirection>::Success(PipeDirection::Left);
+	return Result<PipeDirection>::Failure("Unknown pipe direction: " + Name);
+}
+
 Result<bool> ParseBoolean(const std::string& Text, const std::string& Name) {
 	const std::string Value = Trim(Text);
 	if (Value == "0" || Value == "false") return Result<bool>::Success(false);
@@ -443,6 +464,77 @@ Result<TileCatalog> TerrainStageLoader::LoadCatalog(const std::string& FileName)
 	return Result<TileCatalog>::Success(std::move(Catalog));
 }
 
+Result<PipeNetwork> TerrainStageLoader::LoadPipes(
+	const std::string& FileName, int TileWidth, int TileHeight) {
+	std::ifstream File(FileName, std::ios::binary);
+	if (!File) {
+		return Result<PipeNetwork>::Failure(
+			"Could not open pipe links: " + FileName);
+	}
+
+	PipeNetwork Network;
+	std::string Line;
+	int LineNumber = 0;
+	while (std::getline(File, Line)) {
+		++LineNumber;
+		if (LineNumber == 1) RemoveBom(Line);
+		Line = Trim(Line);
+		if (Line.empty() || Line.front() == '#') continue;
+
+		const std::vector<std::string> Cells = Split(Line, ',');
+		if (Cells.size() != 8) {
+			return Result<PipeNetwork>::Failure(
+				FileName + ": expected 8 columns at line " +
+				std::to_string(LineNumber));
+		}
+		if (Cells[0].empty()) {
+			return Result<PipeNetwork>::Failure(
+				FileName + ": empty pipe id at line " +
+				std::to_string(LineNumber));
+		}
+		if (Cells[4].empty()) {
+			return Result<PipeNetwork>::Failure(
+				FileName + ": empty target stage at line " +
+				std::to_string(LineNumber));
+		}
+
+		Result<float> EntryX = ParseFloat(Cells[1], "pipe entry x");
+		Result<float> EntryY = ParseFloat(Cells[2], "pipe entry y");
+		Result<PipeDirection> EnterDirection = ParsePipeDirection(Cells[3]);
+		Result<float> ExitX = ParseFloat(Cells[5], "pipe exit x");
+		Result<float> ExitY = ParseFloat(Cells[6], "pipe exit y");
+		Result<PipeDirection> ExitDirection = ParsePipeDirection(Cells[7]);
+
+		if (EntryX.IsFailure()) return Result<PipeNetwork>::Failure(FileName + ": " + EntryX.Error());
+		if (EntryY.IsFailure()) return Result<PipeNetwork>::Failure(FileName + ": " + EntryY.Error());
+		if (EnterDirection.IsFailure()) return Result<PipeNetwork>::Failure(FileName + ": " + EnterDirection.Error());
+		if (ExitX.IsFailure()) return Result<PipeNetwork>::Failure(FileName + ": " + ExitX.Error());
+		if (ExitY.IsFailure()) return Result<PipeNetwork>::Failure(FileName + ": " + ExitY.Error());
+		if (ExitDirection.IsFailure()) return Result<PipeNetwork>::Failure(FileName + ": " + ExitDirection.Error());
+
+		PipeLink Link;
+		Link.Id = Cells[0];
+		Link.EntryPosition = {
+			EntryX.Value() * static_cast<float>(TileWidth),
+			EntryY.Value() * static_cast<float>(TileHeight)
+		};
+		Link.EnterDirection = EnterDirection.Value();
+		Link.TargetStage = Cells[4];
+		Link.ExitPosition = {
+			ExitX.Value() * static_cast<float>(TileWidth),
+			ExitY.Value() * static_cast<float>(TileHeight)
+		};
+		Link.ExitDirection = ExitDirection.Value();
+
+		if (!Network.Add(Link)) {
+			return Result<PipeNetwork>::Failure(
+				FileName + ": duplicate pipe id '" + Link.Id + "'");
+		}
+	}
+
+	return Result<PipeNetwork>::Success(std::move(Network));
+}
+
 Result<TerrainStageData> TerrainStageLoader::Load(const std::string& ManifestFile) {
 	Result<std::map<std::string, std::string>> Manifest = LoadManifest(ManifestFile);
 	if (Manifest.IsFailure()) return Result<TerrainStageData>::Failure(Manifest.Error());
@@ -481,6 +573,17 @@ Result<TerrainStageData> TerrainStageLoader::Load(const std::string& ManifestFil
 	if (Map.IsFailure()) return Result<TerrainStageData>::Failure(Map.Error());
 	Result<TileCatalog> Catalog = LoadCatalog(ResolvePath(Directory, CatalogName.Value()));
 	if (Catalog.IsFailure()) return Result<TerrainStageData>::Failure(Catalog.Error());
+
+	PipeNetwork Pipes;
+	const auto PipesSetting = Manifest.Value().find("pipes");
+	if (PipesSetting != Manifest.Value().end()) {
+		Result<PipeNetwork> LoadedPipes = LoadPipes(
+			ResolvePath(Directory, PipesSetting->second), TileWidth, TileHeight);
+		if (LoadedPipes.IsFailure()) {
+			return Result<TerrainStageData>::Failure(LoadedPipes.Error());
+		}
+		Pipes = std::move(LoadedPipes.Value());
+	}
 	for (int Row = 0; Row < Map.Value().Height(); ++Row) {
 		for (int Column = 0; Column < Map.Value().Width(); ++Column) {
 			const int Id = *Map.Value().TryGet({Column, Row});
@@ -493,6 +596,7 @@ Result<TerrainStageData> TerrainStageLoader::Load(const std::string& ManifestFil
 	TerrainStageData Stage;
 	Stage.Map = std::move(Map.Value());
 	Stage.Catalog = std::move(Catalog.Value());
+	Stage.Pipes = std::move(Pipes);
 	Stage.PlayerSpawn = {static_cast<float>(SpawnX.Value()), static_cast<float>(SpawnY.Value())};
 	return Result<TerrainStageData>::Success(std::move(Stage));
 }
