@@ -211,8 +211,8 @@ void TestPipeTransportFadesBeforeEmergence() {
 	assert(NearlyEqual(Player.Body().Position.X, 100.0f));
 	assert(NearlyEqual(Player.Body().Position.Y, 232.0f));
 
-	// V1同様32ずつ暗くする。完全暗転までは座標を切り替えない。
-	for (int Step = 0; Step < 7; ++Step) {
+	// FadeStep=16。約16Fかけて暗転し、完全暗転までは座標を切り替えない。
+	for (int Step = 0; Step < 15; ++Step) {
 		Pipe.Update(Player);
 		assert(Pipe.Phase() == PipeTransportPhase::FadeOut);
 		assert(Pipe.FadeAlpha() == (Step + 1) * PipeTransport::FadeStep);
@@ -220,7 +220,7 @@ void TestPipeTransportFadesBeforeEmergence() {
 		assert(NearlyEqual(Player.Body().Position.Y, 232.0f));
 	}
 
-	// 8回目で255へ到達し、その瞬間だけ出口内部へ移る。
+	// 16回目で255へ到達し、その瞬間だけ出口内部へ移る。
 	Pipe.Update(Player);
 	assert(Pipe.Phase() == PipeTransportPhase::FadeIn);
 	assert(Pipe.FadeAlpha() == 255);
@@ -228,7 +228,7 @@ void TestPipeTransportFadesBeforeEmergence() {
 	assert(NearlyEqual(Player.Body().Position.Y, 192.0f));
 
 	// 明るく戻っている間も出口内部で静止する。
-	for (int Step = 0; Step < 7; ++Step) {
+	for (int Step = 0; Step < 15; ++Step) {
 		Pipe.Update(Player);
 		assert(Pipe.Phase() == PipeTransportPhase::FadeIn);
 		assert(Pipe.FadeAlpha() == 255 - (Step + 1) * PipeTransport::FadeStep);
@@ -236,7 +236,7 @@ void TestPipeTransportFadesBeforeEmergence() {
 		assert(NearlyEqual(Player.Body().Position.Y, 192.0f));
 	}
 
-	// 8回目で完全に明るく戻ってからEmergingへ入る。
+	// 16回目で完全に明るく戻ってからEmergingへ入る。
 	Pipe.Update(Player);
 	assert(Pipe.Phase() == PipeTransportPhase::Emerging);
 	assert(Pipe.FadeAlpha() == 0);
