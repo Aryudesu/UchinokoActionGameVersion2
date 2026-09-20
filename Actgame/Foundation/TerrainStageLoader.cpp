@@ -4,6 +4,7 @@
 
 #include <cerrno>
 #include <climits>
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <map>
@@ -48,7 +49,7 @@ Result<float> ParseFloat(const std::string& Text, const std::string& Name) {
 	errno = 0;
 	char* End = nullptr;
 	const float Parsed = std::strtof(Value.c_str(), &End);
-	if (Value.empty() || errno == ERANGE ||
+	if (Value.empty() || errno == ERANGE || !std::isfinite(Parsed) ||
 		End == Value.c_str() || *End != '\0') {
 		return Result<float>::Failure("Invalid float for " + Name + ": " + Value);
 	}
