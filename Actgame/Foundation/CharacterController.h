@@ -44,6 +44,11 @@ enum class MovementMode {
 	Climbing
 };
 
+enum class GravityDirection {
+	Down = 1,
+	Up = -1
+};
+
 class CharacterController {
 public:
 	CharacterController() = default;
@@ -57,6 +62,8 @@ public:
 	MovementMode Mode() const { return Mode_; }
 	bool IsClimbing() const { return Mode_ == MovementMode::Climbing; }
 	bool IsInWater() const { return InWater_; }
+	GravityDirection Gravity() const { return Gravity_; }
+	bool IsGravityUp() const { return Gravity_ == GravityDirection::Up; }
 
 private:
 	CollisionShape ShapeAt(const TileMap& Map, const TileCatalog& Catalog,
@@ -68,6 +75,9 @@ private:
 	bool IsInsideLadder(const TileMap& Map, const TileCatalog& Catalog) const;
 	bool IsCenterInWater(const TileMap& Map, const TileCatalog& Catalog) const;
 	void ApplyWaterBoundaryTransition(bool WasInWater, bool IsInWater);
+	void UpdateGravityFromCenter(
+		const TileMap& Map, const TileCatalog& Catalog);
+	int GravitySign() const;
 	void StepClimbing(
 		const CharacterInput& Input, const TileMap& Map, const TileCatalog& Catalog);
 	float SlopeCharacterY(CollisionShape Shape, int Column, int Row,
@@ -98,6 +108,7 @@ private:
 	MovementMode Mode_ = MovementMode::Normal;
 	bool InWater_ = false;
 	bool WaterExitBoostArmed_ = false;
+	GravityDirection Gravity_ = GravityDirection::Down;
 };
 
 } // namespace uchinoko

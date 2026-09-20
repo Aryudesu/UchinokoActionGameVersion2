@@ -31,3 +31,5 @@
 56,Solid,0,0,0,HitFromBelow:SpawnItem:4:once;HitFromBelow:ReplaceTile:30:once
 57,HitFromBelowOnly,0,0,0,HitFromBelow:SpawnItem:4:once;HitFromBelow:ReplaceTile:30:once
 58,None,0,0,0,-,-1,-1,-1,0,-,Water
+59,None,0,0,0,-,-1,-1,-1,0,-,GravityUp
+60,None,0,0,0,-,-1,-1,-1,0,-,GravityDown

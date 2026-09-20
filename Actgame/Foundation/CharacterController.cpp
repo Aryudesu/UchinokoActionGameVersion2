@@ -131,6 +131,30 @@ void CharacterController::ApplyWaterBoundaryTransition(
 	}
 }
 
+int CharacterController::GravitySign() const {
+	return Gravity_ == GravityDirection::Down ? 1 : -1;
+}
+
+void CharacterController::UpdateGravityFromCenter(
+	const TileMap& Map, const TileCatalog& Catalog) {
+	const float CenterWorldX = Body_.Position.X + CenterX;
+	const float CenterWorldY = Body_.Position.Y + Body_.Height * 0.5f;
+	const MovementRegion Region =
+		MovementRegionAt(Map, Catalog, CenterWorldX, CenterWorldY);
+
+	GravityDirection Desired = Gravity_;
+	if (Region == MovementRegion::GravityUp) Desired = GravityDirection::Up;
+	else if (Region == MovementRegion::GravityDown) Desired = GravityDirection::Down;
+	else return;
+
+	if (Desired == Gravity_) return;
+	Gravity_ = Desired;
+	// 支持面の向きが入れ替わるため、以前の接地状態は持ち越さない。
+	Body_.Grounded = false;
+	WaterExitBoostArmed_ = false;
+}
+
+
 float CharacterController::SlopeCharacterY(
 	CollisionShape Shape, int Column, int Row, float WorldX,
 	const TileMap& Map, const TileCatalog& Catalog) const {
@@ -182,6 +206,21 @@ bool CharacterController::TrySlopeCharacterY(
 void CharacterController::RefreshGround(
 	const TileMap& Map, const TileCatalog& Catalog) {
 	const float X = Body_.Position.X + CenterX;
+
+	if (Gravity_ == GravityDirection::Up) {
+		// 逆重力時は頭上が「地面」。V1同様、坂は裏面追従せず
+		// 上側衝突面に吸着するものとして扱う。
+		const CollisionShape Support =
+			ShapeAt(Map, Catalog, X, Body_.Position.Y - 0.01f);
+		Body_.Grounded =
+			Support == CollisionShape::Solid || IsSlope(Support);
+		if (Body_.Grounded && Body_.Velocity.Y < 0.0f) {
+			Body_.Velocity.Y = 0.0f;
+			VelocityY10_ = 0;
+		}
+		return;
+	}
+
 	const float FootY = Body_.Position.Y + BottomY;
 	Body_.Grounded = IsSolidAt(Map, Catalog, X, Body_.Position.Y + BelowY);
 
@@ -203,12 +242,14 @@ void CharacterController::ResolveHorizontalWall(
 	const TileMap& Map, const TileCatalog& Catalog) {
 	int X = static_cast<int>(Body_.Position.X);
 	float ExtendedX = Body_.Position.X;
+	const bool SlopeGrounded =
+		Body_.Grounded && Gravity_ == GravityDirection::Down;
 	if (ExtendedSlopeTerrain::ResolveHighSide(
 			Map, Catalog, OldCenterX - CenterX, ExtendedX, Body_.Position.Y,
-			MovingRight, Body_.Grounded) ||
+			MovingRight, SlopeGrounded) ||
 		ExtendedSlopeTerrain::ResolveHighSide1x2(
 			Map, Catalog, OldCenterX - CenterX, ExtendedX, Body_.Position.Y,
-			MovingRight, Body_.Grounded)) {
+			MovingRight, SlopeGrounded)) {
 		Body_.Position.X = ExtendedX;
 		Body_.Velocity.X = 0.0f;
 		VelocityX10_ = 0;
@@ -218,7 +259,7 @@ void CharacterController::ResolveHorizontalWall(
 		Map, Catalog, X, static_cast<int>(Body_.Position.Y), MovingRight) ||
 		CanvasMasaoTerrain::ResolveHorizontalSlopeSide(
 			Map, Catalog, static_cast<int>(OldCenterX - CenterX), X,
-			static_cast<int>(Body_.Position.Y), MovingRight, Body_.Grounded)) {
+			static_cast<int>(Body_.Position.Y), MovingRight, SlopeGrounded)) {
 		Body_.Position.X = static_cast<float>(X);
 		Body_.Velocity.X = 0.0f;
 		VelocityX10_ = 0;
@@ -245,7 +286,7 @@ void CharacterController::ResolveHorizontalWall(
 		const bool HasSurface = TerrainCollision::TryGetSurfaceY(
 			Shape, {NewColumn, TileAt(ProbeY, Map.TileHeight())}, NewCenterX,
 			Map.TileWidth(), Map.TileHeight(), SurfaceY);
-		if (HasSurface && Body_.Grounded && Body_.Position.Y <= SurfaceY - BelowY) continue;
+		if (HasSurface && SlopeGrounded && Body_.Position.Y <= SurfaceY - BelowY) continue;
 		float BlockTop = 0.0f;
 		float BlockBottom = 0.0f;
 		if (TerrainCollision::TryGetSideBlock(
@@ -372,7 +413,9 @@ void CharacterController::MoveHorizontal(
 	const bool MovingRight = Amount > 0.0f;
 	Body_.Position.X += Amount;
 
-	FollowMasaoSlopeAfterHorizontal(OldX, OldY, WasGrounded, Map, Catalog);
+	if (Gravity_ == GravityDirection::Down) {
+		FollowMasaoSlopeAfterHorizontal(OldX, OldY, WasGrounded, Map, Catalog);
+	}
 	ResolveHorizontalWall(OldCenterX, MovingRight, Map, Catalog);
 
 	const float MaxX = static_cast<float>(Map.Width() * Map.TileWidth()) - BelowY;
@@ -398,8 +441,9 @@ void CharacterController::MoveUp(
 		const float ProbeY = static_cast<float>(Row * Map.TileHeight()) + 0.5f;
 		const float LeftHeadX = Body_.Position.X + 1.0f;
 		const float RightHeadX = Body_.Position.X + Body_.Width - 2.0f;
-		if (ShapeAt(Map, Catalog, LeftHeadX, ProbeY) == CollisionShape::HitFromBelowOnly ||
-			ShapeAt(Map, Catalog, RightHeadX, ProbeY) == CollisionShape::HitFromBelowOnly) {
+		if (Gravity_ == GravityDirection::Down &&
+			(ShapeAt(Map, Catalog, LeftHeadX, ProbeY) == CollisionShape::HitFromBelowOnly ||
+			 ShapeAt(Map, Catalog, RightHeadX, ProbeY) == CollisionShape::HitFromBelowOnly)) {
 			Body_.Position.Y = Bottom;
 			Body_.Velocity.Y = 0.0f;
 			VelocityY10_ = 0;
@@ -416,7 +460,7 @@ void CharacterController::MoveUp(
 		Body_.Position.Y = static_cast<float>(NewY);
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
-		Body_.Grounded = false;
+		Body_.Grounded = Gravity_ == GravityDirection::Up;
 		return;
 	}
 
@@ -428,7 +472,7 @@ void CharacterController::MoveUp(
 		Body_.Position.Y = ExtendedY;
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
-		Body_.Grounded = false;
+		Body_.Grounded = Gravity_ == GravityDirection::Up;
 		return;
 	}
 
@@ -445,7 +489,7 @@ void CharacterController::MoveUp(
 		Body_.Position.Y = static_cast<float>((Row + 1) * Map.TileHeight());
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
-		Body_.Grounded = false;
+		Body_.Grounded = Gravity_ == GravityDirection::Up;
 		return;
 	}
 	Body_.Grounded = false;
@@ -467,7 +511,7 @@ void CharacterController::MoveDown(
 		Body_.Position.Y = ExtendedY;
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
-		Body_.Grounded = true;
+		Body_.Grounded = Gravity_ == GravityDirection::Down;
 		return;
 	}
 	if (CanvasMasaoTerrain::ResolveVerticalSolid(Map, Catalog, X, NewY, true) ||
@@ -479,7 +523,7 @@ void CharacterController::MoveDown(
 		Body_.Position.Y = static_cast<float>(NewY);
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
-		Body_.Grounded = true;
+		Body_.Grounded = Gravity_ == GravityDirection::Down;
 		return;
 	}
 
@@ -494,7 +538,7 @@ void CharacterController::MoveDown(
 		Body_.Position.Y = SlopeY;
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
-		Body_.Grounded = true;
+		Body_.Grounded = Gravity_ == GravityDirection::Down;
 		return;
 	}
 	Body_.Grounded = false;
@@ -545,7 +589,10 @@ void CharacterController::EmitTouchInteractions(const TileMap& Map) {
 
 void CharacterController::EmitStandInteractions(const TileMap& Map) {
 	if (!Body_.Grounded) return;
-	const float ProbeY = Body_.Position.Y + Body_.Height + 0.01f;
+	const float ProbeY =
+		Gravity_ == GravityDirection::Down
+			? Body_.Position.Y + Body_.Height + 0.01f
+			: Body_.Position.Y - 0.01f;
 	const float Left = Body_.Position.X + 1.0f;
 	const float Right = Body_.Position.X + Body_.Width - 2.0f;
 	EmitInteractionAtWorld(TileTrigger::StandOn, Map, Left, ProbeY);
@@ -650,6 +697,8 @@ void CharacterController::Step(
 	Input.Horizontal = std::max(-1.0f, std::min(1.0f, Input.Horizontal));
 	Input.Vertical = std::max(-1.0f, std::min(1.0f, Input.Vertical));
 
+	// 重力領域は中心点で判定する。向きが変わったら新しい支持面で接地を再構築する。
+	UpdateGravityFromCenter(Map, Catalog);
 	// jM100 と同じく、入力処理より前に現在座標から接地を再判定する。
 	RefreshGround(Map, Catalog);
 	const bool OnLadder = IsInsideLadder(Map, Catalog);
@@ -674,6 +723,7 @@ void CharacterController::Step(
 
 	if (Mode_ == MovementMode::Climbing) {
 		StepClimbing(Input, Map, Catalog);
+		UpdateGravityFromCenter(Map, Catalog);
 		EmitTouchInteractions(Map);
 		EmitStandInteractions(Map);
 		return;
@@ -736,7 +786,8 @@ void CharacterController::Step(
 		WaterExitBoostArmed_ = true;
 	} else if (Input.JumpPressed && Body_.Grounded) {
 		WaterExitBoostArmed_ = false;
-		VelocityY10_ = -static_cast<int>(std::round(Motion_.JumpSpeed * 10.0f));
+		VelocityY10_ = -GravitySign() *
+			static_cast<int>(std::round(Motion_.JumpSpeed * 10.0f));
 		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
 		Body_.Grounded = false;
 	}
@@ -746,12 +797,16 @@ void CharacterController::Step(
 				InWater_ ? Motion_.WaterGravityScale : 1.0f;
 			const float MaxFallScale =
 				InWater_ ? Motion_.WaterMaxFallSpeedScale : 1.0f;
-			VelocityY10_ += static_cast<int>(std::round(
+			const int GravityDelta = static_cast<int>(std::round(
 				Motion_.Gravity * GravityScale * 10.0f));
-			VelocityY10_ = std::min(
-				static_cast<int>(std::round(
-					Motion_.MaxFallSpeed * MaxFallScale * 10.0f)),
-				VelocityY10_);
+			const int MaxFall = static_cast<int>(std::round(
+				Motion_.MaxFallSpeed * MaxFallScale * 10.0f));
+			VelocityY10_ += GravitySign() * GravityDelta;
+			if (Gravity_ == GravityDirection::Down) {
+				VelocityY10_ = std::min(MaxFall, VelocityY10_);
+			} else {
+				VelocityY10_ = std::max(-MaxFall, VelocityY10_);
+			}
 			Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
 		}
 
@@ -763,7 +818,8 @@ void CharacterController::Step(
 		ApplyWaterBoundaryTransition(WaterBeforeVertical, InWater_);
 
 		// 上昇が地形で止められた場合、V1 の Hited() 相当を左右2点から通知する。
-		if (VerticalAmount < 0.0f && VelocityY10_ == 0) {
+		if (Gravity_ == GravityDirection::Down &&
+			VerticalAmount < 0.0f && VelocityY10_ == 0) {
 			const float ProbeY = Body_.Position.Y - 0.01f;
 			EmitInteractionAtWorld(
 				TileTrigger::HitFromBelow, Map, Body_.Position.X + 1.0f, ProbeY);
@@ -784,6 +840,9 @@ void CharacterController::Step(
 	if (!InWater_ || VelocityY10_ >= 0) {
 		WaterExitBoostArmed_ = false;
 	}
+
+	// V1のMoveYと同様、移動後の中心点で次フレームの重力方向を決める。
+	UpdateGravityFromCenter(Map, Catalog);
 
 	EmitTouchInteractions(Map);
 	EmitStandInteractions(Map);
