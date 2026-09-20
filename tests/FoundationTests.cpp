@@ -1922,12 +1922,24 @@ void TestLadderJumpFollowsReversedGravity() {
 	Body.Position = {32.0f, 64.0f};
 	Body.Grounded = true;
 	CharacterController Player(Body);
+	CharacterInput Idle;
 
-	// GravityUp領域へ入り、そのままはしごを掴む。
+	// まずG^で逆重力になり、上のLadderタイル内で天井へ接地する。
+	for (int Frame = 0; Frame < 50 && !Player.Body().Grounded; ++Frame) {
+		Player.Step(Idle, Map, Loaded.Value());
+	}
+	if (Player.Gravity() != GravityDirection::Up) {
+		Player.Step(Idle, Map, Loaded.Value());
+	}
+	while (!Player.Body().Grounded) {
+		Player.Step(Idle, Map, Loaded.Value());
+	}
+	assert(Player.Gravity() == GravityDirection::Up);
+	assert(NearlyEqual(Player.Body().Position.Y, 32.0f));
+
 	CharacterInput Up;
 	Up.Vertical = -1.0f;
 	Player.Step(Up, Map, Loaded.Value());
-	assert(Player.Gravity() == GravityDirection::Up);
 	assert(Player.Mode() == MovementMode::Climbing);
 
 	const float BeforeJumpY = Player.Body().Position.Y;
