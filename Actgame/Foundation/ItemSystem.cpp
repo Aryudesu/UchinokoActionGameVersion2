@@ -1,6 +1,10 @@
 #include "ItemSystem.h"
 
+#include "TileDefinition.h"
+#include "TileMap.h"
+
 #include <algorithm>
+#include <cmath>
 
 namespace uchinoko {
 
@@ -19,6 +23,9 @@ bool ItemSystem::TryParseKind(int Value, ItemKind& Kind) {
 	case static_cast<int>(ItemKind::OneUp):
 		Kind = ItemKind::OneUp;
 		return true;
+	case static_cast<int>(ItemKind::LadderBuilder):
+		Kind = ItemKind::LadderBuilder;
+		return true;
 	default:
 		return false;
 	}
@@ -34,7 +41,8 @@ bool ItemSystem::Spawn(
 	Item.Position.X = static_cast<float>(Source.Column * TileWidth);
 	// V1: MakeObject(..., pos.x, pos.y - 32)
 	Item.Position.Y = static_cast<float>((Source.Row - 1) * TileHeight);
-	Item.VelocityY = -10.0f;
+	Item.VelocityY =
+		Kind == ItemKind::LadderBuilder ? -4.0f : -10.0f;
 	Item.Active = true;
 	Items_.push_back(Item);
 	return true;
@@ -78,6 +86,8 @@ void ItemSystem::AddRewardEffects(
 		Effect.Value = 1;
 		Effects.push_back(Effect);
 		break;
+	case ItemKind::LadderBuilder:
+		break;
 	}
 }
 
@@ -85,7 +95,7 @@ std::vector<TileEffect> ItemSystem::Update(float Gravity) {
 	std::vector<TileEffect> Effects;
 	for (std::size_t Index = 0; Index < Items_.size(); ++Index) {
 		SpawnedItem& Item = Items_[Index];
-		if (!Item.Active) continue;
+		if (!Item.Active || Item.Kind == ItemKind::LadderBuilder) continue;
 
 		Item.VelocityY += Gravity;
 		Item.Position.Y += Item.VelocityY;
@@ -103,6 +113,68 @@ std::vector<TileEffect> ItemSystem::Update(float Gravity) {
 			[](const SpawnedItem& Item) { return !Item.Active; }),
 		Items_.end());
 	return Effects;
+}
+
+
+bool ItemSystem::IsSolidAt(
+	const TileMap& Map, const TileCatalog& Catalog, float X, float Y) {
+	TilePosition Position;
+	if (!Map.TryWorldToTile({X, Y}, Position)) return true;
+	const int* Id = Map.TryGet(Position);
+	const TileDefinition* Definition =
+		Id == nullptr ? nullptr : Catalog.Find(*Id);
+	return Definition != nullptr &&
+		Definition->Collision == CollisionShape::Solid;
+}
+
+void ItemSystem::UpdateTerrainItems(
+	TileMap& Map, const TileCatalog& Catalog, int LadderTileId) {
+	const TileDefinition* LadderDefinition = Catalog.Find(LadderTileId);
+	if (LadderDefinition == nullptr ||
+		LadderDefinition->Movement != MovementRegion::Ladder) return;
+
+	for (std::size_t Index = 0; Index < Items_.size(); ++Index) {
+		SpawnedItem& Item = Items_[Index];
+		if (!Item.Active || Item.Kind != ItemKind::LadderBuilder) continue;
+
+		TilePosition CenterTile;
+		const WorldPosition Center = {
+			Item.Position.X + 16.0f,
+			Item.Position.Y + 16.0f
+		};
+		if (!Map.TryWorldToTile(Center, CenterTile)) {
+			Item.Active = false;
+			continue;
+		}
+
+		// V1の LadderMaker は32px境界を通るたびに現在マスをはしご化する。
+		if (CenterTile.Row != Item.LastTerrainRow) {
+			int* CurrentId = Map.TryGet(CenterTile);
+			const TileDefinition* Current =
+				CurrentId == nullptr ? nullptr : Catalog.Find(*CurrentId);
+			if (CurrentId != nullptr &&
+				(Current == nullptr ||
+				 Current->Collision != CollisionShape::Solid)) {
+				*CurrentId = LadderTileId;
+				Item.LastTerrainRow = CenterTile.Row;
+			}
+		}
+
+		Item.Position.Y += Item.VelocityY;
+
+		// V1同様、上端がSolidへ入ったところで生成を終了する。
+		const float HeadY = Item.Position.Y + 1.0f;
+		if (IsSolidAt(Map, Catalog, Item.Position.X + 8.0f, HeadY) ||
+			IsSolidAt(Map, Catalog, Item.Position.X + 23.0f, HeadY)) {
+			Item.Active = false;
+		}
+	}
+
+	Items_.erase(
+		std::remove_if(
+			Items_.begin(), Items_.end(),
+			[](const SpawnedItem& Item) { return !Item.Active; }),
+		Items_.end());
 }
 
 } // namespace uchinoko
