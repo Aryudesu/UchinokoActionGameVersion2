@@ -184,7 +184,16 @@ void GimmickSandboxScene::update() {
 		Reload();
 		return;
 	}
-	if (!LoadError_.empty() || Dead_ || Completion_.Cleared) return;
+	if (!LoadError_.empty() || Dead_) return;
+
+	// ゴール取得後はプレイヤー入力を受け付けず、横移動を0にする。
+	// CharacterControllerの通常物理だけを継続し、取得時のY速度と重力で
+	// 支持面へ着地するまで移動させる。
+	if (Completion_.Cleared) {
+		uchinoko::CharacterInput SettleInput;
+		Player_.Step(SettleInput, Map_, Catalog_);
+		return;
+	}
 
 	// 条件ブロックの境界値確認用デバッグキー。
 	if (ReturnKey(KEY_INPUT_1) == 1) Coins_ = 0;
@@ -438,7 +447,7 @@ void GimmickSandboxScene::draw() {
 		Score_);
 	if (Completion_.Cleared) {
 		DrawFormatString(16, 88, GetColor(120, 255, 160),
-			"STAGE CLEAR (%s) - R: retry / Esc: menu",
+			"STAGE CLEAR (%s) - settling...  R: retry / Esc: menu",
 			GoalKindName(Completion_.Goal));
 	}
 	if (Dead_) {
