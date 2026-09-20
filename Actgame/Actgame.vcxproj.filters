@@ -363,6 +363,7 @@
     <ClCompile Include="Foundation\ItemSystem.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\LayeredMap.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\PipeTransport.cpp"><Filter>Foundation</Filter></ClCompile>
+    <ClCompile Include="Foundation\StageProgress.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\StageDefinition.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\TerrainCollision.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\TerrainStageLoader.cpp"><Filter>Foundation</Filter></ClCompile>
@@ -386,6 +387,7 @@
     <ClInclude Include="Foundation\LayeredMap.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\PipeTransport.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\Result.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\StageProgress.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\StageDefinition.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\TerrainCollision.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\TerrainStageLoader.h"><Filter>Foundation</Filter></ClInclude>
@@ -408,6 +410,9 @@
     <None Include="..\dat\stage\through-test\stage.ini"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\through-test\terrain.csv"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\through-test\tiles.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\goal-test\stage.ini"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\goal-test\terrain.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\goal-test\tiles.csv"><Filter>Stage Data</Filter></None>
 
   </ItemGroup>
 </Project>
