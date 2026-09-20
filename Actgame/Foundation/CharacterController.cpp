@@ -440,8 +440,9 @@ void CharacterController::MoveUp(
 		const float ProbeY = static_cast<float>(Row * Map.TileHeight()) + 0.5f;
 		const float LeftHeadX = Body_.Position.X + 1.0f;
 		const float RightHeadX = Body_.Position.X + Body_.Width - 2.0f;
-		if (ShapeAt(Map, Catalog, LeftHeadX, ProbeY) == CollisionShape::HitFromBelowOnly ||
-			ShapeAt(Map, Catalog, RightHeadX, ProbeY) == CollisionShape::HitFromBelowOnly) {
+		if (Gravity_ == GravityDirection::Down &&
+			(ShapeAt(Map, Catalog, LeftHeadX, ProbeY) == CollisionShape::HitFromBelowOnly ||
+			 ShapeAt(Map, Catalog, RightHeadX, ProbeY) == CollisionShape::HitFromBelowOnly)) {
 			Body_.Position.Y = Bottom;
 			Body_.Velocity.Y = 0.0f;
 			VelocityY10_ = 0;
