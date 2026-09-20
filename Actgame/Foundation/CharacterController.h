@@ -21,6 +21,19 @@ struct CharacterMotion {
 	float JumpSpeed = 9.0f;
 	float Gravity = 0.5f;
 	float MaxFallSpeed = 10.0f;
+	float ClimbHorizontalSpeed = 2.0f;
+	float ClimbVerticalSpeed = 3.0f;
+};
+
+struct CharacterInput {
+	float Horizontal = 0.0f;
+	float Vertical = 0.0f; // 上=-1、下=+1
+	bool JumpPressed = false;
+};
+
+enum class MovementMode {
+	Normal,
+	Climbing
 };
 
 class CharacterController {
@@ -28,16 +41,24 @@ public:
 	CharacterController() = default;
 	explicit CharacterController(CharacterBody Body, CharacterMotion Motion = CharacterMotion());
 	void Step(float HorizontalInput, bool JumpPressed, const TileMap& Map, const TileCatalog& Catalog);
+	void Step(const CharacterInput& Input, const TileMap& Map, const TileCatalog& Catalog);
 	const CharacterBody& Body() const { return Body_; }
 	CharacterBody& Body() { return Body_; }
 	void Reposition(WorldPosition Position, bool ResetVelocity = true);
 	const std::vector<TileInteraction>& Interactions() const { return Interactions_; }
+	MovementMode Mode() const { return Mode_; }
+	bool IsClimbing() const { return Mode_ == MovementMode::Climbing; }
 
 private:
 	CollisionShape ShapeAt(const TileMap& Map, const TileCatalog& Catalog,
 		float X, float Y) const;
 	bool IsSolidAt(const TileMap& Map, const TileCatalog& Catalog,
 		float X, float Y) const;
+	MovementRegion MovementRegionAt(
+		const TileMap& Map, const TileCatalog& Catalog, float X, float Y) const;
+	bool IsInsideLadder(const TileMap& Map, const TileCatalog& Catalog) const;
+	void StepClimbing(
+		const CharacterInput& Input, const TileMap& Map, const TileCatalog& Catalog);
 	float SlopeCharacterY(CollisionShape Shape, int Column, int Row,
 		float WorldX, const TileMap& Map, const TileCatalog& Catalog) const;
 	bool TrySlopeCharacterY(const TileMap& Map, const TileCatalog& Catalog,
@@ -63,6 +84,7 @@ private:
 	int VelocityX10_ = 0;
 	int VelocityY10_ = 0;
 	std::vector<TileInteraction> Interactions_;
+	MovementMode Mode_ = MovementMode::Normal;
 };
 
 } // namespace uchinoko
