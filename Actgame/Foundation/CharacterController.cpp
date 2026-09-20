@@ -131,6 +131,29 @@ void CharacterController::ApplyWaterBoundaryTransition(
 	}
 }
 
+int CharacterController::GravitySign() const {
+	return Gravity_ == GravityDirection::Down ? 1 : -1;
+}
+
+void CharacterController::UpdateGravityFromCenter(
+	const TileMap& Map, const TileCatalog& Catalog) {
+	const float CenterWorldX = Body_.Position.X + CenterX;
+	const float CenterWorldY = Body_.Position.Y + Body_.Height * 0.5f;
+	const MovementRegion Region =
+		MovementRegionAt(Map, Catalog, CenterWorldX, CenterWorldY);
+
+	GravityDirection Desired = Gravity_;
+	if (Region == MovementRegion::GravityUp) Desired = GravityDirection::Up;
+	else if (Region == MovementRegion::GravityDown) Desired = GravityDirection::Down;
+	else return;
+
+	if (Desired == Gravity_) return;
+	Gravity_ = Desired;
+	// 支持面の向きが入れ替わるため、以前の接地状態は持ち越さない。
+	Body_.Grounded = false;
+}
+
+
 float CharacterController::SlopeCharacterY(
 	CollisionShape Shape, int Column, int Row, float WorldX,
 	const TileMap& Map, const TileCatalog& Catalog) const {
@@ -182,6 +205,21 @@ bool CharacterController::TrySlopeCharacterY(
 void CharacterController::RefreshGround(
 	const TileMap& Map, const TileCatalog& Catalog) {
 	const float X = Body_.Position.X + CenterX;
+
+	if (Gravity_ == GravityDirection::Up) {
+		// 逆重力時は頭上が「地面」。V1同様、坂は裏面追従せず
+		// 上側衝突面に吸着するものとして扱う。
+		const CollisionShape Support =
+			ShapeAt(Map, Catalog, X, Body_.Position.Y - 0.01f);
+		Body_.Grounded =
+			Support == CollisionShape::Solid || IsSlope(Support);
+		if (Body_.Grounded && Body_.Velocity.Y < 0.0f) {
+			Body_.Velocity.Y = 0.0f;
+			VelocityY10_ = 0;
+		}
+		return;
+	}
+
 	const float FootY = Body_.Position.Y + BottomY;
 	Body_.Grounded = IsSolidAt(Map, Catalog, X, Body_.Position.Y + BelowY);
 
