@@ -7,6 +7,7 @@
 #include "../Actgame/Foundation/GridDataLoader.h"
 #include "../Actgame/Foundation/ItemSystem.h"
 #include "../Actgame/Foundation/LayeredMap.h"
+#include "../Actgame/Foundation/PipeTransport.h"
 #include "../Actgame/Foundation/StageDefinition.h"
 #include "../Actgame/Foundation/TerrainCollision.h"
 #include "../Actgame/Foundation/TerrainStageLoader.h"
@@ -93,6 +94,137 @@ TileMap MakeMap(IntegerGrid Tiles) {
 	Result<TileMap> Created = TileMap::Create(Tiles);
 	assert(Created.IsSuccess());
 	return Created.Value();
+}
+
+void TestPipeDirectionInputMatching() {
+	CharacterInput Input;
+
+	Input.Vertical = 1.0f;
+	assert(PipeTransport::MatchesInput(PipeDirection::Down, Input));
+	assert(!PipeTransport::MatchesInput(PipeDirection::Up, Input));
+
+	Input = CharacterInput();
+	Input.Vertical = -1.0f;
+	assert(PipeTransport::MatchesInput(PipeDirection::Up, Input));
+	assert(!PipeTransport::MatchesInput(PipeDirection::Down, Input));
+
+	Input = CharacterInput();
+	Input.Horizontal = 1.0f;
+	assert(PipeTransport::MatchesInput(PipeDirection::Right, Input));
+	assert(!PipeTransport::MatchesInput(PipeDirection::Left, Input));
+
+	Input = CharacterInput();
+	Input.Horizontal = -1.0f;
+	assert(PipeTransport::MatchesInput(PipeDirection::Left, Input));
+	assert(!PipeTransport::MatchesInput(PipeDirection::Right, Input));
+
+	const WorldPosition Down = PipeTransport::DirectionVector(PipeDirection::Down);
+	const WorldPosition Up = PipeTransport::DirectionVector(PipeDirection::Up);
+	const WorldPosition Right = PipeTransport::DirectionVector(PipeDirection::Right);
+	const WorldPosition Left = PipeTransport::DirectionVector(PipeDirection::Left);
+	assert(NearlyEqual(Down.X, 0.0f) && NearlyEqual(Down.Y, 1.0f));
+	assert(NearlyEqual(Up.X, 0.0f) && NearlyEqual(Up.Y, -1.0f));
+	assert(NearlyEqual(Right.X, 1.0f) && NearlyEqual(Right.Y, 0.0f));
+	assert(NearlyEqual(Left.X, -1.0f) && NearlyEqual(Left.Y, 0.0f));
+}
+
+void TestPipeTransportRequiresDirectionAndAlignment() {
+	PipeNetwork Network;
+	PipeLink Link;
+	Link.Id = "test";
+	Link.EntryPosition = {100.0f, 200.0f};
+	Link.EnterDirection = PipeDirection::Down;
+	Link.TargetStage = ".";
+	Link.ExitPosition = {300.0f, 200.0f};
+	Link.ExitDirection = PipeDirection::Up;
+	assert(Network.Add(Link));
+	assert(!Network.Add(Link));
+
+	CharacterBody Body;
+	Body.Position = {100.0f, 200.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	PipeTransport Pipe;
+
+	CharacterInput Up;
+	Up.Vertical = -1.0f;
+	assert(!Pipe.TryBegin(Up, Player, Network));
+
+	CharacterInput Down;
+	Down.Vertical = 1.0f;
+	Player.Reposition({106.0f, 200.0f});
+	assert(!Pipe.TryBegin(Down, Player, Network, 4.0f));
+
+	Player.Reposition({103.0f, 202.0f});
+	assert(Pipe.TryBegin(Down, Player, Network, 4.0f));
+	assert(Pipe.Phase() == PipeTransportPhase::Entering);
+	assert(Pipe.Frame() == 0);
+}
+
+void TestPipeTransportMoves32FramesAndEmerges() {
+	PipeNetwork Network;
+	PipeLink Link;
+	Link.Id = "A";
+	Link.EntryPosition = {100.0f, 200.0f};
+	Link.EnterDirection = PipeDirection::Down;
+	Link.TargetStage = "substage-b";
+	Link.ExitPosition = {300.0f, 160.0f};
+	Link.ExitDirection = PipeDirection::Up;
+	assert(Network.Add(Link));
+
+	CharacterBody Body;
+	Body.Position = Link.EntryPosition;
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	PipeTransport Pipe;
+
+	CharacterInput Down;
+	Down.Vertical = 1.0f;
+	assert(Pipe.TryBegin(Down, Player, Network));
+
+	for (int Frame = 0; Frame < PipeTransport::TransitionFrames; ++Frame) {
+		Pipe.Update(Player);
+	}
+	assert(Pipe.Phase() == PipeTransportPhase::WaitingForTransfer);
+	assert(Pipe.HasTransferRequest());
+	assert(NearlyEqual(Player.Body().Position.X, 100.0f));
+	assert(NearlyEqual(Player.Body().Position.Y, 232.0f));
+
+	const PipeTransferRequest Request = Pipe.TransferRequest();
+	assert(Request.LinkId == "A");
+	assert(Request.TargetStage == "substage-b");
+	assert(NearlyEqual(Request.ExitPosition.X, 300.0f));
+	assert(NearlyEqual(Request.ExitPosition.Y, 160.0f));
+	assert(Request.ExitDirection == PipeDirection::Up);
+
+	Pipe.BeginEmergence(
+		Player, Request.ExitPosition, Request.ExitDirection);
+	assert(Pipe.Phase() == PipeTransportPhase::Emerging);
+	// Up方向へ出るため、最初は出口の32px下（=土管内部）。
+	assert(NearlyEqual(Player.Body().Position.X, 300.0f));
+	assert(NearlyEqual(Player.Body().Position.Y, 192.0f));
+
+	for (int Frame = 0; Frame < PipeTransport::TransitionFrames; ++Frame) {
+		Pipe.Update(Player);
+	}
+	assert(Pipe.Phase() == PipeTransportPhase::Idle);
+	assert(!Pipe.IsActive());
+	assert(!Pipe.HasTransferRequest());
+	assert(NearlyEqual(Player.Body().Position.X, 300.0f));
+	assert(NearlyEqual(Player.Body().Position.Y, 160.0f));
+	assert(NearlyEqual(Player.Body().Velocity.X, 0.0f));
+	assert(NearlyEqual(Player.Body().Velocity.Y, 0.0f));
+}
+
+void TestPipeTileDefinitionsAreSolid() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+	for (int Id = 61; Id <= 68; ++Id) {
+		const TileDefinition* Pipe = Loaded.Value().Find(Id);
+		assert(Pipe != nullptr);
+		assert(Pipe->Collision == CollisionShape::Solid);
+	}
 }
 
 void TestTileCatalog() {
@@ -391,7 +523,7 @@ void TestExternalInteractionStage() {
 	Result<TerrainStageData> Loaded =
 		TerrainStageLoader::Load("dat/stage/interaction-test/stage.ini");
 	assert(Loaded.IsSuccess());
-	assert(Loaded.Value().Map.Width() == 24);
+	assert(Loaded.Value().Map.Width() == 30);
 	assert(Loaded.Value().Map.Height() == 9);
 	assert(NearlyEqual(Loaded.Value().PlayerSpawn.X, 96.0f));
 	assert(NearlyEqual(Loaded.Value().PlayerSpawn.Y, 160.0f));
@@ -402,6 +534,17 @@ void TestExternalInteractionStage() {
 	assert(Loaded.Value().Catalog.Find(20)->Rules.size() == 3);
 	assert(Loaded.Value().Catalog.Find(21) != nullptr);
 	assert(Loaded.Value().Catalog.Find(21)->Rules.size() == 1);
+	assert(Loaded.Value().Pipes.Links().size() == 2);
+
+	const PipeLink& PipeA = Loaded.Value().Pipes.Links()[0];
+	assert(PipeA.Id == "A");
+	assert(NearlyEqual(PipeA.EntryPosition.X, 24.5f * 32.0f));
+	assert(NearlyEqual(PipeA.EntryPosition.Y, 5.0f * 32.0f));
+	assert(PipeA.EnterDirection == PipeDirection::Down);
+	assert(PipeA.TargetStage == ".");
+	assert(NearlyEqual(PipeA.ExitPosition.X, 27.5f * 32.0f));
+	assert(NearlyEqual(PipeA.ExitPosition.Y, 5.0f * 32.0f));
+	assert(PipeA.ExitDirection == PipeDirection::Up);
 }
 
 void TestItemBlockDefinitions() {
@@ -3004,6 +3147,10 @@ int main() {
 	TestAssetPaths();
 	TestGridDataLoader();
 	TestExternalTerrainStage();
+	TestPipeDirectionInputMatching();
+	TestPipeTransportRequiresDirectionAndAlignment();
+	TestPipeTransportMoves32FramesAndEmerges();
+	TestPipeTileDefinitionsAreSolid();
 	TestTileMapBounds();
 	TestGameModes();
 	TestTileCatalog();
