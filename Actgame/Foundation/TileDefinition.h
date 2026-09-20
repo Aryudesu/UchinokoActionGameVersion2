@@ -32,6 +32,12 @@ struct TileDefinition {
 	bool Breakable = false;
 	bool Damaging = false;
 	std::vector<TileRule> Rules;
+
+	// ON/OFF等の共有状態に応じて、Map上のIDを切り替えるための束縛。
+	// -1 の場合は共有スイッチに依存しない。
+	int SwitchChannel = -1;
+	int SwitchOnTileId = -1;
+	int SwitchOffTileId = -1;
 };
 
 class TileCatalog {

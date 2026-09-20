@@ -36,6 +36,7 @@
     <ClCompile Include="FoundationTests.cpp" />
     <ClCompile Include="..\Actgame\Foundation\AssetPaths.cpp" />
     <ClCompile Include="..\Actgame\Foundation\CharacterController.cpp" />
+    <ClCompile Include="..\Actgame\Foundation\CharacterSafety.cpp" />
     <ClCompile Include="..\Actgame\Foundation\CanvasMasaoTerrain.cpp" />
     <ClCompile Include="..\Actgame\Foundation\ExtendedSlopeTerrain.cpp" />
     <ClCompile Include="..\Actgame\Foundation\GridDataLoader.cpp" />
@@ -47,6 +48,7 @@
     <ClCompile Include="..\Actgame\Foundation\TileDefinition.cpp" />
     <ClCompile Include="..\Actgame\Foundation\TileInteraction.cpp" />
     <ClCompile Include="..\Actgame\Foundation\TileMap.cpp" />
+    <ClCompile Include="..\Actgame\Foundation\WorldState.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

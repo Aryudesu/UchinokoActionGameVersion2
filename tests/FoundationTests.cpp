@@ -1,5 +1,6 @@
 ﻿#include "../Actgame/Foundation/AssetPaths.h"
 #include "../Actgame/Foundation/CharacterController.h"
+#include "../Actgame/Foundation/CharacterSafety.h"
 #include "../Actgame/Foundation/CanvasMasaoTerrain.h"
 #include "../Actgame/Foundation/ExtendedSlopeTerrain.h"
 #include "../Actgame/Foundation/GridDataLoader.h"
@@ -11,6 +12,7 @@
 #include "../Actgame/Foundation/TileDefinition.h"
 #include "../Actgame/Foundation/TileInteraction.h"
 #include "../Actgame/Foundation/TileMap.h"
+#include "../Actgame/Foundation/WorldState.h"
 
 #include <algorithm>
 #include <cassert>
@@ -388,7 +390,7 @@ void TestExternalInteractionStage() {
 	Result<TerrainStageData> Loaded =
 		TerrainStageLoader::Load("dat/stage/interaction-test/stage.ini");
 	assert(Loaded.IsSuccess());
-	assert(Loaded.Value().Map.Width() == 18);
+	assert(Loaded.Value().Map.Width() == 24);
 	assert(Loaded.Value().Map.Height() == 6);
 	assert(*Loaded.Value().Map.TryGet({2, 2}) == 20);
 	assert(*Loaded.Value().Map.TryGet({5, 1}) == 21);
@@ -485,6 +487,137 @@ void TestTenCoinBlockUsesGenericCountRules() {
 	assert(Items.Items().empty());
 	assert(Coins == 10);
 	assert(Score == 1000);
+}
+
+void TestOnOffDefinitionsAndWorldState() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* Switch = Loaded.Value().Find(40);
+	assert(Switch != nullptr);
+	assert(Switch->Collision == CollisionShape::Solid);
+	assert(Switch->Rules.size() == 1);
+	assert(Switch->Rules[0].Action == TileAction::ToggleSwitch);
+	assert(Switch->Rules[0].Value == 0);
+
+	const TileDefinition* OnSolid = Loaded.Value().Find(41);
+	const TileDefinition* OnEmpty = Loaded.Value().Find(42);
+	const TileDefinition* OffEmpty = Loaded.Value().Find(43);
+	const TileDefinition* OffSolid = Loaded.Value().Find(44);
+	assert(OnSolid != nullptr && OnEmpty != nullptr &&
+		OffEmpty != nullptr && OffSolid != nullptr);
+	assert(OnSolid->SwitchChannel == 0);
+	assert(OnSolid->SwitchOnTileId == 41);
+	assert(OnSolid->SwitchOffTileId == 42);
+	assert(OffEmpty->SwitchOnTileId == 43);
+	assert(OffEmpty->SwitchOffTileId == 44);
+
+	TileMap Map = MakeMap({{41, 43, 43}});
+	WorldState World;
+	World.Reset(1, true);
+	WorldStateUpdate Initial = World.Synchronize(Map, Loaded.Value());
+	assert(Initial.ChangedTiles.empty());
+	assert(*Map.TryGet({0, 0}) == 41);
+	assert(*Map.TryGet({1, 0}) == 43);
+	assert(*Map.TryGet({2, 0}) == 43);
+
+	TileEffect Toggle;
+	Toggle.Type = TileEffectType::ToggleSwitch;
+	Toggle.Value = 0;
+	WorldStateUpdate Off = World.ApplyEffects({Toggle}, Map, Loaded.Value());
+	assert(!World.GetSwitch(0));
+	assert(*Map.TryGet({0, 0}) == 42);
+	assert(*Map.TryGet({1, 0}) == 44);
+	assert(*Map.TryGet({2, 0}) == 44);
+	assert(Off.ChangedTiles.size() == 3);
+	assert(Off.ActivatedSolidTiles.size() == 2);
+
+	WorldStateUpdate On = World.ApplyEffects({Toggle}, Map, Loaded.Value());
+	assert(World.GetSwitch(0));
+	assert(*Map.TryGet({0, 0}) == 41);
+	assert(*Map.TryGet({1, 0}) == 43);
+	assert(*Map.TryGet({2, 0}) == 43);
+	assert(On.ActivatedSolidTiles.size() == 1);
+	assert(On.ActivatedSolidTiles[0].Column == 0);
+}
+
+void TestOnOffSwitchRuleProducesToggleEffect() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({{40}});
+	TileRuntimeMap Runtime(Map);
+	TileInteraction Hit;
+	Hit.Trigger = TileTrigger::HitFromBelow;
+	Hit.Position = {0, 0};
+	Hit.TileId = 40;
+
+	TileBehaviorResult Result =
+		TileBehaviorSystem::Apply(Hit, Map, Loaded.Value(), Runtime);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::ToggleSwitch);
+	assert(Result.Effects[0].Value == 0);
+	// repeat なので連続した別Hitでも切替Effectを出せる。
+	assert(TileBehaviorSystem::Apply(Hit, Map, Loaded.Value(), Runtime).Effects.size() == 1);
+}
+
+void TestActivatedOnOffBlockPushesCharacterToSafety() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 44, 0},
+		{1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {32.0f, 32.0f};
+	Body.Grounded = true;
+
+	CharacterController Controller(Body);
+	CharacterSafetyResult Safety =
+		CharacterSafety::ResolveActivatedSolids(
+			Controller, Map, Loaded.Value(), {{1, 1}});
+	Body = Controller.Body();
+	assert(!Safety.Crushed);
+	assert(Safety.Repositioned);
+	assert(Safety.Effects.empty());
+	// 上は空いているため、最短の押し出し先の一つへ脱出できる。
+	assert(!NearlyEqual(Body.Position.X, 32.0f) ||
+		!NearlyEqual(Body.Position.Y, 32.0f));
+}
+
+void TestActivatedOnOffBlocksKillWhenCharacterIsCrushed() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	// 中央のキャラクターを、同時出現した左右ブロック・上のスイッチ・下の床で囲む。
+	TileMap Map = MakeMap({
+		{0, 40, 0},
+		{44, 44, 44},
+		{1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {32.0f, 32.0f};
+	Body.Grounded = true;
+
+	const std::vector<TilePosition> Activated = {
+		{0, 1}, {1, 1}, {2, 1}
+	};
+	CharacterController Controller(Body);
+	CharacterSafetyResult Safety =
+		CharacterSafety::ResolveActivatedSolids(
+			Controller, Map, Loaded.Value(), Activated);
+	Body = Controller.Body();
+	assert(Safety.Crushed);
+	assert(!Safety.Repositioned);
+	assert(Safety.Effects.size() == 1);
+	assert(Safety.Effects[0].Type == TileEffectType::InstantDeath);
 }
 
 void TestItemSystemConvertsSpawnToV1Rewards() {
@@ -1497,6 +1630,29 @@ void TestCharacterLandsOn1x2Slope() {
 	assert(NearlyEqual(Player.Body().Position.Y, 32.0f));
 }
 
+void TestCharacterRepositionResetsInternalVelocity() {
+	TileMap Map = MakeMap({
+		{0, 0},
+		{0, 0}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	Body.Position = {0.0f, 0.0f};
+	Body.Velocity = {2.0f, -4.0f};
+	Body.Grounded = false;
+	CharacterMotion Motion;
+	Motion.MoveSpeed = 0.0f;
+	Motion.Gravity = 0.0f;
+	CharacterController Player(Body, Motion);
+
+	Player.Reposition({10.0f, 10.0f}, true);
+	assert(NearlyEqual(Player.Body().Velocity.X, 0.0f));
+	assert(NearlyEqual(Player.Body().Velocity.Y, 0.0f));
+	Player.Step(0.0f, false, Map, Catalog);
+	assert(NearlyEqual(Player.Body().Position.X, 10.0f));
+	assert(NearlyEqual(Player.Body().Position.Y, 10.0f));
+}
+
 void TestCharacterMovement() {
 	TileMap FlatMap = MakeMap({{0, 0, 0}, {1, 1, 1}, {0, 0, 0}});
 	TileCatalog Catalog = MakeTerrainCatalog();
@@ -2034,6 +2190,10 @@ int main() {
 	TestExternalInteractionStage();
 	TestItemBlockDefinitions();
 	TestTenCoinBlockUsesGenericCountRules();
+	TestOnOffDefinitionsAndWorldState();
+	TestOnOffSwitchRuleProducesToggleEffect();
+	TestActivatedOnOffBlockPushesCharacterToSafety();
+	TestActivatedOnOffBlocksKillWhenCharacterIsCrushed();
 	TestItemSystemConvertsSpawnToV1Rewards();
 	TestQuestionBlockSpawnsItemAndBecomesUsed();
 	TestHiddenItemBlockOnlyBlocksFromBelow();
@@ -2069,6 +2229,7 @@ int main() {
 	TestCharacterTraverses1x2SlopeWithoutSeamSnag();
 	TestCharacterCannotEnter1x2HighSide();
 	TestCharacterLandsOn1x2Slope();
+	TestCharacterRepositionResetsInternalVelocity();
 	TestCharacterMovement();
 	TestCharacterRecomputesGroundFromMasaoProbes();
 	TestCharacterUsesGetSakamichiYCoordinates();
