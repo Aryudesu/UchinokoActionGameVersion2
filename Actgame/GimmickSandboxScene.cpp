@@ -143,6 +143,12 @@ void GimmickSandboxScene::draw() {
 				DrawBox(Left + 2, Top + 2, Right - 2, Bottom - 2,
 					GetColor(190, 110, 70), FALSE);
 			}
+			const uchinoko::TileRuntimeState* State = Runtime_.TryGet({Column, Row});
+			if (State != nullptr && State->Count > 0) {
+				DrawFormatString(
+					Left + 3, Top + 18, GetColor(255, 255, 255),
+					"%d", State->Count);
+			}
 		}
 	}
 
@@ -180,6 +186,6 @@ void GimmickSandboxScene::draw() {
 		"Coins:%d  HP+:%d  Lives+:%d  Score:%d  Broken:%d",
 		Coins_, Health_, Lives_, Score_, Broken_);
 	DrawString(16, 64,
-		"?: item block / invisible columns 8,10,12: hidden item blocks",
+		"?: item block / invisible 8,10,12 / column 16: 10-coin block",
 		GetColor(220, 220, 220));
 }
