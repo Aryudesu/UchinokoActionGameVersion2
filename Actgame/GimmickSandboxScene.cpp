@@ -190,8 +190,7 @@ void GimmickSandboxScene::update() {
 	// CharacterControllerの通常物理だけを継続し、取得時のY速度と重力で
 	// 支持面へ着地するまで移動させる。
 	if (Completion_.Cleared) {
-		uchinoko::CharacterInput SettleInput;
-		Player_.Step(SettleInput, Map_, Catalog_);
+		Player_.StepWithoutInput(Map_, Catalog_);
 		return;
 	}
 
