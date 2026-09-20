@@ -668,8 +668,8 @@ void CharacterController::Step(
 		return;
 	}
 
-	const float HorizontalSpeed = Motion_.MoveSpeed *
-		(InWater_ ? Motion_.WaterHorizontalSpeedScale : 1.0f);
+	const float HorizontalSpeed =
+		InWater_ ? Motion_.WaterMoveSpeed : Motion_.MoveSpeed;
 	VelocityX10_ = static_cast<int>(std::round(
 		Input.Horizontal * HorizontalSpeed * 10.0f));
 	Body_.Velocity.X = static_cast<float>(VelocityX10_) / 10.0f;
