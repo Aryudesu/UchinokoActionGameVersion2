@@ -4,14 +4,6 @@
 
 namespace uchinoko {
 
-bool PipeNetwork::Add(const PipeLink& Link) {
-	for (std::size_t Index = 0; Index < Links_.size(); ++Index) {
-		if (Links_[Index].Id == Link.Id) return false;
-	}
-	Links_.push_back(Link);
-	return true;
-}
-
 WorldPosition PipeTransport::DirectionVector(PipeDirection Direction) {
 	switch (Direction) {
 	case PipeDirection::Down: return {0.0f, 1.0f};
@@ -36,29 +28,26 @@ bool PipeTransport::MatchesInput(
 void PipeTransport::Reset() {
 	Phase_ = PipeTransportPhase::Idle;
 	Frame_ = 0;
-	HasCurrentLink_ = false;
 	CurrentLink_ = PipeLink();
-	TransferPending_ = false;
-	TransferRequest_ = PipeTransferRequest();
-	EmergenceTarget_ = {};
-	EmergenceDirection_ = PipeDirection::Up;
+	HasCurrentLink_ = false;
 }
 
 bool PipeTransport::TryBegin(
 	const CharacterInput& Input,
 	const CharacterController& Player,
-	const PipeNetwork& Network,
+	const std::vector<PipeLink>& Links,
 	float Tolerance) {
 	if (IsActive()) return false;
 
 	const WorldPosition Position = Player.Body().Position;
-	for (std::size_t Index = 0; Index < Network.Links().size(); ++Index) {
-		const PipeLink& Link = Network.Links()[Index];
+	for (std::size_t Index = 0; Index < Links.size(); ++Index) {
+		const PipeLink& Link = Links[Index];
 		if (!MatchesInput(Link.EnterDirection, Input)) continue;
-		// V1の左右土管は MoveX 内で Land 条件付き。
+
 		if ((Link.EnterDirection == PipeDirection::Right ||
 			 Link.EnterDirection == PipeDirection::Left) &&
 			!Player.Body().Grounded) continue;
+
 		if (std::fabs(Position.X - Link.EntryPosition.X) > Tolerance) continue;
 		if (std::fabs(Position.Y - Link.EntryPosition.Y) > Tolerance) continue;
 
@@ -66,71 +55,52 @@ bool PipeTransport::TryBegin(
 		HasCurrentLink_ = true;
 		Phase_ = PipeTransportPhase::Entering;
 		Frame_ = 0;
-		TransferPending_ = false;
 		return true;
 	}
 	return false;
 }
 
+void PipeTransport::BeginEmergence(CharacterController& Player) {
+	const WorldPosition Vector = DirectionVector(CurrentLink_.ExitDirection);
+	WorldPosition Start = CurrentLink_.ExitPosition;
+	Start.X -= Vector.X * static_cast<float>(TransitionFrames);
+	Start.Y -= Vector.Y * static_cast<float>(TransitionFrames);
+
+	Player.Reposition(Start, true);
+	Phase_ = PipeTransportPhase::Emerging;
+	Frame_ = 0;
+}
+
 void PipeTransport::Update(CharacterController& Player) {
+	if (!HasCurrentLink_) return;
+
 	if (Phase_ == PipeTransportPhase::Entering) {
-		if (!HasCurrentLink_) {
-			Reset();
-			return;
-		}
 		const WorldPosition Vector = DirectionVector(CurrentLink_.EnterDirection);
 		WorldPosition Next = Player.Body().Position;
 		Next.X += Vector.X;
 		Next.Y += Vector.Y;
 		Player.Reposition(Next, true);
-		++Frame_;
 
+		++Frame_;
 		if (Frame_ >= TransitionFrames) {
-			Phase_ = PipeTransportPhase::WaitingForTransfer;
-			Frame_ = 0;
-			TransferPending_ = true;
-			TransferRequest_.LinkId = CurrentLink_.Id;
-			TransferRequest_.TargetStage = CurrentLink_.TargetStage;
-			TransferRequest_.ExitPosition = CurrentLink_.ExitPosition;
-			TransferRequest_.ExitDirection = CurrentLink_.ExitDirection;
+			BeginEmergence(Player);
 		}
 		return;
 	}
 
 	if (Phase_ == PipeTransportPhase::Emerging) {
-		const WorldPosition Vector = DirectionVector(EmergenceDirection_);
+		const WorldPosition Vector = DirectionVector(CurrentLink_.ExitDirection);
 		WorldPosition Next = Player.Body().Position;
 		Next.X += Vector.X;
 		Next.Y += Vector.Y;
 		Player.Reposition(Next, true);
-		++Frame_;
 
+		++Frame_;
 		if (Frame_ >= TransitionFrames) {
-			Player.Reposition(EmergenceTarget_, true);
-			Phase_ = PipeTransportPhase::Idle;
-			Frame_ = 0;
-			HasCurrentLink_ = false;
+			Player.Reposition(CurrentLink_.ExitPosition, true);
+			Reset();
 		}
 	}
-}
-
-void PipeTransport::BeginEmergence(
-	CharacterController& Player,
-	WorldPosition ExitPosition,
-	PipeDirection ExitDirection) {
-	EmergenceTarget_ = ExitPosition;
-	EmergenceDirection_ = ExitDirection;
-	const WorldPosition Vector = DirectionVector(ExitDirection);
-
-	WorldPosition Start = ExitPosition;
-	Start.X -= Vector.X * static_cast<float>(TransitionFrames);
-	Start.Y -= Vector.Y * static_cast<float>(TransitionFrames);
-	Player.Reposition(Start, true);
-
-	TransferPending_ = false;
-	TransferRequest_ = PipeTransferRequest();
-	Phase_ = PipeTransportPhase::Emerging;
-	Frame_ = 0;
 }
 
 } // namespace uchinoko
