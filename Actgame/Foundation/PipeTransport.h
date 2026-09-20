@@ -24,18 +24,22 @@ struct PipeLink {
 enum class PipeTransportPhase {
 	Idle,
 	Entering,
+	FadeOut,
+	FadeIn,
 	Emerging
 };
 
 class PipeTransport {
 public:
 	static constexpr int TransitionFrames = 32;
+	static constexpr int FadeStep = 32;
 
 	void Reset();
 
 	bool IsActive() const { return Phase_ != PipeTransportPhase::Idle; }
 	PipeTransportPhase Phase() const { return Phase_; }
 	int Frame() const { return Frame_; }
+	int FadeAlpha() const { return FadeAlpha_; }
 
 	bool TryBegin(
 		const CharacterInput& Input,
@@ -49,10 +53,11 @@ public:
 	static bool MatchesInput(PipeDirection Direction, const CharacterInput& Input);
 
 private:
-	void BeginEmergence(CharacterController& Player);
+	void MoveToExitInterior(CharacterController& Player);
 
 	PipeTransportPhase Phase_ = PipeTransportPhase::Idle;
 	int Frame_ = 0;
+	int FadeAlpha_ = 0;
 	PipeLink CurrentLink_;
 	bool HasCurrentLink_ = false;
 };
