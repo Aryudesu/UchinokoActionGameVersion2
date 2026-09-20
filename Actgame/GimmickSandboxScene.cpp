@@ -1,6 +1,7 @@
 #include "GimmickSandboxScene.h"
 
 #include "DxLib.h"
+#include "Conf.h"
 #include "InputKey.h"
 #include "SceneChanger.h"
 #include "Foundation/TerrainStageLoader.h"
@@ -19,6 +20,21 @@ bool HasAction(const uchinoko::TileDefinition& Definition, uchinoko::TileAction 
 	return false;
 }
 
+bool IsPipeTile(int Id) {
+	return Id >= 61 && Id <= 68;
+}
+
+const char* PipePhaseName(uchinoko::PipeTransportPhase Phase) {
+	switch (Phase) {
+	case uchinoko::PipeTransportPhase::Idle: return "IDLE";
+	case uchinoko::PipeTransportPhase::Entering: return "IN";
+	case uchinoko::PipeTransportPhase::FadeOut: return "FADE OUT";
+	case uchinoko::PipeTransportPhase::FadeIn: return "FADE IN";
+	case uchinoko::PipeTransportPhase::Emerging: return "OUT";
+	}
+	return "?";
+}
+
 } // namespace
 
 GimmickSandboxScene::GimmickSandboxScene() {
@@ -27,7 +43,7 @@ GimmickSandboxScene::GimmickSandboxScene() {
 
 void GimmickSandboxScene::Reload() {
 	uchinoko::Result<uchinoko::TerrainStageData> Loaded =
-		uchinoko::TerrainStageLoader::Load("dat/stage/interaction-test/stage.ini");
+		uchinoko::TerrainStageLoader::Load("dat/stage/pipe-test/stage.ini");
 	if (Loaded.IsFailure()) {
 		LoadError_ = Loaded.Error();
 		return;
@@ -35,6 +51,8 @@ void GimmickSandboxScene::Reload() {
 
 	Map_ = std::move(Loaded.Value().Map);
 	Catalog_ = std::move(Loaded.Value().Catalog);
+	Pipes_ = std::move(Loaded.Value().Pipes);
+	Pipe_.Reset();
 	Runtime_.Reset(Map_);
 	Items_.Reset();
 	// Version1 の GameData 初期値と同じく ON から開始する。
@@ -159,6 +177,15 @@ void GimmickSandboxScene::update() {
 	if (ReturnKey(KEY_INPUT_DOWN) != 0) Input.Vertical += 1.0f;
 	Input.JumpPressed = ReturnKey(KEY_INPUT_Z) == 1;
 
+	// V1のMovingUpdate相当。土管移動中は通常物理・通常ギミック更新を止める。
+	if (Pipe_.IsActive()) {
+		Pipe_.Update(Player_);
+		return;
+	}
+	if (Pipe_.TryBegin(Input, Player_, Pipes_)) {
+		return;
+	}
+
 	Player_.Step(Input, Map_, Catalog_);
 	ApplyEffects();
 }
@@ -209,7 +236,14 @@ void GimmickSandboxScene::draw() {
 			} else if (Definition->Collision == uchinoko::CollisionShape::Solid) {
 				DrawBox(
 					Left, Top, Right, Bottom,
-					SpawnsItem ? GetColor(210, 160, 70) : GetColor(80, 130, 190), TRUE);
+					IsPipeTile(*Id)
+						? GetColor(70, 170, 90)
+						: (SpawnsItem ? GetColor(210, 160, 70) : GetColor(80, 130, 190)),
+					TRUE);
+				if (IsPipeTile(*Id)) {
+					DrawBox(Left + 3, Top + 3, Right - 3, Bottom - 3,
+						GetColor(160, 230, 170), FALSE);
+				}
 			}
 			if (Definition->Movement == uchinoko::MovementRegion::Water) {
 				DrawBox(
@@ -279,6 +313,15 @@ void GimmickSandboxScene::draw() {
 		}
 	}
 
+	for (std::size_t Index = 0; Index < Pipes_.size(); ++Index) {
+		const uchinoko::PipeLink& Link = Pipes_[Index];
+		DrawFormatString(
+			static_cast<int>(Link.EntryPosition.X),
+			static_cast<int>(Link.EntryPosition.Y) - 18,
+			GetColor(180, 255, 190),
+			"Pipe %d v", static_cast<int>(Index + 1));
+	}
+
 	for (std::size_t Index = 0; Index < Items_.Items().size(); ++Index) {
 		const uchinoko::SpawnedItem& Item = Items_.Items()[Index];
 		const int X = static_cast<int>(Item.Position.X) + 16;
@@ -314,23 +357,45 @@ void GimmickSandboxScene::draw() {
 		static_cast<int>(Body.Position.Y + Body.Height),
 		GetColor(240, 210, 80), TRUE);
 
+	// V1は土管移動中だけ主人公をMapより先に描画していた。
+	// Sandboxでは土管タイルを再描画し、潜り込み/出現部分を隠す。
+	if (Pipe_.IsActive()) {
+		for (int Row = 0; Row < Map_.Height(); ++Row) {
+			for (int Column = 0; Column < Map_.Width(); ++Column) {
+				const int* Id = Map_.TryGet({Column, Row});
+				if (Id == nullptr || !IsPipeTile(*Id)) continue;
+				const int Left = Column * Map_.TileWidth();
+				const int Top = Row * Map_.TileHeight();
+				const int Right = Left + Map_.TileWidth();
+				const int Bottom = Top + Map_.TileHeight();
+				DrawBox(Left, Top, Right, Bottom, GetColor(70, 170, 90), TRUE);
+				DrawBox(Left + 3, Top + 3, Right - 3, Bottom - 3,
+					GetColor(160, 230, 170), FALSE);
+			}
+		}
+	}
+
 	DrawString(16, 16,
-		"Gimmick: Arrows(move/climb/swim), Z jump/swim, R reload, 1/2/3 coins, Esc",
+		"Pipe test: LEFT/RIGHT move, DOWN enter pipe, Z jump, R reload, Esc",
 		GetColor(255, 255, 255));
 	DrawFormatString(16, 40, GetColor(255, 255, 255),
-		"Coins:%d HP+:%d Lives+:%d Score:%d Mode:%s Water:%s Grav:%s Switch:%s T:%02d",
-		Coins_, Health_, Lives_, Score_,
-		Player_.IsClimbing() ? "CLIMB" : "NORMAL",
-		Player_.IsInWater() ? "YES" : "NO",
-		Player_.IsGravityUp() ? "UP" : "DOWN",
-		World_.GetSwitch(0) ? "ON" : "OFF",
-		World_.GetAutoToggleCounter(1));
+		"Pipe:%s  Links:%d",
+		PipePhaseName(Pipe_.Phase()), static_cast<int>(Pipes_.size()));
 	DrawString(16, 64,
-		"col11:G^ -> ceiling / ceiling col13:Gv / left pool:WATER / col9:ladder",
-		GetColor(220, 220, 220));
+		"Both green pipes stay on screen. Stand centered on one and press DOWN.",
+		GetColor(210, 230, 255));
 	if (Dead_) {
 		DrawString(16, 88,
 			"CRUSHED - InstantDeath (R: reload)",
 			GetColor(255, 100, 100));
+	}
+
+	// V1のSetBrightによる暗転と同じタイミングを、
+	// Sandboxでは黒いオーバーレイで再現する。
+	const int FadeAlpha = Pipe_.FadeAlpha();
+	if (FadeAlpha > 0) {
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, FadeAlpha);
+		DrawBox(0, 0, WINDOWX, WINDOWY, GetColor(0, 0, 0), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
 	}
 }
