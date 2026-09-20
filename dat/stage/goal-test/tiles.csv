@@ -1,0 +1,5 @@
+# id, collision shape, image index, breakable, damaging, rules [, switch_channel, switch_on_tile, switch_off_tile [, auto_toggle_period [, condition [, movement_region]]]]
+0,None,0,0,0,-
+1,Solid,0,0,0,-
+70,None,0,0,0,Touch:Goal:0:once;Touch:AddScore:1000:once;Touch:ReplaceTile:0:once
+71,None,0,0,0,Touch:Goal:1:once;Touch:AddScore:1000:once;Touch:ReplaceTile:0:once
