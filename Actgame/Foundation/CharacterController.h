@@ -23,6 +23,7 @@ struct CharacterMotion {
 	float MaxFallSpeed = 10.0f;
 	float ClimbHorizontalSpeed = 2.0f;
 	float ClimbVerticalSpeed = 3.0f;
+	float WaterHorizontalSpeedScale = 0.3f;
 	float WaterGravityScale = 1.0f / 3.0f;
 	float WaterMaxFallSpeedScale = 0.5f;
 	float WaterJumpSpeed = 4.0f;
