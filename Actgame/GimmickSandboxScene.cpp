@@ -421,15 +421,15 @@ void GimmickSandboxScene::draw() {
 		Progress_.Satisfies(SandboxStageId, uchinoko::ClearRequirement::Either) ? "YES" : "NO",
 		Progress_.Satisfies(SandboxStageId, uchinoko::ClearRequirement::Both) ? "YES" : "NO");
 	if (HasLastGoal_) {
-		DrawString(16, 64,
+		DrawFormatString(16, 64, GetColor(220, 230, 255),
 			LastGoal_ == uchinoko::GoalKind::Secret
-				? "Last goal: SECRET (+1000)"
-				: "Last goal: NORMAL (+1000)",
-			GetColor(220, 230, 255));
+				? "Last goal: SECRET (+1000)  Score:%d"
+				: "Last goal: NORMAL (+1000)  Score:%d",
+			Score_);
 	} else {
-		DrawString(16, 64,
-			"Green N = Normal Goal / Purple S = Secret Goal",
-			GetColor(220, 230, 255));
+		DrawFormatString(16, 64, GetColor(220, 230, 255),
+			"Green N = Normal Goal / Purple S = Secret Goal  Score:%d",
+			Score_);
 	}
 	if (Dead_) {
 		DrawString(16, 88,
