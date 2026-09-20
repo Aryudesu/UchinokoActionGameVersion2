@@ -28,6 +28,7 @@ bool PipeTransport::MatchesInput(
 void PipeTransport::Reset() {
 	Phase_ = PipeTransportPhase::Idle;
 	Frame_ = 0;
+	FadeAlpha_ = 0;
 	CurrentLink_ = PipeLink();
 	HasCurrentLink_ = false;
 }
@@ -60,15 +61,12 @@ bool PipeTransport::TryBegin(
 	return false;
 }
 
-void PipeTransport::BeginEmergence(CharacterController& Player) {
+void PipeTransport::MoveToExitInterior(CharacterController& Player) {
 	const WorldPosition Vector = DirectionVector(CurrentLink_.ExitDirection);
 	WorldPosition Start = CurrentLink_.ExitPosition;
 	Start.X -= Vector.X * static_cast<float>(TransitionFrames);
 	Start.Y -= Vector.Y * static_cast<float>(TransitionFrames);
-
 	Player.Reposition(Start, true);
-	Phase_ = PipeTransportPhase::Emerging;
-	Frame_ = 0;
 }
 
 void PipeTransport::Update(CharacterController& Player) {
@@ -83,7 +81,31 @@ void PipeTransport::Update(CharacterController& Player) {
 
 		++Frame_;
 		if (Frame_ >= TransitionFrames) {
-			BeginEmergence(Player);
+			Phase_ = PipeTransportPhase::FadeOut;
+			Frame_ = 0;
+			FadeAlpha_ = 0;
+		}
+		return;
+	}
+
+	if (Phase_ == PipeTransportPhase::FadeOut) {
+		FadeAlpha_ += FadeStep;
+		if (FadeAlpha_ >= 255) {
+			FadeAlpha_ = 255;
+			// 完全に暗くなった瞬間だけ出口内部へ移動する。
+			MoveToExitInterior(Player);
+			Phase_ = PipeTransportPhase::FadeIn;
+			Frame_ = 0;
+		}
+		return;
+	}
+
+	if (Phase_ == PipeTransportPhase::FadeIn) {
+		FadeAlpha_ -= FadeStep;
+		if (FadeAlpha_ <= 0) {
+			FadeAlpha_ = 0;
+			Phase_ = PipeTransportPhase::Emerging;
+			Frame_ = 0;
 		}
 		return;
 	}
