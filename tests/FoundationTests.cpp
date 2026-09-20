@@ -1873,6 +1873,74 @@ void TestCharacterClimbsLadderWithoutGravity() {
 	assert(NearlyEqual(Player.Body().Position.X, OldX + 2.0f));
 }
 
+void TestCharacterCanJumpOffLadder() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 55, 0},
+		{0, 55, 0},
+		{0, 55, 0},
+		{1, 1, 1}
+	});
+
+	CharacterBody Body;
+	Body.Position = {32.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	CharacterInput Up;
+	Up.Vertical = -1.0f;
+	Player.Step(Up, Map, Loaded.Value());
+	assert(Player.Mode() == MovementMode::Climbing);
+
+	const float BeforeJumpY = Player.Body().Position.Y;
+	CharacterInput Jump;
+	Jump.JumpPressed = true;
+	Player.Step(Jump, Map, Loaded.Value());
+
+	assert(Player.Mode() == MovementMode::Normal);
+	assert(!Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Velocity.Y, -9.0f));
+	assert(Player.Body().Position.Y < BeforeJumpY);
+}
+
+void TestLadderJumpFollowsReversedGravity() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{1, 1, 1},
+		{0, 55, 0},
+		{0, 59, 0},
+		{1, 1, 1}
+	});
+
+	CharacterBody Body;
+	Body.Position = {32.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	// GravityUp領域へ入り、そのままはしごを掴む。
+	CharacterInput Up;
+	Up.Vertical = -1.0f;
+	Player.Step(Up, Map, Loaded.Value());
+	assert(Player.Gravity() == GravityDirection::Up);
+	assert(Player.Mode() == MovementMode::Climbing);
+
+	const float BeforeJumpY = Player.Body().Position.Y;
+	CharacterInput Jump;
+	Jump.JumpPressed = true;
+	Player.Step(Jump, Map, Loaded.Value());
+
+	assert(Player.Mode() == MovementMode::Normal);
+	assert(!Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Velocity.Y, 9.0f));
+	assert(Player.Body().Position.Y > BeforeJumpY);
+}
+
 void TestLadderEntryRulesMatchVersion1() {
 	Result<TileCatalog> Loaded =
 		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
@@ -2985,6 +3053,8 @@ int main() {
 	TestCharacterRepositionResetsInternalVelocity();
 	TestLadderDefinitions();
 	TestCharacterClimbsLadderWithoutGravity();
+	TestCharacterCanJumpOffLadder();
+	TestLadderJumpFollowsReversedGravity();
 	TestLadderEntryRulesMatchVersion1();
 	TestLadderBuilderCreatesTilesUntilSolidCeiling();
 	TestGravityRegionDefinitions();
