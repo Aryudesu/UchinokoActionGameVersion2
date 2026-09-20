@@ -587,7 +587,10 @@ void CharacterController::EmitTouchInteractions(const TileMap& Map) {
 
 void CharacterController::EmitStandInteractions(const TileMap& Map) {
 	if (!Body_.Grounded) return;
-	const float ProbeY = Body_.Position.Y + Body_.Height + 0.01f;
+	const float ProbeY =
+		Gravity_ == GravityDirection::Down
+			? Body_.Position.Y + Body_.Height + 0.01f
+			: Body_.Position.Y - 0.01f;
 	const float Left = Body_.Position.X + 1.0f;
 	const float Right = Body_.Position.X + Body_.Width - 2.0f;
 	EmitInteractionAtWorld(TileTrigger::StandOn, Map, Left, ProbeY);
@@ -692,6 +695,8 @@ void CharacterController::Step(
 	Input.Horizontal = std::max(-1.0f, std::min(1.0f, Input.Horizontal));
 	Input.Vertical = std::max(-1.0f, std::min(1.0f, Input.Vertical));
 
+	// 重力領域は中心点で判定する。向きが変わったら新しい支持面で接地を再構築する。
+	UpdateGravityFromCenter(Map, Catalog);
 	// jM100 と同じく、入力処理より前に現在座標から接地を再判定する。
 	RefreshGround(Map, Catalog);
 	const bool OnLadder = IsInsideLadder(Map, Catalog);
@@ -716,6 +721,7 @@ void CharacterController::Step(
 
 	if (Mode_ == MovementMode::Climbing) {
 		StepClimbing(Input, Map, Catalog);
+		UpdateGravityFromCenter(Map, Catalog);
 		EmitTouchInteractions(Map);
 		EmitStandInteractions(Map);
 		return;
@@ -778,7 +784,8 @@ void CharacterController::Step(
 		WaterExitBoostArmed_ = true;
 	} else if (Input.JumpPressed && Body_.Grounded) {
 		WaterExitBoostArmed_ = false;
-		VelocityY10_ = -static_cast<int>(std::round(Motion_.JumpSpeed * 10.0f));
+		VelocityY10_ = -GravitySign() *
+			static_cast<int>(std::round(Motion_.JumpSpeed * 10.0f));
 		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
 		Body_.Grounded = false;
 	}
@@ -788,12 +795,16 @@ void CharacterController::Step(
 				InWater_ ? Motion_.WaterGravityScale : 1.0f;
 			const float MaxFallScale =
 				InWater_ ? Motion_.WaterMaxFallSpeedScale : 1.0f;
-			VelocityY10_ += static_cast<int>(std::round(
+			const int GravityDelta = static_cast<int>(std::round(
 				Motion_.Gravity * GravityScale * 10.0f));
-			VelocityY10_ = std::min(
-				static_cast<int>(std::round(
-					Motion_.MaxFallSpeed * MaxFallScale * 10.0f)),
-				VelocityY10_);
+			const int MaxFall = static_cast<int>(std::round(
+				Motion_.MaxFallSpeed * MaxFallScale * 10.0f));
+			VelocityY10_ += GravitySign() * GravityDelta;
+			if (Gravity_ == GravityDirection::Down) {
+				VelocityY10_ = std::min(MaxFall, VelocityY10_);
+			} else {
+				VelocityY10_ = std::max(-MaxFall, VelocityY10_);
+			}
 			Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
 		}
 
@@ -805,7 +816,8 @@ void CharacterController::Step(
 		ApplyWaterBoundaryTransition(WaterBeforeVertical, InWater_);
 
 		// 上昇が地形で止められた場合、V1 の Hited() 相当を左右2点から通知する。
-		if (VerticalAmount < 0.0f && VelocityY10_ == 0) {
+		if (Gravity_ == GravityDirection::Down &&
+			VerticalAmount < 0.0f && VelocityY10_ == 0) {
 			const float ProbeY = Body_.Position.Y - 0.01f;
 			EmitInteractionAtWorld(
 				TileTrigger::HitFromBelow, Map, Body_.Position.X + 1.0f, ProbeY);
@@ -826,6 +838,9 @@ void CharacterController::Step(
 	if (!InWater_ || VelocityY10_ >= 0) {
 		WaterExitBoostArmed_ = false;
 	}
+
+	// V1のMoveYと同様、移動後の中心点で次フレームの重力方向を決める。
+	UpdateGravityFromCenter(Map, Catalog);
 
 	EmitTouchInteractions(Map);
 	EmitStandInteractions(Map);
