@@ -78,6 +78,7 @@ Result<CollisionShape> ParseCollisionShape(const std::string& Text) {
 		{"None", CollisionShape::None},
 		{"Solid", CollisionShape::Solid},
 		{"OneWay", CollisionShape::OneWay},
+		{"DropThroughOneWay", CollisionShape::DropThroughOneWay},
 		{"HitFromBelowOnly", CollisionShape::HitFromBelowOnly},
 		{"SlopeUpRight", CollisionShape::SlopeUpRight},
 		{"SlopeUpLeft", CollisionShape::SlopeUpLeft},
