@@ -23,6 +23,7 @@ int TileAt(float Coordinate, int TileSize) {
 bool IsSlope(CollisionShape Shape) {
 	return Shape != CollisionShape::None && Shape != CollisionShape::Solid &&
 		Shape != CollisionShape::OneWay &&
+		Shape != CollisionShape::DropThroughOneWay &&
 		Shape != CollisionShape::HitFromBelowOnly;
 }
 
@@ -56,6 +57,8 @@ void CharacterController::Reposition(WorldPosition Position, bool ResetVelocity)
 	Mode_ = MovementMode::Normal;
 	InWater_ = false;
 	WaterExitBoostArmed_ = false;
+	DroppingThrough_ = false;
+	DropThroughRow_ = -1;
 	if (!ResetVelocity) return;
 	Body_.Velocity = {0.0f, 0.0f};
 	VelocityX10_ = 0;
@@ -208,12 +211,14 @@ void CharacterController::RefreshGround(
 	const float X = Body_.Position.X + CenterX;
 
 	if (Gravity_ == GravityDirection::Up) {
-		// 逆重力時は頭上が「地面」。V1同様、坂は裏面追従せず
-		// 上側衝突面に吸着するものとして扱う。
+		// 逆重力時は頭上が「地面」。OneWay系は下面を支持面として扱う。
 		const CollisionShape Support =
 			ShapeAt(Map, Catalog, X, Body_.Position.Y - 0.01f);
 		Body_.Grounded =
-			Support == CollisionShape::Solid || IsSlope(Support);
+			Support == CollisionShape::Solid ||
+			Support == CollisionShape::OneWay ||
+			(Support == CollisionShape::DropThroughOneWay && !DroppingThrough_) ||
+			IsSlope(Support);
 		if (Body_.Grounded && Body_.Velocity.Y < 0.0f) {
 			Body_.Velocity.Y = 0.0f;
 			VelocityY10_ = 0;
@@ -222,7 +227,12 @@ void CharacterController::RefreshGround(
 	}
 
 	const float FootY = Body_.Position.Y + BottomY;
-	Body_.Grounded = IsSolidAt(Map, Catalog, X, Body_.Position.Y + BelowY);
+	const CollisionShape Support =
+		ShapeAt(Map, Catalog, X, Body_.Position.Y + BelowY);
+	Body_.Grounded =
+		Support == CollisionShape::Solid ||
+		Support == CollisionShape::OneWay ||
+		(Support == CollisionShape::DropThroughOneWay && !DroppingThrough_);
 
 	float SlopeY = 0.0f;
 	CollisionShape GroundShape = CollisionShape::None;
@@ -452,8 +462,18 @@ void CharacterController::MoveUp(
 		}
 	}
 
+	const float CenterProbeX = Body_.Position.X + CenterX;
+	const CollisionShape RisingOneWayShape =
+		ShapeAt(Map, Catalog, CenterProbeX, static_cast<float>(NewY));
+	const bool IgnoreDropThroughUp =
+		DroppingThrough_ &&
+		DropThroughRow_ == TileAt(static_cast<float>(NewY), Map.TileHeight()) &&
+		RisingOneWayShape == CollisionShape::DropThroughOneWay;
+
 	if (CanvasMasaoTerrain::ResolveVerticalSolid(Map, Catalog, X, NewY, false) ||
 		CanvasMasaoTerrain::ResolveRisingSlope(Map, Catalog, X, OldY, NewY) ||
+		(Gravity_ == GravityDirection::Up && !IgnoreDropThroughUp &&
+		 CanvasMasaoTerrain::ResolveRisingOneWay(Map, Catalog, X, OldY, NewY)) ||
 		CanvasMasaoTerrain::ResolveDirectionalVerticalSolid(
 			Map, Catalog, X, OldY, NewY, Direction, false)) {
 		Body_.Position.X = static_cast<float>(X);
@@ -514,9 +534,19 @@ void CharacterController::MoveDown(
 		Body_.Grounded = Gravity_ == GravityDirection::Down;
 		return;
 	}
+	const float OneWayProbeY = static_cast<float>(NewY) + BottomY;
+	const float OneWayProbeX = Body_.Position.X + CenterX;
+	const CollisionShape FallingOneWayShape =
+		ShapeAt(Map, Catalog, OneWayProbeX, OneWayProbeY);
+	const bool IgnoreDropThroughDown =
+		DroppingThrough_ &&
+		DropThroughRow_ == TileAt(OneWayProbeY, Map.TileHeight()) &&
+		FallingOneWayShape == CollisionShape::DropThroughOneWay;
+
 	if (CanvasMasaoTerrain::ResolveVerticalSolid(Map, Catalog, X, NewY, true) ||
 		CanvasMasaoTerrain::ResolveFallingSlope(Map, Catalog, X, OldY, NewY) ||
-		CanvasMasaoTerrain::ResolveFallingOneWay(Map, Catalog, X, OldY, NewY) ||
+		(Gravity_ == GravityDirection::Down && !IgnoreDropThroughDown &&
+		 CanvasMasaoTerrain::ResolveFallingOneWay(Map, Catalog, X, OldY, NewY)) ||
 		CanvasMasaoTerrain::ResolveDirectionalVerticalSolid(
 			Map, Catalog, X, OldY, NewY, Direction, true)) {
 		Body_.Position.X = static_cast<float>(X);
@@ -725,6 +755,30 @@ void CharacterController::Step(
 	UpdateGravityFromCenter(Map, Catalog);
 	// jM100 と同じく、入力処理より前に現在座標から接地を再判定する。
 	RefreshGround(Map, Catalog);
+
+	// V1 Through(num=12) の Tobiori 相当。
+	// 通常重力は下、逆重力は上を押した時だけ、現在のThrough支持面を一度だけ無視する。
+	if (!DroppingThrough_ && Body_.Grounded) {
+		const bool DropRequested =
+			(Gravity_ == GravityDirection::Down && Input.Vertical > 0.0f) ||
+			(Gravity_ == GravityDirection::Up && Input.Vertical < 0.0f);
+		if (DropRequested) {
+			const float SupportY =
+				Gravity_ == GravityDirection::Down
+					? Body_.Position.Y + BelowY
+					: Body_.Position.Y - 0.01f;
+			const CollisionShape Support =
+				ShapeAt(Map, Catalog, Body_.Position.X + CenterX, SupportY);
+			if (Support == CollisionShape::DropThroughOneWay) {
+				DroppingThrough_ = true;
+				DropThroughRow_ = TileAt(SupportY, Map.TileHeight());
+				Body_.Grounded = false;
+				Body_.Velocity.Y = 0.0f;
+				VelocityY10_ = 0;
+			}
+		}
+	}
+
 	const bool OnLadder = IsInsideLadder(Map, Catalog);
 	InWater_ = IsCenterInWater(Map, Catalog);
 
@@ -838,6 +892,25 @@ void CharacterController::Step(
 			static_cast<double>(VelocityY10_) / 10.0));
 		const bool WaterBeforeVertical = WaterAfterHorizontal;
 		MoveVertical(VerticalAmount, Input.Horizontal, Map, Catalog);
+
+		// 支持面の境界を越えたら、次のThrough床は通常どおり受け止められるよう解除する。
+		if (DroppingThrough_) {
+			if (Gravity_ == GravityDirection::Down) {
+				const int FootRow = TileAt(
+					Body_.Position.Y + BottomY, Map.TileHeight());
+				if (FootRow >= DropThroughRow_) {
+					DroppingThrough_ = false;
+					DropThroughRow_ = -1;
+				}
+			} else {
+				const int TopRow = TileAt(Body_.Position.Y, Map.TileHeight());
+				if (TopRow <= DropThroughRow_) {
+					DroppingThrough_ = false;
+					DropThroughRow_ = -1;
+				}
+			}
+		}
+
 		InWater_ = IsCenterInWater(Map, Catalog);
 		ApplyWaterBoundaryTransition(WaterBeforeVertical, InWater_);
 
