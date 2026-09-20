@@ -8,6 +8,11 @@
 
 namespace uchinoko {
 
+enum class MovementRegion {
+	None,
+	Ladder
+};
+
 enum class CollisionShape {
 	None,
 	Solid,
@@ -50,6 +55,9 @@ struct TileDefinition {
 	int ConditionThreshold = 0;
 	int ConditionTrueTileId = -1;
 	int ConditionFalseTileId = -1;
+
+	// キャラクターの移動モードへ影響する領域。衝突形状とは独立して扱う。
+	MovementRegion Movement = MovementRegion::None;
 };
 
 class TileCatalog {
