@@ -1949,6 +1949,145 @@ void TestLadderBuilderCreatesTilesUntilSolidCeiling() {
 	assert(*Map.TryGet({1, 0}) == 1);
 }
 
+void TestGravityRegionDefinitions() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* Up = Loaded.Value().Find(59);
+	const TileDefinition* Down = Loaded.Value().Find(60);
+	assert(Up != nullptr && Down != nullptr);
+	assert(Up->Collision == CollisionShape::None);
+	assert(Down->Collision == CollisionShape::None);
+	assert(Up->Movement == MovementRegion::GravityUp);
+	assert(Down->Movement == MovementRegion::GravityDown);
+}
+
+void TestGravityUpFallsToCeilingAndJumpsAway() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{1, 1, 1},
+		{0, 0, 0},
+		{0, 59, 0},
+		{1, 1, 1}
+	});
+
+	CharacterBody Body;
+	Body.Position = {32.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	CharacterInput Idle;
+	Player.Step(Idle, Map, Loaded.Value());
+	assert(Player.Gravity() == GravityDirection::Up);
+	assert(!Player.Body().Grounded);
+
+	for (int Frame = 0; Frame < 40 && !Player.Body().Grounded; ++Frame) {
+		Player.Step(Idle, Map, Loaded.Value());
+	}
+
+	assert(Player.Gravity() == GravityDirection::Up);
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 32.0f));
+	assert(NearlyEqual(Player.Body().Velocity.Y, 0.0f));
+
+	bool FoundCeilingStand = false;
+	for (const TileInteraction& Interaction : Player.Interactions()) {
+		if (Interaction.Trigger == TileTrigger::StandOn &&
+			Interaction.Position.Column == 1 &&
+			Interaction.Position.Row == 0) {
+			FoundCeilingStand = true;
+		}
+	}
+	assert(FoundCeilingStand);
+
+	CharacterInput Jump;
+	Jump.JumpPressed = true;
+	Player.Step(Jump, Map, Loaded.Value());
+	assert(Player.Gravity() == GravityDirection::Up);
+	assert(!Player.Body().Grounded);
+	assert(Player.Body().Velocity.Y > 0.0f);
+	assert(Player.Body().Position.Y > 32.0f);
+}
+
+void TestGravityDownRegionRestoresNormalGravity() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{1, 1, 1, 1},
+		{0, 0, 60, 0},
+		{0, 59, 0, 0},
+		{1, 1, 1, 1}
+	});
+
+	CharacterBody Body;
+	Body.Position = {32.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	CharacterInput Idle;
+
+	for (int Frame = 0; Frame < 50 && !Player.IsGravityUp(); ++Frame) {
+		Player.Step(Idle, Map, Loaded.Value());
+	}
+	assert(Player.IsGravityUp());
+
+	for (int Frame = 0; Frame < 50 && !Player.Body().Grounded; ++Frame) {
+		Player.Step(Idle, Map, Loaded.Value());
+	}
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 32.0f));
+
+	CharacterInput Right;
+	Right.Horizontal = 1.0f;
+	for (int Frame = 0;
+		Frame < 12 && Player.Gravity() != GravityDirection::Down;
+		++Frame) {
+		Player.Step(Right, Map, Loaded.Value());
+	}
+
+	assert(Player.Gravity() == GravityDirection::Down);
+	assert(!Player.Body().Grounded);
+
+	for (int Frame = 0; Frame < 50 && !Player.Body().Grounded; ++Frame) {
+		Player.Step(Idle, Map, Loaded.Value());
+	}
+
+	assert(Player.Gravity() == GravityDirection::Down);
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 64.0f));
+}
+
+void TestUpGravityUsesNegativeTerminalVelocity() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 59, 0},
+		{1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {32.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+	CharacterInput Idle;
+
+	for (int Frame = 0; Frame < 40; ++Frame) {
+		Player.Step(Idle, Map, Loaded.Value());
+	}
+
+	assert(Player.Gravity() == GravityDirection::Up);
+	assert(Player.Body().Velocity.Y >= -10.0f - 0.001f);
+	assert(NearlyEqual(Player.Body().Velocity.Y, -10.0f));
+}
+
 void TestWaterDefinition() {
 	Result<TileCatalog> Loaded =
 		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
@@ -2848,6 +2987,10 @@ int main() {
 	TestCharacterClimbsLadderWithoutGravity();
 	TestLadderEntryRulesMatchVersion1();
 	TestLadderBuilderCreatesTilesUntilSolidCeiling();
+	TestGravityRegionDefinitions();
+	TestGravityUpFallsToCeilingAndJumpsAway();
+	TestGravityDownRegionRestoresNormalGravity();
+	TestUpGravityUsesNegativeTerminalVelocity();
 	TestWaterDefinition();
 	TestCharacterUsesWaterGravityAndTerminalVelocity();
 	TestWaterHorizontalMovementIsSlower();
