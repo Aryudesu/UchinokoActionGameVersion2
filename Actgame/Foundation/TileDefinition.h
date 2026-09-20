@@ -38,6 +38,10 @@ struct TileDefinition {
 	int SwitchChannel = -1;
 	int SwitchOnTileId = -1;
 	int SwitchOffTileId = -1;
+
+	// 0より大きい場合、このスイッチチャネルを指定フレーム周期で自動反転する。
+	// DisAppBlock1/2 のような時間制出現ブロック用。
+	int AutoTogglePeriod = 0;
 };
 
 class TileCatalog {
