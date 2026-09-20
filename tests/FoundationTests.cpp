@@ -1630,6 +1630,29 @@ void TestCharacterLandsOn1x2Slope() {
 	assert(NearlyEqual(Player.Body().Position.Y, 32.0f));
 }
 
+void TestCharacterRepositionResetsInternalVelocity() {
+	TileMap Map = MakeMap({
+		{0, 0},
+		{0, 0}
+	});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	CharacterBody Body;
+	Body.Position = {0.0f, 0.0f};
+	Body.Velocity = {2.0f, -4.0f};
+	Body.Grounded = false;
+	CharacterMotion Motion;
+	Motion.MoveSpeed = 0.0f;
+	Motion.Gravity = 0.0f;
+	CharacterController Player(Body, Motion);
+
+	Player.Reposition({10.0f, 10.0f}, true);
+	assert(NearlyEqual(Player.Body().Velocity.X, 0.0f));
+	assert(NearlyEqual(Player.Body().Velocity.Y, 0.0f));
+	Player.Step(0.0f, false, Map, Catalog);
+	assert(NearlyEqual(Player.Body().Position.X, 10.0f));
+	assert(NearlyEqual(Player.Body().Position.Y, 10.0f));
+}
+
 void TestCharacterMovement() {
 	TileMap FlatMap = MakeMap({{0, 0, 0}, {1, 1, 1}, {0, 0, 0}});
 	TileCatalog Catalog = MakeTerrainCatalog();
@@ -2206,6 +2229,7 @@ int main() {
 	TestCharacterTraverses1x2SlopeWithoutSeamSnag();
 	TestCharacterCannotEnter1x2HighSide();
 	TestCharacterLandsOn1x2Slope();
+	TestCharacterRepositionResetsInternalVelocity();
 	TestCharacterMovement();
 	TestCharacterRecomputesGroundFromMasaoProbes();
 	TestCharacterUsesGetSakamichiYCoordinates();
