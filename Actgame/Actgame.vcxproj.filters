@@ -401,6 +401,10 @@
     <None Include="..\dat\stage\interaction-test\tiles.csv"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\interaction-test\stage.ini"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\interaction-test\terrain.csv"><Filter>Stage Data</Filter></None>
-    <None Include="..\dat\stage\interaction-test\pipes.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\pipe-test\stage.ini"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\pipe-test\terrain.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\pipe-test\tiles.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\pipe-test\pipes.csv"><Filter>Stage Data</Filter></None>
+
   </ItemGroup>
 </Project>
