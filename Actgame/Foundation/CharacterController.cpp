@@ -214,10 +214,15 @@ void CharacterController::RefreshGround(
 		// 逆重力時は頭上が「地面」。OneWay系は下面を支持面として扱う。
 		const CollisionShape Support =
 			ShapeAt(Map, Catalog, X, Body_.Position.Y - 0.01f);
+		const float TopMod = std::fmod(
+			std::fabs(Body_.Position.Y), static_cast<float>(Map.TileHeight()));
+		const bool OnOneWaySurface = TopMod < 0.01f ||
+			std::fabs(TopMod - static_cast<float>(Map.TileHeight())) < 0.01f;
 		Body_.Grounded =
 			Support == CollisionShape::Solid ||
-			Support == CollisionShape::OneWay ||
-			(Support == CollisionShape::DropThroughOneWay && !DroppingThrough_) ||
+			(OnOneWaySurface && Support == CollisionShape::OneWay) ||
+			(OnOneWaySurface && Support == CollisionShape::DropThroughOneWay &&
+			 !DroppingThrough_) ||
 			IsSlope(Support);
 		if (Body_.Grounded && Body_.Velocity.Y < 0.0f) {
 			Body_.Velocity.Y = 0.0f;
@@ -227,12 +232,18 @@ void CharacterController::RefreshGround(
 	}
 
 	const float FootY = Body_.Position.Y + BottomY;
+	const float SupportY = Body_.Position.Y + BelowY;
 	const CollisionShape Support =
-		ShapeAt(Map, Catalog, X, Body_.Position.Y + BelowY);
+		ShapeAt(Map, Catalog, X, SupportY);
+	const float SupportMod = std::fmod(
+		std::fabs(SupportY), static_cast<float>(Map.TileHeight()));
+	const bool OnOneWaySurface = SupportMod < 0.01f ||
+		std::fabs(SupportMod - static_cast<float>(Map.TileHeight())) < 0.01f;
 	Body_.Grounded =
 		Support == CollisionShape::Solid ||
-		Support == CollisionShape::OneWay ||
-		(Support == CollisionShape::DropThroughOneWay && !DroppingThrough_);
+		(OnOneWaySurface && Support == CollisionShape::OneWay) ||
+		(OnOneWaySurface && Support == CollisionShape::DropThroughOneWay &&
+		 !DroppingThrough_);
 
 	float SlopeY = 0.0f;
 	CollisionShape GroundShape = CollisionShape::None;
