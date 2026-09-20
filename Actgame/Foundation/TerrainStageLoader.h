@@ -2,6 +2,7 @@
 
 #include "Coordinates.h"
 #include "Result.h"
+#include "PipeTransport.h"
 #include "TileDefinition.h"
 #include "TileMap.h"
 
@@ -12,6 +13,7 @@ namespace uchinoko {
 struct TerrainStageData {
 	TileMap Map;
 	TileCatalog Catalog;
+	PipeNetwork Pipes;
 	WorldPosition PlayerSpawn;
 };
 
@@ -20,6 +22,8 @@ public:
 	// Manifest 内の terrain と tiles は ManifestFile からの相対パスで解決する。
 	static Result<TerrainStageData> Load(const std::string& ManifestFile);
 	static Result<TileCatalog> LoadCatalog(const std::string& FileName);
+	static Result<PipeNetwork> LoadPipes(
+		const std::string& FileName, int TileWidth = 32, int TileHeight = 32);
 };
 
 } // namespace uchinoko
