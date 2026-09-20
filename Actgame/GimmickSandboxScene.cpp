@@ -219,6 +219,16 @@ void GimmickSandboxScene::draw() {
 					Left, Top + 3, Right, Top + 3,
 					GetColor(170, 220, 255), 2);
 			}
+			if (Definition->Movement == uchinoko::MovementRegion::GravityUp) {
+				DrawBox(Left + 2, Top + 2, Right - 2, Bottom - 2,
+					GetColor(130, 90, 210), FALSE);
+				DrawString(Left + 6, Top + 7, "G^", GetColor(220, 200, 255));
+			}
+			if (Definition->Movement == uchinoko::MovementRegion::GravityDown) {
+				DrawBox(Left + 2, Top + 2, Right - 2, Bottom - 2,
+					GetColor(210, 120, 80), FALSE);
+				DrawString(Left + 6, Top + 7, "Gv", GetColor(255, 220, 190));
+			}
 			if (Definition->Movement == uchinoko::MovementRegion::Ladder) {
 				const int Center = Left + Map_.TileWidth() / 2;
 				DrawLine(Center - 7, Top + 2, Center - 7, Bottom - 2,
@@ -308,14 +318,15 @@ void GimmickSandboxScene::draw() {
 		"Gimmick: Arrows(move/climb/swim), Z jump/swim, R reload, 1/2/3 coins, Esc",
 		GetColor(255, 255, 255));
 	DrawFormatString(16, 40, GetColor(255, 255, 255),
-		"Coins:%d HP+:%d Lives+:%d Score:%d Mode:%s Water:%s Switch:%s Timer:%02d",
+		"Coins:%d HP+:%d Lives+:%d Score:%d Mode:%s Water:%s Grav:%s Switch:%s T:%02d",
 		Coins_, Health_, Lives_, Score_,
 		Player_.IsClimbing() ? "CLIMB" : "NORMAL",
 		Player_.IsInWater() ? "YES" : "NO",
+		Player_.IsGravityUp() ? "UP" : "DOWN",
 		World_.GetSwitch(0) ? "ON" : "OFF",
 		World_.GetAutoToggleCounter(1));
 	DrawString(16, 64,
-		"left pool: WATER / col9:ladder / col10:?ladder / col12:hidden ladder",
+		"col11:G^ -> ceiling / ceiling col13:Gv / left pool:WATER / col9:ladder",
 		GetColor(220, 220, 220));
 	if (Dead_) {
 		DrawString(16, 88,
