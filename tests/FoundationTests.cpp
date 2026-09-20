@@ -2219,6 +2219,33 @@ void TestDropThroughOneWayDefinition() {
 		CanvasMasaoTerrain::OneWayCode);
 }
 
+void TestCharacterLandsOnDropThroughPlatformNormally() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/through-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 62, 0},
+		{0, 0, 0},
+		{1, 1, 1}
+	});
+
+	CharacterBody Body;
+	Body.Position = {32.0f, 0.0f};
+	Body.Grounded = false;
+	CharacterController Player(Body);
+
+	CharacterInput Idle;
+	for (int Frame = 0; Frame < 40 && !Player.Body().Grounded; ++Frame) {
+		Player.Step(Idle, Map, Loaded.Value());
+	}
+
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 32.0f));
+}
+
 void TestCharacterDropsThroughPlatformWithDown() {
 	Result<TileCatalog> Loaded =
 		TerrainStageLoader::LoadCatalog("dat/stage/through-test/tiles.csv");
@@ -3391,6 +3418,7 @@ int main() {
 	TestLadderEntryRulesMatchVersion1();
 	TestLadderBuilderCreatesTilesUntilSolidCeiling();
 	TestDropThroughOneWayDefinition();
+	TestCharacterLandsOnDropThroughPlatformNormally();
 	TestCharacterDropsThroughPlatformWithDown();
 	TestNormalOneWayDoesNotDropWithDown();
 	TestReverseGravityDropsThroughPlatformWithUp();
