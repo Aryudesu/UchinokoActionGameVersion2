@@ -7,6 +7,7 @@
 #include "Foundation/CharacterSafety.h"
 #include "Foundation/ConditionalTerrain.h"
 #include "Foundation/WorldState.h"
+#include "Foundation/StageProgress.h"
 #include "Scene.h"
 
 #include <string>
@@ -40,4 +41,8 @@ private:
 	int Lives_ = 0;
 	int Broken_ = 0;
 	bool Dead_ = false;
+	static constexpr int SandboxStageId = 1;
+	uchinoko::StageProgress Progress_;
+	bool HasLastGoal_ = false;
+	uchinoko::GoalKind LastGoal_ = uchinoko::GoalKind::Normal;
 };
