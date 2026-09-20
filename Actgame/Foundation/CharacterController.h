@@ -55,6 +55,8 @@ public:
 	explicit CharacterController(CharacterBody Body, CharacterMotion Motion = CharacterMotion());
 	void Step(float HorizontalInput, bool JumpPressed, const TileMap& Map, const TileCatalog& Catalog);
 	void Step(const CharacterInput& Input, const TileMap& Map, const TileCatalog& Catalog);
+	// 入力を受け付けない演出中などに、現在の縦速度と重力だけで物理を継続する。
+	void StepWithoutInput(const TileMap& Map, const TileCatalog& Catalog);
 	const CharacterBody& Body() const { return Body_; }
 	CharacterBody& Body() { return Body_; }
 	void Reposition(WorldPosition Position, bool ResetVelocity = true);
