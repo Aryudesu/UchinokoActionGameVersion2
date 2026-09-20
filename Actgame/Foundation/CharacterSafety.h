@@ -21,7 +21,7 @@ public:
 	// WorldStateの切替で新しくSolidになったタイルだけを対象にする。
 	// 重なった場合は最短方向への押し出しを試し、逃げ場がなければ即死Effectを返す。
 	static CharacterSafetyResult ResolveActivatedSolids(
-		CharacterBody& Body,
+		CharacterController& Controller,
 		const TileMap& Map, const TileCatalog& Catalog,
 		const std::vector<TilePosition>& ActivatedSolidTiles);
 
