@@ -19,6 +19,21 @@ inline bool TryGoalKindFromValue(int Value, GoalKind& Kind) {
 	return false;
 }
 
+struct StageCompletionState {
+	bool Cleared = false;
+	GoalKind Goal = GoalKind::Normal;
+
+	void Complete(GoalKind Kind) {
+		Cleared = true;
+		Goal = Kind;
+	}
+
+	void Reset() {
+		Cleared = false;
+		Goal = GoalKind::Normal;
+	}
+};
+
 struct StageClearState {
 	bool NormalCleared = false;
 	bool SecretCleared = false;
