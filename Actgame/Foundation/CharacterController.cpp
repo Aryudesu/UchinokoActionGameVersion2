@@ -241,12 +241,14 @@ void CharacterController::ResolveHorizontalWall(
 	const TileMap& Map, const TileCatalog& Catalog) {
 	int X = static_cast<int>(Body_.Position.X);
 	float ExtendedX = Body_.Position.X;
+	const bool SlopeGrounded =
+		Body_.Grounded && Gravity_ == GravityDirection::Down;
 	if (ExtendedSlopeTerrain::ResolveHighSide(
 			Map, Catalog, OldCenterX - CenterX, ExtendedX, Body_.Position.Y,
-			MovingRight, Body_.Grounded) ||
+			MovingRight, SlopeGrounded) ||
 		ExtendedSlopeTerrain::ResolveHighSide1x2(
 			Map, Catalog, OldCenterX - CenterX, ExtendedX, Body_.Position.Y,
-			MovingRight, Body_.Grounded)) {
+			MovingRight, SlopeGrounded)) {
 		Body_.Position.X = ExtendedX;
 		Body_.Velocity.X = 0.0f;
 		VelocityX10_ = 0;
@@ -256,7 +258,7 @@ void CharacterController::ResolveHorizontalWall(
 		Map, Catalog, X, static_cast<int>(Body_.Position.Y), MovingRight) ||
 		CanvasMasaoTerrain::ResolveHorizontalSlopeSide(
 			Map, Catalog, static_cast<int>(OldCenterX - CenterX), X,
-			static_cast<int>(Body_.Position.Y), MovingRight, Body_.Grounded)) {
+			static_cast<int>(Body_.Position.Y), MovingRight, SlopeGrounded)) {
 		Body_.Position.X = static_cast<float>(X);
 		Body_.Velocity.X = 0.0f;
 		VelocityX10_ = 0;
@@ -283,7 +285,7 @@ void CharacterController::ResolveHorizontalWall(
 		const bool HasSurface = TerrainCollision::TryGetSurfaceY(
 			Shape, {NewColumn, TileAt(ProbeY, Map.TileHeight())}, NewCenterX,
 			Map.TileWidth(), Map.TileHeight(), SurfaceY);
-		if (HasSurface && Body_.Grounded && Body_.Position.Y <= SurfaceY - BelowY) continue;
+		if (HasSurface && SlopeGrounded && Body_.Position.Y <= SurfaceY - BelowY) continue;
 		float BlockTop = 0.0f;
 		float BlockBottom = 0.0f;
 		if (TerrainCollision::TryGetSideBlock(
@@ -410,7 +412,9 @@ void CharacterController::MoveHorizontal(
 	const bool MovingRight = Amount > 0.0f;
 	Body_.Position.X += Amount;
 
-	FollowMasaoSlopeAfterHorizontal(OldX, OldY, WasGrounded, Map, Catalog);
+	if (Gravity_ == GravityDirection::Down) {
+		FollowMasaoSlopeAfterHorizontal(OldX, OldY, WasGrounded, Map, Catalog);
+	}
 	ResolveHorizontalWall(OldCenterX, MovingRight, Map, Catalog);
 
 	const float MaxX = static_cast<float>(Map.Width() * Map.TileWidth()) - BelowY;
@@ -454,7 +458,7 @@ void CharacterController::MoveUp(
 		Body_.Position.Y = static_cast<float>(NewY);
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
-		Body_.Grounded = false;
+		Body_.Grounded = Gravity_ == GravityDirection::Up;
 		return;
 	}
 
@@ -466,7 +470,7 @@ void CharacterController::MoveUp(
 		Body_.Position.Y = ExtendedY;
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
-		Body_.Grounded = false;
+		Body_.Grounded = Gravity_ == GravityDirection::Up;
 		return;
 	}
 
@@ -483,7 +487,7 @@ void CharacterController::MoveUp(
 		Body_.Position.Y = static_cast<float>((Row + 1) * Map.TileHeight());
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
-		Body_.Grounded = false;
+		Body_.Grounded = Gravity_ == GravityDirection::Up;
 		return;
 	}
 	Body_.Grounded = false;
@@ -505,7 +509,7 @@ void CharacterController::MoveDown(
 		Body_.Position.Y = ExtendedY;
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
-		Body_.Grounded = true;
+		Body_.Grounded = Gravity_ == GravityDirection::Down;
 		return;
 	}
 	if (CanvasMasaoTerrain::ResolveVerticalSolid(Map, Catalog, X, NewY, true) ||
@@ -517,7 +521,7 @@ void CharacterController::MoveDown(
 		Body_.Position.Y = static_cast<float>(NewY);
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
-		Body_.Grounded = true;
+		Body_.Grounded = Gravity_ == GravityDirection::Down;
 		return;
 	}
 
@@ -532,7 +536,7 @@ void CharacterController::MoveDown(
 		Body_.Position.Y = SlopeY;
 		Body_.Velocity.Y = 0.0f;
 		VelocityY10_ = 0;
-		Body_.Grounded = true;
+		Body_.Grounded = Gravity_ == GravityDirection::Down;
 		return;
 	}
 	Body_.Grounded = false;
