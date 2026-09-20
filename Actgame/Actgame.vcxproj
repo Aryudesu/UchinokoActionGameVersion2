@@ -201,6 +201,7 @@
     <ClInclude Include="Foundation\ItemSystem.h" />
     <ClInclude Include="Foundation\LayeredMap.h" />
     <ClInclude Include="Foundation\PipeTransport.h" />
+    <ClInclude Include="Foundation\GoalState.h" />
     <ClInclude Include="Foundation\Result.h" />
     <ClInclude Include="Foundation\StageDefinition.h" />
     <ClInclude Include="Foundation\TerrainCollision.h" />
@@ -262,6 +263,9 @@
     <None Include="..\dat\stage\through-test\stage.ini" />
     <None Include="..\dat\stage\through-test\terrain.csv" />
     <None Include="..\dat\stage\through-test\tiles.csv" />
+    <None Include="..\dat\stage\goal-test\stage.ini" />
+    <None Include="..\dat\stage\goal-test\terrain.csv" />
+    <None Include="..\dat\stage\goal-test\tiles.csv" />
 
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
