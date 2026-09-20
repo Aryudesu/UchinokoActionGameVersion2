@@ -43,7 +43,7 @@ GimmickSandboxScene::GimmickSandboxScene() {
 
 void GimmickSandboxScene::Reload() {
 	uchinoko::Result<uchinoko::TerrainStageData> Loaded =
-		uchinoko::TerrainStageLoader::Load("dat/stage/through-test/stage.ini");
+		uchinoko::TerrainStageLoader::Load("dat/stage/goal-test/stage.ini");
 	if (Loaded.IsFailure()) {
 		LoadError_ = Loaded.Error();
 		return;
@@ -70,6 +70,9 @@ void GimmickSandboxScene::Reload() {
 	Lives_ = 0;
 	Broken_ = 0;
 	Dead_ = false;
+	Progress_.Reset();
+	HasLastGoal_ = false;
+	LastGoal_ = uchinoko::GoalKind::Normal;
 	SynchronizeConditionalTerrain();
 	LoadError_.clear();
 }
@@ -96,6 +99,15 @@ void GimmickSandboxScene::ApplyEffectList(
 		case uchinoko::TileEffectType::InstantDeath:
 			Dead_ = true;
 			break;
+		case uchinoko::TileEffectType::Goal: {
+			uchinoko::GoalKind Kind;
+			if (uchinoko::TryParseGoalKind(Effects[Index].Value, Kind)) {
+				Progress_.MarkCleared(SandboxStageId, Kind);
+				LastGoal_ = Kind;
+				HasLastGoal_ = true;
+			}
+			break;
+		}
 		default:
 			break;
 		}
@@ -309,6 +321,23 @@ void GimmickSandboxScene::draw() {
 				DrawBox(Left + 2, Top + 2, Right - 2, Bottom - 2,
 					GetColor(190, 110, 70), FALSE);
 			}
+			for (std::size_t RuleIndex = 0; RuleIndex < Definition->Rules.size(); ++RuleIndex) {
+				const uchinoko::TileRule& Rule = Definition->Rules[RuleIndex];
+				if (Rule.Action != uchinoko::TileAction::Goal) continue;
+				const bool Secret = Rule.Value == uchinoko::GoalKindValue(
+					uchinoko::GoalKind::Secret);
+				DrawCircle(
+					Left + Map_.TileWidth() / 2,
+					Top + Map_.TileHeight() / 2,
+					12,
+					Secret ? GetColor(190, 110, 240) : GetColor(110, 220, 140),
+					TRUE);
+				DrawString(
+					Left + 11, Top + 8,
+					Secret ? "S" : "N",
+					GetColor(255, 255, 255));
+				break;
+			}
 			const uchinoko::TileRuntimeState* State = Runtime_.TryGet({Column, Row});
 			if (State != nullptr && State->Count > 0) {
 				DrawFormatString(
@@ -380,15 +409,28 @@ void GimmickSandboxScene::draw() {
 		}
 	}
 
+	const uchinoko::StageClearState ClearState =
+		Progress_.GetOrDefault(SandboxStageId);
 	DrawString(16, 16,
-		"Through test: LEFT/RIGHT move, DOWN drop, Z jump, R reload, Esc",
+		"Goal test: LEFT/RIGHT move, Z jump, R reset, Esc",
 		GetColor(255, 255, 255));
-	DrawString(16, 40,
-		"Orange(v): Through - DOWN drops / Blue: normal OneWay",
-		GetColor(255, 230, 190));
-	DrawString(16, 64,
-		"R reloads onto the orange platform.",
-		GetColor(210, 230, 255));
+	DrawFormatString(16, 40, GetColor(255, 255, 255),
+		"Normal:%s  Secret:%s  Either:%s  Both:%s",
+		ClearState.NormalCleared ? "YES" : "NO",
+		ClearState.SecretCleared ? "YES" : "NO",
+		Progress_.Satisfies(SandboxStageId, uchinoko::ClearRequirement::Either) ? "YES" : "NO",
+		Progress_.Satisfies(SandboxStageId, uchinoko::ClearRequirement::Both) ? "YES" : "NO");
+	if (HasLastGoal_) {
+		DrawString(16, 64,
+			LastGoal_ == uchinoko::GoalKind::Secret
+				? "Last goal: SECRET (+1000)"
+				: "Last goal: NORMAL (+1000)",
+			GetColor(220, 230, 255));
+	} else {
+		DrawString(16, 64,
+			"Green N = Normal Goal / Purple S = Secret Goal",
+			GetColor(220, 230, 255));
+	}
 	if (Dead_) {
 		DrawString(16, 88,
 			"CRUSHED - InstantDeath (R: reload)",
