@@ -710,6 +710,10 @@ void CharacterController::Step(
 			Body_.Position.Y + Body_.Height - 2.0f);
 	}
 
+	// これは「横移動後の実際の位置」でのWater判定。
+	// 物理計算にはフレーム開始時の InWater_ を使い続ける。
+	const bool WaterAfterHorizontal = IsCenterInWater(Map, Catalog);
+
 	// V1は MoveX 後も UpdateSpeedY / Jump では直前フレームのWater状態を使い、
 	// Water状態そのものは MoveY の後で更新する。
 	// そのため横から水へ入った同じフレームに水中ジャンプへ切り替えない。
@@ -744,7 +748,7 @@ void CharacterController::Step(
 
 		const float VerticalAmount = static_cast<float>(CanvasMasaoTerrain::RoundDown(
 			static_cast<double>(VelocityY10_) / 10.0));
-		const bool WaterBeforeVertical = InWater_;
+		const bool WaterBeforeVertical = WaterAfterHorizontal;
 		MoveVertical(VerticalAmount, Input.Horizontal, Map, Catalog);
 		InWater_ = IsCenterInWater(Map, Catalog);
 		ApplyWaterBoundaryTransition(WaterBeforeVertical, InWater_);
@@ -766,7 +770,7 @@ void CharacterController::Step(
 	}
 
 	if (Body_.Grounded) {
-		InWater_ = IsCenterInWater(Map, Catalog);
+		InWater_ = WaterAfterHorizontal;
 	}
 
 	EmitTouchInteractions(Map);
