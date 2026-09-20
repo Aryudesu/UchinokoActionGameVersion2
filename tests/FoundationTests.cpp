@@ -1,4 +1,5 @@
 ﻿#include "../Actgame/Foundation/AssetPaths.h"
+#include "../Actgame/Foundation/BrickSystem.h"
 #include "../Actgame/Foundation/CharacterController.h"
 #include "../Actgame/Foundation/CharacterSafety.h"
 #include "../Actgame/Foundation/ConditionalTerrain.h"
@@ -96,6 +97,159 @@ TileMap MakeMap(IntegerGrid Tiles) {
 	Result<TileMap> Created = TileMap::Create(Tiles);
 	assert(Created.IsSuccess());
 	return Created.Value();
+}
+
+void TestBrickDefinitionAndHitEffect() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/brick-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* Brick = Loaded.Value().Find(72);
+	assert(Brick != nullptr);
+	assert(Brick->Collision == CollisionShape::Solid);
+	assert(Brick->Rules.size() == 1);
+	assert(Brick->Rules[0].Trigger == TileTrigger::HitFromBelow);
+	assert(Brick->Rules[0].Action == TileAction::HitBrick);
+	assert(Brick->Rules[0].Value == BrickSystem::Version1RequiredHealth);
+	assert(!Brick->Rules[0].Once);
+
+	TileMap Map = MakeMap({{72}});
+	TileRuntimeMap Runtime(Map);
+	TileInteraction Hit;
+	Hit.Trigger = TileTrigger::HitFromBelow;
+	Hit.Position = {0, 0};
+	Hit.TileId = 72;
+
+	const TileBehaviorResult Result =
+		TileBehaviorSystem::Apply(Hit, Map, Loaded.Value(), Runtime);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::BrickHit);
+	assert(Result.Effects[0].Value == 5);
+	assert(Result.Effects[0].SourceTileId == 72);
+	assert(*Map.TryGet({0, 0}) == 72);
+}
+
+void TestBrickWithLowHealthBumpsButDoesNotBreak() {
+	TileMap Map = MakeMap({{72}});
+	BrickSystem Bricks;
+
+	TileEffect Hit;
+	Hit.Type = TileEffectType::BrickHit;
+	Hit.Position = {0, 0};
+	Hit.Value = 5;
+	Hit.SourceTileId = 72;
+
+	GameStateSnapshot State;
+	State.Health = 4;
+	Bricks.ConsumeTileEffects({Hit}, State);
+
+	const ActiveBrick* Active = Bricks.TryGet({0, 0});
+	assert(Active != nullptr);
+	assert(Active->Phase == BrickPhase::Bumping);
+
+	for (int Frame = 0; Frame < BrickSystem::Version1BumpFrames - 1; ++Frame) {
+		const std::vector<TileEffect> Effects =
+			Bricks.Update(Map, 32, 32, 1000.0f);
+		assert(Effects.empty());
+		assert(*Map.TryGet({0, 0}) == 72);
+		assert(Bricks.TryGet({0, 0}) != nullptr);
+	}
+
+	const std::vector<TileEffect> Last =
+		Bricks.Update(Map, 32, 32, 1000.0f);
+	assert(Last.empty());
+	assert(*Map.TryGet({0, 0}) == 72);
+	assert(Bricks.TryGet({0, 0}) == nullptr);
+	assert(Bricks.Fragments().empty());
+}
+
+void TestBrickWithFullHealthBreaksAfterVersion1Delay() {
+	TileMap Map = MakeMap({{72}});
+	BrickSystem Bricks;
+
+	TileEffect Hit;
+	Hit.Type = TileEffectType::BrickHit;
+	Hit.Position = {0, 0};
+	Hit.Value = 5;
+	Hit.SourceTileId = 72;
+
+	GameStateSnapshot State;
+	State.Health = 5;
+	Bricks.ConsumeTileEffects({Hit}, State);
+
+	const ActiveBrick* Active = Bricks.TryGet({0, 0});
+	assert(Active != nullptr);
+	assert(Active->Phase == BrickPhase::Breaking);
+
+	for (int Frame = 0; Frame < BrickSystem::Version1BreakFrames - 1; ++Frame) {
+		const std::vector<TileEffect> Effects =
+			Bricks.Update(Map, 32, 32, 1000.0f);
+		assert(Effects.empty());
+		assert(*Map.TryGet({0, 0}) == 72);
+		assert(Bricks.TryGet({0, 0}) != nullptr);
+	}
+
+	std::srand(1);
+	const std::vector<TileEffect> Effects =
+		Bricks.Update(Map, 32, 32, 1000.0f);
+
+	assert(*Map.TryGet({0, 0}) == 0);
+	assert(Bricks.TryGet({0, 0}) == nullptr);
+	assert(Effects.size() == 2);
+	assert(Effects[0].Type == TileEffectType::AddScore);
+	assert(Effects[0].Value == 10);
+	assert(Effects[1].Type == TileEffectType::TileBroken);
+	assert(Bricks.Fragments().size() == BrickSystem::Version1FragmentCount);
+
+	for (const BrickFragment& Fragment : Bricks.Fragments()) {
+		assert(Fragment.Position.X == 0.0f);
+		assert(Fragment.Position.Y == 0.0f);
+		assert(Fragment.Velocity.X >= -5.0f);
+		assert(Fragment.Velocity.X <= 5.0f);
+		assert(Fragment.Velocity.Y >= -14.0f);
+		assert(Fragment.Velocity.Y <= 0.0f);
+	}
+
+	const std::vector<BrickFragment> Before = Bricks.Fragments();
+	Bricks.Update(Map, 32, 32, 1000.0f);
+	assert(Bricks.Fragments().size() == Before.size());
+	for (std::size_t Index = 0; Index < Before.size(); ++Index) {
+		assert(NearlyEqual(
+			Bricks.Fragments()[Index].Velocity.Y,
+			std::min(10.0f, Before[Index].Velocity.Y + 0.5f)));
+		assert(NearlyEqual(
+			Bricks.Fragments()[Index].Position.X,
+			Before[Index].Position.X + Before[Index].Velocity.X));
+		assert(NearlyEqual(
+			Bricks.Fragments()[Index].Position.Y,
+			Before[Index].Position.Y +
+			std::min(10.0f, Before[Index].Velocity.Y + 0.5f)));
+	}
+}
+
+void TestBrickIgnoresRepeatedHitsWhileAnimating() {
+	TileMap Map = MakeMap({{72}});
+	BrickSystem Bricks;
+
+	TileEffect Hit;
+	Hit.Type = TileEffectType::BrickHit;
+	Hit.Position = {0, 0};
+	Hit.Value = 5;
+	Hit.SourceTileId = 72;
+
+	GameStateSnapshot Low;
+	Low.Health = 4;
+	Bricks.ConsumeTileEffects({Hit}, Low);
+	Bricks.Update(Map, 32, 32, 1000.0f);
+
+	GameStateSnapshot Full;
+	Full.Health = 5;
+	Bricks.ConsumeTileEffects({Hit}, Full);
+
+	const ActiveBrick* Active = Bricks.TryGet({0, 0});
+	assert(Active != nullptr);
+	assert(Active->Phase == BrickPhase::Bumping);
 }
 
 void TestGoalStageDefinitionsAndEffects() {
@@ -3485,6 +3639,10 @@ int main() {
 	TestAssetPaths();
 	TestGridDataLoader();
 	TestExternalTerrainStage();
+	TestBrickDefinitionAndHitEffect();
+	TestBrickWithLowHealthBumpsButDoesNotBreak();
+	TestBrickWithFullHealthBreaksAfterVersion1Delay();
+	TestBrickIgnoresRepeatedHitsWhileAnimating();
 	TestGoalStageDefinitionsAndEffects();
 	TestNormalAndSecretGoalProgressAreIndependent();
 	TestStageCompletionEndsRunWithOneGoal();
