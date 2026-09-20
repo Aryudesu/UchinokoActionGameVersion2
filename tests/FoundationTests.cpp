@@ -1,6 +1,7 @@
 ﻿#include "../Actgame/Foundation/AssetPaths.h"
 #include "../Actgame/Foundation/CharacterController.h"
 #include "../Actgame/Foundation/CharacterSafety.h"
+#include "../Actgame/Foundation/ConditionalTerrain.h"
 #include "../Actgame/Foundation/CanvasMasaoTerrain.h"
 #include "../Actgame/Foundation/ExtendedSlopeTerrain.h"
 #include "../Actgame/Foundation/GridDataLoader.h"
@@ -540,6 +541,104 @@ void TestOnOffDefinitionsAndWorldState() {
 	assert(*Map.TryGet({2, 0}) == 43);
 	assert(On.ActivatedSolidTiles.size() == 1);
 	assert(On.ActivatedSolidTiles[0].Column == 0);
+}
+
+void TestCoinConditionalDefinitions() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* ZeroPass = Loaded.Value().Find(49);
+	const TileDefinition* FiftyPass = Loaded.Value().Find(51);
+	const TileDefinition* UnderFiftyPass = Loaded.Value().Find(53);
+	assert(ZeroPass != nullptr && FiftyPass != nullptr && UnderFiftyPass != nullptr);
+
+	assert(ZeroPass->ConditionField == GameStateField::Coins);
+	assert(ZeroPass->ConditionOperator == ComparisonOperator::Equal);
+	assert(ZeroPass->ConditionThreshold == 0);
+	assert(ZeroPass->ConditionTrueTileId == 49);
+	assert(ZeroPass->ConditionFalseTileId == 50);
+
+	assert(FiftyPass->ConditionField == GameStateField::Coins);
+	assert(FiftyPass->ConditionOperator == ComparisonOperator::GreaterEqual);
+	assert(FiftyPass->ConditionThreshold == 50);
+	assert(FiftyPass->ConditionTrueTileId == 51);
+	assert(FiftyPass->ConditionFalseTileId == 52);
+
+	assert(UnderFiftyPass->ConditionField == GameStateField::Coins);
+	assert(UnderFiftyPass->ConditionOperator == ComparisonOperator::LessThan);
+	assert(UnderFiftyPass->ConditionThreshold == 50);
+	assert(UnderFiftyPass->ConditionTrueTileId == 53);
+	assert(UnderFiftyPass->ConditionFalseTileId == 54);
+}
+
+void TestCoinConditionalBlocksMatchVersion1() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({{49, 51, 53}});
+	GameStateSnapshot State;
+
+	// V1:
+	// ZeroCoinBlock   : 0枚なら通れる
+	// O50CoinBlock    : 50枚以上なら通れる
+	// U50CoinBlock    : 50枚未満なら通れる
+	State.Coins = 0;
+	ConditionalTerrainUpdate AtZero =
+		ConditionalTerrain::Synchronize(Map, Loaded.Value(), State);
+	assert(*Map.TryGet({0, 0}) == 49);
+	assert(*Map.TryGet({1, 0}) == 52);
+	assert(*Map.TryGet({2, 0}) == 53);
+	assert(AtZero.ActivatedSolidTiles.size() == 1);
+	assert(AtZero.ActivatedSolidTiles[0].Column == 1);
+
+	State.Coins = 49;
+	ConditionalTerrainUpdate AtFortyNine =
+		ConditionalTerrain::Synchronize(Map, Loaded.Value(), State);
+	assert(*Map.TryGet({0, 0}) == 50);
+	assert(*Map.TryGet({1, 0}) == 52);
+	assert(*Map.TryGet({2, 0}) == 53);
+	assert(AtFortyNine.ActivatedSolidTiles.size() == 1);
+	assert(AtFortyNine.ActivatedSolidTiles[0].Column == 0);
+
+	State.Coins = 50;
+	ConditionalTerrainUpdate AtFifty =
+		ConditionalTerrain::Synchronize(Map, Loaded.Value(), State);
+	assert(*Map.TryGet({0, 0}) == 50);
+	assert(*Map.TryGet({1, 0}) == 51);
+	assert(*Map.TryGet({2, 0}) == 54);
+	assert(AtFifty.ActivatedSolidTiles.size() == 1);
+	assert(AtFifty.ActivatedSolidTiles[0].Column == 2);
+
+	// 50→0へ戻した時も元のV1条件へ復帰する。
+	State.Coins = 0;
+	ConditionalTerrainUpdate BackToZero =
+		ConditionalTerrain::Synchronize(Map, Loaded.Value(), State);
+	assert(*Map.TryGet({0, 0}) == 49);
+	assert(*Map.TryGet({1, 0}) == 52);
+	assert(*Map.TryGet({2, 0}) == 53);
+	assert(BackToZero.ActivatedSolidTiles.size() == 1);
+	assert(BackToZero.ActivatedSolidTiles[0].Column == 1);
+}
+
+void TestConditionalTerrainComparisonOperators() {
+	assert(ConditionalTerrain::Compare(5, ComparisonOperator::Equal, 5));
+	assert(ConditionalTerrain::Compare(5, ComparisonOperator::NotEqual, 4));
+	assert(ConditionalTerrain::Compare(4, ComparisonOperator::LessThan, 5));
+	assert(ConditionalTerrain::Compare(5, ComparisonOperator::LessEqual, 5));
+	assert(ConditionalTerrain::Compare(5, ComparisonOperator::GreaterEqual, 5));
+	assert(ConditionalTerrain::Compare(6, ComparisonOperator::GreaterThan, 5));
+
+	GameStateSnapshot State;
+	State.Coins = 10;
+	State.Health = 3;
+	State.Lives = 7;
+	State.Score = 1234;
+	assert(ConditionalTerrain::ReadValue(GameStateField::Coins, State) == 10);
+	assert(ConditionalTerrain::ReadValue(GameStateField::Health, State) == 3);
+	assert(ConditionalTerrain::ReadValue(GameStateField::Lives, State) == 7);
+	assert(ConditionalTerrain::ReadValue(GameStateField::Score, State) == 1234);
 }
 
 void TestTimedDisappearingBlocksToggleEvery80Frames() {
@@ -2242,6 +2341,9 @@ int main() {
 	TestItemBlockDefinitions();
 	TestTenCoinBlockUsesGenericCountRules();
 	TestOnOffDefinitionsAndWorldState();
+	TestCoinConditionalDefinitions();
+	TestCoinConditionalBlocksMatchVersion1();
+	TestConditionalTerrainComparisonOperators();
 	TestTimedDisappearingBlocksToggleEvery80Frames();
 	TestOnOffSwitchRuleProducesToggleEffect();
 	TestActivatedOnOffBlockPushesCharacterToSafety();

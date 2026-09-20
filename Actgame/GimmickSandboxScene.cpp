@@ -50,6 +50,7 @@ void GimmickSandboxScene::Reload() {
 	Lives_ = 0;
 	Broken_ = 0;
 	Dead_ = false;
+	SynchronizeConditionalTerrain();
 	LoadError_.clear();
 }
 
@@ -81,6 +82,25 @@ void GimmickSandboxScene::ApplyEffectList(
 	}
 }
 
+uchinoko::GameStateSnapshot GimmickSandboxScene::MakeGameStateSnapshot() const {
+	uchinoko::GameStateSnapshot State;
+	State.Coins = Coins_;
+	State.Health = Health_;
+	State.Lives = Lives_;
+	State.Score = Score_;
+	return State;
+}
+
+void GimmickSandboxScene::SynchronizeConditionalTerrain() {
+	const uchinoko::ConditionalTerrainUpdate Update =
+		uchinoko::ConditionalTerrain::Synchronize(
+			Map_, Catalog_, MakeGameStateSnapshot());
+	const uchinoko::CharacterSafetyResult Safety =
+		uchinoko::CharacterSafety::ResolveActivatedSolids(
+			Player_, Map_, Catalog_, Update.ActivatedSolidTiles);
+	ApplyEffectList(Safety.Effects);
+}
+
 void GimmickSandboxScene::ApplyEffects() {
 	const std::vector<uchinoko::TileEffect> TileEffects =
 		uchinoko::TileBehaviorSystem::ApplyAll(
@@ -108,6 +128,10 @@ void GimmickSandboxScene::ApplyEffects() {
 
 	const std::vector<uchinoko::TileEffect> ItemEffects = Items_.Update();
 	ApplyEffectList(ItemEffects);
+	if (Dead_) return;
+
+	// V1の条件ブロックと同様、最新のプレイヤー状態を毎フレーム反映する。
+	SynchronizeConditionalTerrain();
 }
 
 void GimmickSandboxScene::update() {
@@ -117,6 +141,11 @@ void GimmickSandboxScene::update() {
 	}
 	if (ReturnKey(KEY_INPUT_R) == 1) Reload();
 	if (!LoadError_.empty() || Dead_) return;
+
+	// 条件ブロックの境界値確認用デバッグキー。
+	if (ReturnKey(KEY_INPUT_1) == 1) Coins_ = 0;
+	if (ReturnKey(KEY_INPUT_2) == 1) Coins_ = 49;
+	if (ReturnKey(KEY_INPUT_3) == 1) Coins_ = 50;
 
 	float Horizontal = 0.0f;
 	if (ReturnKey(KEY_INPUT_LEFT) != 0) Horizontal -= 1.0f;
@@ -150,10 +179,19 @@ void GimmickSandboxScene::draw() {
 				Definition->Collision == uchinoko::CollisionShape::HitFromBelowOnly;
 
 			const bool SwitchBound = Definition->SwitchChannel >= 0;
+			const bool ConditionBound =
+				Definition->ConditionField != uchinoko::GameStateField::None;
 			const bool SwitchTile =
 				HasAction(*Definition, uchinoko::TileAction::ToggleSwitch);
 
-			if (SwitchBound) {
+			if (ConditionBound) {
+				DrawBox(
+					Left + 1, Top + 1, Right - 1, Bottom - 1,
+					Definition->Collision == uchinoko::CollisionShape::Solid
+						? GetColor(150, 90, 190)
+						: GetColor(150, 90, 190),
+					Definition->Collision == uchinoko::CollisionShape::Solid ? TRUE : FALSE);
+			} else if (SwitchBound) {
 				DrawBox(
 					Left + 1, Top + 1, Right - 1, Bottom - 1,
 					Definition->Collision == uchinoko::CollisionShape::Solid
@@ -171,6 +209,15 @@ void GimmickSandboxScene::draw() {
 			}
 			if (Definition->AutoTogglePeriod > 0) {
 				DrawString(Left + 10, Top + 7, "T", GetColor(255, 255, 255));
+			}
+			if (ConditionBound) {
+				const char* Label = "C";
+				if (Definition->ConditionThreshold == 0) Label = "C0";
+				else if (Definition->ConditionOperator ==
+					uchinoko::ComparisonOperator::GreaterEqual) Label = "C+";
+				else if (Definition->ConditionOperator ==
+					uchinoko::ComparisonOperator::LessThan) Label = "C-";
+				DrawString(Left + 5, Top + 7, Label, GetColor(255, 255, 255));
 			}
 			if (SpawnsItem && !Hidden) {
 				DrawString(
@@ -223,7 +270,7 @@ void GimmickSandboxScene::draw() {
 		GetColor(240, 210, 80), TRUE);
 
 	DrawString(16, 16,
-		"Gimmick test: Left/Right move, Z jump, R reload, Esc menu",
+		"Gimmick: Arrows/Z, R reload, 1=0 coins, 2=49, 3=50, Esc menu",
 		GetColor(255, 255, 255));
 	DrawFormatString(16, 40, GetColor(255, 255, 255),
 		"Coins:%d HP+:%d Lives+:%d Score:%d Broken:%d Switch:%s Timer:%02d",
@@ -231,7 +278,7 @@ void GimmickSandboxScene::draw() {
 		World_.GetSwitch(0) ? "ON" : "OFF",
 		World_.GetAutoToggleCounter(1));
 	DrawString(16, 64,
-		"?:item / col14-15:timed / col18:S+19-20:ONOFF / col22:S crush",
+		"col3:C0 / col5:C+ / col7:C- / col14-15:timed / col18+:ONOFF",
 		GetColor(220, 220, 220));
 	if (Dead_) {
 		DrawString(16, 88,
