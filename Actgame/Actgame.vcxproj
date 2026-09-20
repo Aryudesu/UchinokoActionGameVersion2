@@ -135,6 +135,7 @@
   <ItemGroup>
     <ClCompile Include="Action.cpp" />
     <ClCompile Include="Foundation\AssetPaths.cpp" />
+    <ClCompile Include="Foundation\BrickSystem.cpp" />
     <ClCompile Include="Foundation\CharacterController.cpp" />
     <ClCompile Include="Foundation\CharacterSafety.cpp" />
     <ClCompile Include="Foundation\ConditionalTerrain.cpp" />
@@ -191,6 +192,7 @@
   <ItemGroup>
     <ClInclude Include="Action.h" />
     <ClInclude Include="Foundation\AssetPaths.h" />
+    <ClInclude Include="Foundation\BrickSystem.h" />
     <ClInclude Include="Foundation\CharacterController.h" />
     <ClInclude Include="Foundation\CharacterSafety.h" />
     <ClInclude Include="Foundation\ConditionalTerrain.h" />
@@ -266,6 +268,9 @@
     <None Include="..\dat\stage\goal-test\stage.ini" />
     <None Include="..\dat\stage\goal-test\terrain.csv" />
     <None Include="..\dat\stage\goal-test\tiles.csv" />
+    <None Include="..\dat\stage\brick-test\stage.ini" />
+    <None Include="..\dat\stage\brick-test\terrain.csv" />
+    <None Include="..\dat\stage\brick-test\tiles.csv" />
 
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
