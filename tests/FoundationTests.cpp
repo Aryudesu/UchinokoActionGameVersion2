@@ -420,6 +420,73 @@ void TestItemBlockDefinitions() {
 	assert(Hidden->Rules[0].Action == TileAction::SpawnItem);
 }
 
+void TestTenCoinBlockUsesGenericCountRules() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* TenCoin = Loaded.Value().Find(37);
+	assert(TenCoin != nullptr);
+	assert(TenCoin->Collision == CollisionShape::Solid);
+	assert(TenCoin->Rules.size() == 3);
+
+	assert(TenCoin->Rules[0].Action == TileAction::SpawnItem);
+	assert(TenCoin->Rules[0].CountCondition == TileCountCondition::LessThan);
+	assert(TenCoin->Rules[0].CountValue == 10);
+	assert(TenCoin->Rules[1].Action == TileAction::IncrementCount);
+	assert(TenCoin->Rules[1].Value == 1);
+	assert(TenCoin->Rules[1].CountCondition == TileCountCondition::LessThan);
+	assert(TenCoin->Rules[2].Action == TileAction::ReplaceTile);
+	assert(TenCoin->Rules[2].Value == 30);
+	assert(TenCoin->Rules[2].CountCondition == TileCountCondition::GreaterEqual);
+	assert(TenCoin->Rules[2].CountValue == 10);
+
+	TileMap Map = MakeMap({{37}});
+	TileRuntimeMap Runtime(Map);
+	TileInteraction Hit;
+	Hit.Trigger = TileTrigger::HitFromBelow;
+	Hit.Position = {0, 0};
+	Hit.TileId = 37;
+
+	std::vector<TileEffect> SpawnEffects;
+	for (int HitCount = 1; HitCount <= 10; ++HitCount) {
+		TileBehaviorResult Result =
+			TileBehaviorSystem::Apply(Hit, Map, Loaded.Value(), Runtime);
+		assert(Result.Handled);
+		assert(Result.Effects.size() == 1);
+		assert(Result.Effects[0].Type == TileEffectType::SpawnItem);
+		assert(Result.Effects[0].Value == static_cast<int>(ItemKind::Coin));
+		SpawnEffects.push_back(Result.Effects[0]);
+		assert(Runtime.TryGet({0, 0})->Count == HitCount);
+		if (HitCount < 10) assert(*Map.TryGet({0, 0}) == 37);
+		else assert(*Map.TryGet({0, 0}) == 30);
+	}
+
+	// 使用済みへ置換した後は、古いイベントを再実行しても11枚目を出さない。
+	TileBehaviorResult Eleventh =
+		TileBehaviorSystem::Apply(Hit, Map, Loaded.Value(), Runtime);
+	assert(!Eleventh.Handled);
+	assert(Eleventh.Effects.empty());
+	assert(Runtime.TryGet({0, 0})->Count == 10);
+
+	ItemSystem Items;
+	Items.ConsumeTileEffects(SpawnEffects);
+	assert(Items.Items().size() == 10);
+
+	int Coins = 0;
+	int Score = 0;
+	for (int Frame = 0; Frame < 30; ++Frame) {
+		const std::vector<TileEffect> Rewards = Items.Update();
+		for (std::size_t Index = 0; Index < Rewards.size(); ++Index) {
+			if (Rewards[Index].Type == TileEffectType::AddCoin) Coins += Rewards[Index].Value;
+			if (Rewards[Index].Type == TileEffectType::AddScore) Score += Rewards[Index].Value;
+		}
+	}
+	assert(Items.Items().empty());
+	assert(Coins == 10);
+	assert(Score == 1000);
+}
+
 void TestItemSystemConvertsSpawnToV1Rewards() {
 	ItemSystem Items;
 	const ItemKind Kinds[] = {
@@ -1966,6 +2033,7 @@ int main() {
 	TestTileOnceRulesAreIndependent();
 	TestExternalInteractionStage();
 	TestItemBlockDefinitions();
+	TestTenCoinBlockUsesGenericCountRules();
 	TestItemSystemConvertsSpawnToV1Rewards();
 	TestQuestionBlockSpawnsItemAndBecomesUsed();
 	TestHiddenItemBlockOnlyBlocksFromBelow();
