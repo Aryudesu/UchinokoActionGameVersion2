@@ -446,8 +446,9 @@ void GimmickSandboxScene::draw() {
 		Score_);
 	if (Completion_.Cleared) {
 		DrawFormatString(16, 88, GetColor(120, 255, 160),
-			"STAGE CLEAR (%s) - settling...  R: retry / Esc: menu",
-			GoalKindName(Completion_.Goal));
+			"STAGE CLEAR (%s) - %s  R: retry / Esc: menu",
+			GoalKindName(Completion_.Goal),
+			Player_.Body().Grounded ? "LANDED" : "settling...");
 	}
 	if (Dead_) {
 		DrawString(16, 112,
