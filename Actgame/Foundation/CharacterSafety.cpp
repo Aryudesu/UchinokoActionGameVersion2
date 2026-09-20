@@ -100,6 +100,13 @@ CharacterSafetyResult CharacterSafety::ResolveActivatedSolids(
 			for (int CandidateIndex = 0; CandidateIndex < 4; ++CandidateIndex) {
 				CharacterBody Moved = Body;
 				Moved.Position = Candidates[CandidateIndex].Position;
+				const float MapWidth =
+					static_cast<float>(Map.Width() * Map.TileWidth());
+				const float MapHeight =
+					static_cast<float>(Map.Height() * Map.TileHeight());
+				if (Moved.Position.X < 0.0f || Moved.Position.Y < 0.0f ||
+					Moved.Position.X + Moved.Width > MapWidth ||
+					Moved.Position.Y + Moved.Height > MapHeight) continue;
 				if (OverlapsSolid(Moved, Map, Catalog)) continue;
 
 				Body.Position = Moved.Position;
