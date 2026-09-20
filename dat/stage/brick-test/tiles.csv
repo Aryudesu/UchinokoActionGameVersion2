@@ -1,0 +1,4 @@
+# id, collision shape, image index, breakable, damaging, rules [, switch_channel, switch_on_tile, switch_off_tile [, auto_toggle_period [, condition [, movement_region]]]]
+0,None,0,0,0,-
+1,Solid,0,0,0,-
+72,Solid,0,0,0,HitFromBelow:HitBrick:5:repeat
