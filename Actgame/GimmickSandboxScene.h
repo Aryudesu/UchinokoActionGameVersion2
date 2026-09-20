@@ -4,6 +4,7 @@
 #include "Foundation/TileInteraction.h"
 #include "Foundation/ItemSystem.h"
 #include "Foundation/CharacterSafety.h"
+#include "Foundation/ConditionalTerrain.h"
 #include "Foundation/WorldState.h"
 #include "Scene.h"
 
@@ -20,6 +21,8 @@ private:
 	void Reload();
 	void ApplyEffects();
 	void ApplyEffectList(const std::vector<uchinoko::TileEffect>& Effects);
+	uchinoko::GameStateSnapshot MakeGameStateSnapshot() const;
+	void SynchronizeConditionalTerrain();
 
 	uchinoko::TileMap Map_;
 	uchinoko::TileCatalog Catalog_;
