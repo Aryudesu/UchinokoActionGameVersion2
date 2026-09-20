@@ -255,7 +255,11 @@
     <None Include="..\dat\stage\interaction-test\tiles.csv" />
     <None Include="..\dat\stage\interaction-test\stage.ini" />
     <None Include="..\dat\stage\interaction-test\terrain.csv" />
-    <None Include="..\dat\stage\interaction-test\pipes.csv" />
+    <None Include="..\dat\stage\pipe-test\stage.ini" />
+    <None Include="..\dat\stage\pipe-test\terrain.csv" />
+    <None Include="..\dat\stage\pipe-test\tiles.csv" />
+    <None Include="..\dat\stage\pipe-test\pipes.csv" />
+
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
