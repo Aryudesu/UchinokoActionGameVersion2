@@ -54,6 +54,7 @@ void CharacterController::Reposition(WorldPosition Position, bool ResetVelocity)
 	Body_.Position = Position;
 	Body_.Grounded = false;
 	Mode_ = MovementMode::Normal;
+	InWater_ = false;
 	if (!ResetVelocity) return;
 	Body_.Velocity = {0.0f, 0.0f};
 	VelocityX10_ = 0;
@@ -95,6 +96,28 @@ bool CharacterController::IsInsideLadder(
 		MovementRegionAt(Map, Catalog, Right, Top) == MovementRegion::Ladder &&
 		MovementRegionAt(Map, Catalog, Left, Bottom) == MovementRegion::Ladder &&
 		MovementRegionAt(Map, Catalog, Right, Bottom) == MovementRegion::Ladder;
+}
+
+bool CharacterController::IsCenterInWater(
+	const TileMap& Map, const TileCatalog& Catalog) const {
+	// V1 の MapHitCC(M) == 5 と同じく、中心点だけで水中判定する。
+	const float CenterWorldX = Body_.Position.X + Body_.Width * 0.5f;
+	const float CenterWorldY = Body_.Position.Y + Body_.Height * 0.5f;
+	return MovementRegionAt(
+		Map, Catalog, CenterWorldX, CenterWorldY) == MovementRegion::Water;
+}
+
+void CharacterController::ApplyWaterBoundaryTransition(
+	bool WasInWater, bool IsInWater) {
+	if (WasInWater == IsInWater) return;
+
+	// V1: 水面を上向きに跨いだ時だけ speed.y *= 2.5。
+	if (VelocityY10_ < 0) {
+		VelocityY10_ = static_cast<int>(std::round(
+			static_cast<float>(VelocityY10_) *
+			Motion_.WaterBoundaryVelocityScale));
+		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
+	}
 }
 
 float CharacterController::SlopeCharacterY(
@@ -619,6 +642,7 @@ void CharacterController::Step(
 	// jM100 と同じく、入力処理より前に現在座標から接地を再判定する。
 	RefreshGround(Map, Catalog);
 	const bool OnLadder = IsInsideLadder(Map, Catalog);
+	InWater_ = IsCenterInWater(Map, Catalog);
 
 	if (Mode_ == MovementMode::Climbing) {
 		if (!OnLadder || (Body_.Grounded && Input.Vertical > 0.0f)) {
@@ -680,20 +704,46 @@ void CharacterController::Step(
 			Body_.Position.Y + Body_.Height - 2.0f);
 	}
 
-	if (Input.JumpPressed && Body_.Grounded) {
+	// 横方向から水へ出入りした場合も、V1の中心点判定を即時反映する。
+	const bool WaterBeforeHorizontal = InWater_;
+	InWater_ = IsCenterInWater(Map, Catalog);
+	ApplyWaterBoundaryTransition(WaterBeforeHorizontal, InWater_);
+
+	bool WaterJumped = false;
+	if (Input.JumpPressed && InWater_) {
+		float JumpSpeed = Motion_.WaterJumpSpeed;
+		if (Input.Vertical < 0.0f) JumpSpeed = Motion_.WaterJumpUpSpeed;
+		else if (Input.Vertical > 0.0f) JumpSpeed = Motion_.WaterJumpDownSpeed;
+		VelocityY10_ = -static_cast<int>(std::round(JumpSpeed * 10.0f));
+		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
+		Body_.Grounded = false;
+		WaterJumped = true;
+	} else if (Input.JumpPressed && Body_.Grounded) {
 		VelocityY10_ = -static_cast<int>(std::round(Motion_.JumpSpeed * 10.0f));
 		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
 		Body_.Grounded = false;
 	}
 	if (!Body_.Grounded) {
-		VelocityY10_ += static_cast<int>(std::round(Motion_.Gravity * 10.0f));
-		VelocityY10_ = std::min(
-			static_cast<int>(std::round(Motion_.MaxFallSpeed * 10.0f)), VelocityY10_);
-		Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
+		if (!WaterJumped) {
+			const float GravityScale =
+				InWater_ ? Motion_.WaterGravityScale : 1.0f;
+			const float MaxFallScale =
+				InWater_ ? Motion_.WaterMaxFallSpeedScale : 1.0f;
+			VelocityY10_ += static_cast<int>(std::round(
+				Motion_.Gravity * GravityScale * 10.0f));
+			VelocityY10_ = std::min(
+				static_cast<int>(std::round(
+					Motion_.MaxFallSpeed * MaxFallScale * 10.0f)),
+				VelocityY10_);
+			Body_.Velocity.Y = static_cast<float>(VelocityY10_) / 10.0f;
+		}
 
 		const float VerticalAmount = static_cast<float>(CanvasMasaoTerrain::RoundDown(
 			static_cast<double>(VelocityY10_) / 10.0));
+		const bool WaterBeforeVertical = InWater_;
 		MoveVertical(VerticalAmount, Input.Horizontal, Map, Catalog);
+		InWater_ = IsCenterInWater(Map, Catalog);
+		ApplyWaterBoundaryTransition(WaterBeforeVertical, InWater_);
 
 		// 上昇が地形で止められた場合、V1 の Hited() 相当を左右2点から通知する。
 		if (VerticalAmount < 0.0f && VelocityY10_ == 0) {
