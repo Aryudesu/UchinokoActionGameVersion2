@@ -108,6 +108,8 @@ private:
 	MovementMode Mode_ = MovementMode::Normal;
 	bool InWater_ = false;
 	bool WaterExitBoostArmed_ = false;
+	bool DroppingThrough_ = false;
+	int DropThroughRow_ = -1;
 	GravityDirection Gravity_ = GravityDirection::Down;
 };
 
