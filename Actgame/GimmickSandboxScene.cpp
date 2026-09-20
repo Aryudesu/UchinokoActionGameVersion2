@@ -103,7 +103,8 @@ void GimmickSandboxScene::ApplyEffectList(
 			break;
 		case uchinoko::TileEffectType::Goal: {
 			uchinoko::GoalKind Kind;
-			if (uchinoko::TryGoalKindFromValue(Effects[Index].Value, Kind)) {
+			if (!Completion_.Cleared &&
+				uchinoko::TryGoalKindFromValue(Effects[Index].Value, Kind)) {
 				ClearState_.Record(Kind);
 				Completion_.Complete(Kind);
 			}
