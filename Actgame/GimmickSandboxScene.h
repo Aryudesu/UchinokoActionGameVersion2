@@ -41,5 +41,6 @@ private:
 	int Lives_ = 0;
 	int Broken_ = 0;
 	uchinoko::StageClearState ClearState_;
+	uchinoko::StageCompletionState Completion_;
 	bool Dead_ = false;
 };
