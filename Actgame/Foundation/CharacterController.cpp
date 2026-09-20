@@ -151,6 +151,7 @@ void CharacterController::UpdateGravityFromCenter(
 	Gravity_ = Desired;
 	// 支持面の向きが入れ替わるため、以前の接地状態は持ち越さない。
 	Body_.Grounded = false;
+	WaterExitBoostArmed_ = false;
 }
 
 
