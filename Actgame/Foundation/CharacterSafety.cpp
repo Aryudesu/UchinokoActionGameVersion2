@@ -59,10 +59,11 @@ bool CharacterSafety::OverlapsSolid(
 }
 
 CharacterSafetyResult CharacterSafety::ResolveActivatedSolids(
-	CharacterBody& Body,
+	CharacterController& Controller,
 	const TileMap& Map, const TileCatalog& Catalog,
 	const std::vector<TilePosition>& ActivatedSolidTiles) {
 	CharacterSafetyResult Result;
+	CharacterBody Body = Controller.Body();
 
 	// 複数ブロックが同時に現れるケースもあるため、押し出し後に再評価する。
 	for (std::size_t Pass = 0;
@@ -112,6 +113,8 @@ CharacterSafetyResult CharacterSafety::ResolveActivatedSolids(
 				Body.Position = Moved.Position;
 				Body.Velocity = {0.0f, 0.0f};
 				Body.Grounded = false;
+				Controller.Reposition(Body.Position, true);
+				Body = Controller.Body();
 				Result.Repositioned = true;
 				Escaped = true;
 				break;
