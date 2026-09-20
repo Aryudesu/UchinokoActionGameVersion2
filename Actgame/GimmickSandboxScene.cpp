@@ -24,21 +24,6 @@ bool IsPipeTile(int Id) {
 	return Id >= 61 && Id <= 68;
 }
 
-const char* PipePhaseName(uchinoko::PipeTransportPhase Phase) {
-	switch (Phase) {
-	case uchinoko::PipeTransportPhase::Idle: return "IDLE";
-	case uchinoko::PipeTransportPhase::Entering: return "IN";
-	case uchinoko::PipeTransportPhase::FadeOut: return "FADE OUT";
-	case uchinoko::PipeTransportPhase::FadeIn: return "FADE IN";
-	case uchinoko::PipeTransportPhase::Emerging: return "OUT";
-	}
-	return "?";
-}
-
-const char* GoalKindName(uchinoko::GoalKind Kind) {
-	return Kind == uchinoko::GoalKind::Normal ? "NORMAL" : "SECRET";
-}
-
 } // namespace
 
 GimmickSandboxScene::GimmickSandboxScene() {
