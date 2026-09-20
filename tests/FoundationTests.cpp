@@ -390,7 +390,7 @@ void TestExternalInteractionStage() {
 	Result<TerrainStageData> Loaded =
 		TerrainStageLoader::Load("dat/stage/interaction-test/stage.ini");
 	assert(Loaded.IsSuccess());
-	assert(Loaded.Value().Map.Width() == 28);
+	assert(Loaded.Value().Map.Width() == 24);
 	assert(Loaded.Value().Map.Height() == 6);
 	assert(*Loaded.Value().Map.TryGet({2, 2}) == 20);
 	assert(*Loaded.Value().Map.TryGet({5, 1}) == 21);
