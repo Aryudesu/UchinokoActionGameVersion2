@@ -781,7 +781,7 @@ void CharacterController::Step(
 	if (Body_.Grounded) {
 		InWater_ = WaterAfterHorizontal;
 	}
-	if (InWater_ && VelocityY10_ >= 0) {
+	if (!InWater_ || VelocityY10_ >= 0) {
 		WaterExitBoostArmed_ = false;
 	}
 
