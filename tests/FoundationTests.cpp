@@ -194,6 +194,49 @@ void TestStageCompletionEndsRunWithOneGoal() {
 	assert(Completion.Goal == GoalKind::Secret);
 }
 
+void TestStepWithoutInputStopsHorizontalAndSettlesVertically() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/goal-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 0, 0},
+		{1, 1, 1}
+	});
+
+	CharacterBody Body;
+	Body.Position = {32.0f, 32.0f};
+	Body.Velocity = {4.0f, -3.0f};
+	Body.Grounded = false;
+	CharacterController Player(Body);
+
+	const float StartX = Player.Body().Position.X;
+	const float StartY = Player.Body().Position.Y;
+
+	Player.StepWithoutInput(Map, Loaded.Value());
+
+	// 横入力は受け付けず、そのフレームからX座標を固定する。
+	assert(NearlyEqual(Player.Body().Position.X, StartX));
+	assert(NearlyEqual(Player.Body().Velocity.X, 0.0f));
+
+	// 縦速度は消さず、取得時の上向き慣性へ重力だけを加える。
+	assert(Player.Body().Position.Y < StartY);
+	assert(Player.Body().Velocity.Y < 0.0f);
+
+	for (int Frame = 0; Frame < 120 && !Player.Body().Grounded; ++Frame) {
+		Player.StepWithoutInput(Map, Loaded.Value());
+		assert(NearlyEqual(Player.Body().Position.X, StartX));
+	}
+
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.X, StartX));
+	assert(NearlyEqual(Player.Body().Position.Y, 96.0f));
+	assert(NearlyEqual(Player.Body().Velocity.Y, 0.0f));
+}
+
 void TestExternalPipeStage() {
 	Result<TerrainStageData> Loaded =
 		TerrainStageLoader::Load("dat/stage/pipe-test/stage.ini");
@@ -3445,6 +3488,7 @@ int main() {
 	TestGoalStageDefinitionsAndEffects();
 	TestNormalAndSecretGoalProgressAreIndependent();
 	TestStageCompletionEndsRunWithOneGoal();
+	TestStepWithoutInputStopsHorizontalAndSettlesVertically();
 	TestExternalPipeStage();
 	TestPipeDirectionInputMatching();
 	TestPipeTransportRequiresDirectionAndAlignment();
