@@ -320,6 +320,15 @@ void GimmickSandboxScene::draw() {
 		}
 	}
 
+	for (std::size_t Index = 0; Index < Pipes_.Links().size(); ++Index) {
+		const uchinoko::PipeLink& Link = Pipes_.Links()[Index];
+		DrawFormatString(
+			static_cast<int>(Link.EntryPosition.X),
+			static_cast<int>(Link.EntryPosition.Y) - 18,
+			GetColor(180, 255, 190),
+			"%s v", Link.Id.c_str());
+	}
+
 	for (std::size_t Index = 0; Index < Items_.Items().size(); ++Index) {
 		const uchinoko::SpawnedItem& Item = Items_.Items()[Index];
 		const int X = static_cast<int>(Item.Position.X) + 16;
