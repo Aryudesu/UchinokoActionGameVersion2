@@ -30,7 +30,7 @@ private:
 	uchinoko::TileRuntimeMap Runtime_;
 	uchinoko::ItemSystem Items_;
 	uchinoko::WorldState World_;
-	uchinoko::PipeNetwork Pipes_;
+	std::vector<uchinoko::PipeLink> Pipes_;
 	uchinoko::PipeTransport Pipe_;
 	uchinoko::CharacterController Player_;
 	std::string LoadError_;
