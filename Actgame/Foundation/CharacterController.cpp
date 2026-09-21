@@ -51,6 +51,16 @@ CharacterController::CharacterController(CharacterBody Body, CharacterMotion Mot
 	  VelocityX10_(static_cast<int>(std::round(Body.Velocity.X * 10.0f))),
 	  VelocityY10_(static_cast<int>(std::round(Body.Velocity.Y * 10.0f))) {}
 
+CharacterTouchBounds CharacterController::TouchBounds() const {
+	const float Center = Body_.Position.X + Body_.Width * 0.5f;
+	CharacterTouchBounds Bounds;
+	Bounds.Left = Center - 8.0f;
+	Bounds.Right = Center + 8.0f;
+	Bounds.Top = Body_.Position.Y;
+	Bounds.Bottom = Body_.Position.Y + Body_.Height;
+	return Bounds;
+}
+
 void CharacterController::Reposition(WorldPosition Position, bool ResetVelocity) {
 	Body_.Position = Position;
 	Body_.Grounded = false;
@@ -620,18 +630,17 @@ void CharacterController::EmitInteractionAtWorld(
 }
 
 void CharacterController::EmitTouchInteractions(const TileMap& Map) {
-	const float Left = Body_.Position.X + 1.0f;
-	const float Right = Body_.Position.X + Body_.Width - 2.0f;
-	const float Top = Body_.Position.Y + 1.0f;
-	const float Bottom = Body_.Position.Y + Body_.Height - 2.0f;
-	const float Center = Body_.Position.X + CenterX;
+	const CharacterTouchBounds Bounds = TouchBounds();
+	const float CenterXWorld = (Bounds.Left + Bounds.Right) * 0.5f;
+	const float CenterYWorld = (Bounds.Top + Bounds.Bottom) * 0.5f;
 
-	EmitInteractionAtWorld(TileTrigger::Touch, Map, Left, Top);
-	EmitInteractionAtWorld(TileTrigger::Touch, Map, Right, Top);
-	EmitInteractionAtWorld(TileTrigger::Touch, Map, Left, Bottom);
-	EmitInteractionAtWorld(TileTrigger::Touch, Map, Right, Bottom);
-	EmitInteractionAtWorld(TileTrigger::Touch, Map, Center,
-		Body_.Position.Y + Body_.Height * 0.5f);
+	// Touchは見た目32x32より狭い中央16x32。
+	// 左右端・上下端・中央を使い、接触境界も含める。
+	EmitInteractionAtWorld(TileTrigger::Touch, Map, Bounds.Left, Bounds.Top);
+	EmitInteractionAtWorld(TileTrigger::Touch, Map, Bounds.Right, Bounds.Top);
+	EmitInteractionAtWorld(TileTrigger::Touch, Map, Bounds.Left, Bounds.Bottom);
+	EmitInteractionAtWorld(TileTrigger::Touch, Map, Bounds.Right, Bounds.Bottom);
+	EmitInteractionAtWorld(TileTrigger::Touch, Map, CenterXWorld, CenterYWorld);
 }
 
 void CharacterController::EmitStandInteractions(const TileMap& Map) {
@@ -640,12 +649,11 @@ void CharacterController::EmitStandInteractions(const TileMap& Map) {
 		Gravity_ == GravityDirection::Down
 			? Body_.Position.Y + Body_.Height + 0.01f
 			: Body_.Position.Y - 0.01f;
-	const float Left = Body_.Position.X + 1.0f;
-	const float Right = Body_.Position.X + Body_.Width - 2.0f;
-	EmitInteractionAtWorld(TileTrigger::StandOn, Map, Left, ProbeY);
-	EmitInteractionAtWorld(TileTrigger::Touch, Map, Left, ProbeY);
-	EmitInteractionAtWorld(TileTrigger::StandOn, Map, Right, ProbeY);
-	EmitInteractionAtWorld(TileTrigger::Touch, Map, Right, ProbeY);
+	const CharacterTouchBounds Bounds = TouchBounds();
+	EmitInteractionAtWorld(TileTrigger::StandOn, Map, Bounds.Left, ProbeY);
+	EmitInteractionAtWorld(TileTrigger::Touch, Map, Bounds.Left, ProbeY);
+	EmitInteractionAtWorld(TileTrigger::StandOn, Map, Bounds.Right, ProbeY);
+	EmitInteractionAtWorld(TileTrigger::Touch, Map, Bounds.Right, ProbeY);
 }
 
 void CharacterController::StepClimbing(
@@ -697,12 +705,7 @@ void CharacterController::StepClimbing(
 		EmitInteractionAtWorld(
 			TileTrigger::PushFromLeft, Map, ProbeX, Body_.Position.Y + 1.0f);
 		EmitInteractionAtWorld(
-			TileTrigger::Touch, Map, ProbeX, Body_.Position.Y + 1.0f);
-		EmitInteractionAtWorld(
 			TileTrigger::PushFromLeft, Map, ProbeX,
-			Body_.Position.Y + Body_.Height - 2.0f);
-		EmitInteractionAtWorld(
-			TileTrigger::Touch, Map, ProbeX,
 			Body_.Position.Y + Body_.Height - 2.0f);
 	} else if (HorizontalAmount < 0.0f &&
 		ActualHorizontal > HorizontalAmount + 0.01f) {
@@ -710,12 +713,7 @@ void CharacterController::StepClimbing(
 		EmitInteractionAtWorld(
 			TileTrigger::PushFromRight, Map, ProbeX, Body_.Position.Y + 1.0f);
 		EmitInteractionAtWorld(
-			TileTrigger::Touch, Map, ProbeX, Body_.Position.Y + 1.0f);
-		EmitInteractionAtWorld(
 			TileTrigger::PushFromRight, Map, ProbeX,
-			Body_.Position.Y + Body_.Height - 2.0f);
-		EmitInteractionAtWorld(
-			TileTrigger::Touch, Map, ProbeX,
 			Body_.Position.Y + Body_.Height - 2.0f);
 	}
 
@@ -735,14 +733,14 @@ void CharacterController::StepClimbing(
 		const float ProbeY = Body_.Position.Y - 0.01f;
 		EmitInteractionAtWorld(
 			TileTrigger::HitFromBelow, Map, Body_.Position.X + 1.0f, ProbeY);
+		const CharacterTouchBounds Touch = TouchBounds();
 		EmitInteractionAtWorld(
-			TileTrigger::Touch, Map, Body_.Position.X + 1.0f, ProbeY);
+			TileTrigger::Touch, Map, Touch.Left, ProbeY);
 		EmitInteractionAtWorld(
 			TileTrigger::HitFromBelow, Map,
 			Body_.Position.X + Body_.Width - 2.0f, ProbeY);
 		EmitInteractionAtWorld(
-			TileTrigger::Touch, Map,
-			Body_.Position.X + Body_.Width - 2.0f, ProbeY);
+			TileTrigger::Touch, Map, Touch.Right, ProbeY);
 	}
 
 	if (!IsInsideLadder(Map, Catalog)) {
@@ -852,24 +850,14 @@ void CharacterController::Step(
 		EmitInteractionAtWorld(
 			TileTrigger::PushFromLeft, Map, ProbeX, Body_.Position.Y + 1.0f);
 		EmitInteractionAtWorld(
-			TileTrigger::Touch, Map, ProbeX, Body_.Position.Y + 1.0f);
-		EmitInteractionAtWorld(
 			TileTrigger::PushFromLeft, Map, ProbeX,
-			Body_.Position.Y + Body_.Height - 2.0f);
-		EmitInteractionAtWorld(
-			TileTrigger::Touch, Map, ProbeX,
 			Body_.Position.Y + Body_.Height - 2.0f);
 	} else if (HorizontalAmount < 0.0f && ActualHorizontal > HorizontalAmount + 0.01f) {
 		const float ProbeX = Body_.Position.X - 0.01f;
 		EmitInteractionAtWorld(
 			TileTrigger::PushFromRight, Map, ProbeX, Body_.Position.Y + 1.0f);
 		EmitInteractionAtWorld(
-			TileTrigger::Touch, Map, ProbeX, Body_.Position.Y + 1.0f);
-		EmitInteractionAtWorld(
 			TileTrigger::PushFromRight, Map, ProbeX,
-			Body_.Position.Y + Body_.Height - 2.0f);
-		EmitInteractionAtWorld(
-			TileTrigger::Touch, Map, ProbeX,
 			Body_.Position.Y + Body_.Height - 2.0f);
 	}
 
@@ -948,14 +936,14 @@ void CharacterController::Step(
 			const float ProbeY = Body_.Position.Y - 0.01f;
 			EmitInteractionAtWorld(
 				TileTrigger::HitFromBelow, Map, Body_.Position.X + 1.0f, ProbeY);
+			const CharacterTouchBounds Touch = TouchBounds();
 			EmitInteractionAtWorld(
-				TileTrigger::Touch, Map, Body_.Position.X + 1.0f, ProbeY);
+				TileTrigger::Touch, Map, Touch.Left, ProbeY);
 			EmitInteractionAtWorld(
 				TileTrigger::HitFromBelow, Map,
 				Body_.Position.X + Body_.Width - 2.0f, ProbeY);
 			EmitInteractionAtWorld(
-				TileTrigger::Touch, Map,
-				Body_.Position.X + Body_.Width - 2.0f, ProbeY);
+				TileTrigger::Touch, Map, Touch.Right, ProbeY);
 		}
 	}
 
