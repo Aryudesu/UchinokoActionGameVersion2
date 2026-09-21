@@ -32,7 +32,8 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #29 | Wiki草案: HSP / Version1 / Version2 仕様・移植状況 | open draft / **DO NOT MERGE** |
 | #30 | V2ネイティブStageData / Layer / Object / Regionモデル | merged |
 | #31 | Native StageData JSON + CSV Loader | merged |
-| #32 | Native StageData TileSet参照 + Sandbox描画 | open |
+| #32 | Native StageData TileSet参照 + Sandbox描画 | merged |
+| #33 | Native Terrain → TileDefinition / CharacterController | open |
 
 ## 読み方
 
@@ -65,8 +66,11 @@ V2 native stage data / editor-ready model
 #31
 Native JSON + CSV data / runtime loading
 
-#32-
-TileSet / native rendering / gameplay bridge
+#32
+TileSet / native rendering
+
+#33-
+Native terrain semantics / gameplay bridge
 ```
 
 という流れです。
