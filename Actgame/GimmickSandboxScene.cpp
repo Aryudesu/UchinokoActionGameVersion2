@@ -487,11 +487,47 @@ void GimmickSandboxScene::draw() {
 	}
 
 	const uchinoko::CharacterBody& Body = Player_.Body();
+	const int BodyLeft = static_cast<int>(Body.Position.X);
+	const int BodyTop = static_cast<int>(Body.Position.Y);
+	const int BodyRight = static_cast<int>(Body.Position.X + Body.Width);
+	const int BodyBottom = static_cast<int>(Body.Position.Y + Body.Height);
+
 	DrawBox(
-		static_cast<int>(Body.Position.X), static_cast<int>(Body.Position.Y),
-		static_cast<int>(Body.Position.X + Body.Width),
-		static_cast<int>(Body.Position.Y + Body.Height),
+		BodyLeft, BodyTop, BodyRight, BodyBottom,
 		GetColor(240, 210, 80), TRUE);
+
+	// Hazard debug:
+	// 黄色枠 = CharacterBody（通常地形の基準となる本体範囲）
+	DrawBox(
+		BodyLeft, BodyTop, BodyRight, BodyBottom,
+		GetColor(255, 255, 80), FALSE);
+
+	// 赤枠 = このフレームにTileTrigger::Touchとなったタイル。
+	// 同じタイルへの複数ProbeはTileInteraction側で重複排除される。
+	const std::vector<uchinoko::TileInteraction>& Interactions =
+		Player_.Interactions();
+	for (std::size_t Index = 0; Index < Interactions.size(); ++Index) {
+		if (Interactions[Index].Trigger != uchinoko::TileTrigger::Touch) continue;
+		const int Left =
+			Interactions[Index].Position.Column * Map_.TileWidth();
+		const int Top =
+			Interactions[Index].Position.Row * Map_.TileHeight();
+		DrawBox(
+			Left, Top,
+			Left + Map_.TileWidth(), Top + Map_.TileHeight(),
+			GetColor(255, 80, 80), FALSE);
+	}
+
+	// ピンク十字 = CharacterControllerが実際にTouch判定へ使った全Probe。
+	// 四隅+中央に加え、接地・壁接触・頭突き等で追加されたProbeも見える。
+	const std::vector<uchinoko::WorldPosition>& TouchProbes =
+		Player_.TouchProbePoints();
+	for (std::size_t Index = 0; Index < TouchProbes.size(); ++Index) {
+		const int X = static_cast<int>(TouchProbes[Index].X);
+		const int Y = static_cast<int>(TouchProbes[Index].Y);
+		DrawLine(X - 4, Y, X + 4, Y, GetColor(255, 80, 220), 2);
+		DrawLine(X, Y - 4, X, Y + 4, GetColor(255, 80, 220), 2);
+	}
 
 	// V1は土管移動中だけ主人公をMapより先に描画していた。
 	// Sandboxでは土管タイルを再描画し、潜り込み/出現部分を隠す。
@@ -520,14 +556,17 @@ void GimmickSandboxScene::draw() {
 	DrawString(16, 64,
 		"KP/KE/KB = Kill Player/Enemy/Both",
 		GetColor(255, 190, 200));
-	DrawFormatString(16, 88, GetColor(255, 255, 255),
+	DrawString(16, 88,
+		"Hit debug: Yellow=Body  Pink=Touch probe  Red=Touch tile",
+		GetColor(255, 255, 180));
+	DrawFormatString(16, 112, GetColor(255, 255, 255),
 		"HP:%d  Damage:%s  Frame:%d  Facing:%s",
 		Health_,
 		DamageReaction_.Active() ? "ON" : "-",
 		DamageReaction_.Frame(),
 		FacingDirection_ > 0 ? "RIGHT" : "LEFT");
 	if (Dead_) {
-		DrawString(16, 112,
+		DrawString(16, 136,
 			"DEAD - R: reload",
 			GetColor(255, 100, 100));
 	}
