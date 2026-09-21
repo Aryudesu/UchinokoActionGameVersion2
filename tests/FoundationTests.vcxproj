@@ -26,6 +26,9 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Label="Vcpkg">
+    <VcpkgEnableManifest>true</VcpkgEnableManifest>
+  </PropertyGroup>
   <PropertyGroup>
     <LocalDebuggerWorkingDirectory>$(SolutionDir)</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
@@ -44,6 +47,7 @@
     <ClCompile Include="..\Actgame\Foundation\GridDataLoader.cpp" />
     <ClCompile Include="..\Actgame\Foundation\ItemSystem.cpp" />
     <ClCompile Include="..\Actgame\Foundation\LayeredMap.cpp" />
+    <ClCompile Include="..\Actgame\Foundation\NativeStageDataLoader.cpp" />
     <ClCompile Include="..\Actgame\Foundation\PipeTransport.cpp" />
     <ClCompile Include="..\Actgame\Foundation\StageProgress.cpp" />
     <ClCompile Include="..\Actgame\Foundation\StageDefinition.cpp" />
