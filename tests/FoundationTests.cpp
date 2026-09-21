@@ -1061,7 +1061,10 @@ void TestStagePropertyValuesKeepTypes() {
 
 	assert(Integer.TryGetInteger(IntValue));
 	assert(IntValue == 7);
-	assert(!Integer.TryGetFloat(FloatValue));
+	// JSONの 2.0 はserializerによって 2 へ正規化されることがある。
+	// Integer propertyもfloatとして安全にwidenできる。
+	assert(Integer.TryGetFloat(FloatValue));
+	assert(NearlyEqual(FloatValue, 7.0f));
 
 	assert(Float.TryGetFloat(FloatValue));
 	assert(NearlyEqual(FloatValue, 2.5f));
