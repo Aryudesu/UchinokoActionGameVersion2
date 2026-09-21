@@ -8,13 +8,21 @@ V2 native `StageData` の最初の保存形式。
 
 ## Dependency
 
-JSON parsing uses `nlohmann/json`.
+JSON parsing uses `nlohmann/json` v3.12.0.
 
-The repository contains a vcpkg manifest and enables manifest mode for the Actgame and FoundationTests MSBuild projects.
+To keep the existing Visual Studio project self-contained, the official single-header distribution is vendored at:
 
-`vcpkg.json` pins the registry baseline and requires `nlohmann-json >= 3.12.0`.
+```text
+third_party/nlohmann/json.hpp
+```
 
-Visual Studio / MSBuild must have vcpkg integration available.
+The upstream MIT license is kept at:
+
+```text
+third_party/nlohmann/LICENSE.MIT
+```
+
+Both Actgame and FoundationTests add `$(SolutionDir)third_party` to their include path, so no vcpkg installation or global Visual Studio integration is required.
 
 ## Layout example
 
