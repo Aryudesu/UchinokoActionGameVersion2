@@ -36,6 +36,9 @@ void Menu::update() {
 			case GIMMICK_TEST:
 				SceneChanger::GetInstance().Change(GIMMICK_SANDBOX);
 				break;
+			case NATIVE_STAGE_TEST:
+				SceneChanger::GetInstance().Change(NATIVE_STAGE_SANDBOX);
+				break;
 			default:
 				exit(0);
 			break;
