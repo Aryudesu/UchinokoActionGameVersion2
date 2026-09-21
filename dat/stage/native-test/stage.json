@@ -58,6 +58,14 @@
           "zOrder": 10,
           "objects": [
             {
+              "id": "player-start",
+              "type": "PlayerSpawn",
+              "position": [
+                32,
+                128
+              ]
+            },
+            {
               "id": "enemy-1",
               "type": "WalkingEnemy",
               "position": [
@@ -152,7 +160,21 @@
         1
       ],
       "emptyTile": 0,
-      "transparent": true
+      "transparent": true,
+      "terrainTiles": [
+        {
+          "id": 0,
+          "imageIndex": 0,
+          "collision": "none",
+          "movement": "none"
+        },
+        {
+          "id": 2,
+          "imageIndex": 2,
+          "collision": "solid",
+          "movement": "none"
+        }
+      ]
     }
   ]
 }
