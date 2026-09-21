@@ -144,6 +144,7 @@ void GimmickSandboxScene::ApplyEffects() {
 	Items_.ConsumeTileEffects(TileEffects, Map_.TileWidth(), Map_.TileHeight());
 	Bricks_.ConsumeTileEffects(TileEffects, MakeGameStateSnapshot());
 	ApplyEffectList(TileEffects);
+	if (Dead_) return;
 
 	// ゴール取得フレームではGoalと同時に発生したScore等だけ反映し、
 	// その後の地形・Item更新へ進まずステージ終了状態で止める。
