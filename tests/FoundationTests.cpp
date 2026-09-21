@@ -1356,6 +1356,13 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(Objects->Objects[1].Properties.at("aggressive").TryGetBoolean(Aggressive));
 	assert(!Aggressive);
 
+	float LiftRange = 0.0f;
+	float LiftSpeed = 0.0f;
+	assert(Objects->Objects[2].Properties.at("range").TryGetFloat(LiftRange));
+	assert(NearlyEqual(LiftRange, 192.0f));
+	assert(Objects->Objects[2].Properties.at("speed").TryGetFloat(LiftSpeed));
+	assert(NearlyEqual(LiftSpeed, 2.0f));
+
 	WorldPosition PathDelta;
 	assert(Objects->Objects[2].Properties.at("pathDelta").TryGetVector2(PathDelta));
 	assert(NearlyEqual(PathDelta.X, 192.0f));
