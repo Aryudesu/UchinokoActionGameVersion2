@@ -2670,7 +2670,7 @@ void TestCharacterJumpsLeftAlong2x1HighSideAndLands() {
 	assert(Landed);
 }
 
-void TestCharacterJumpsLeftAlong2x1HighSideConnectedToBlock() {
+void TestCharacterJumpIsCancelledUnder2x1HighSideConnectedToBlock() {
 	TileCatalog Catalog = MakeTerrainCatalog();
 	TileMap Map = MakeMap({
 		{0, 0, 0, 0, 0},
@@ -2679,7 +2679,8 @@ void TestCharacterJumpsLeftAlong2x1HighSideConnectedToBlock() {
 		{1, 1, 1, 1, 1}
 	});
 	CharacterBody Body;
-	// 高い端にブロックが接続された坂の右下から、左入力で側面をこすって上昇する。
+	// 高い端にブロックが接続された坂の右下から左ジャンプする。
+	// 開始位置では頭上のSolidへ即座に当たるため、ジャンプ初速はそこで失われる。
 	Body.Position = {84.0f, 64.0f};
 	Body.Grounded = true;
 	CharacterController Player(Body);
@@ -2689,7 +2690,7 @@ void TestCharacterJumpsLeftAlong2x1HighSideConnectedToBlock() {
 		Player.Step(-1.0f, Frame == 0, Map, Catalog);
 		const float Center = Player.Body().Position.X + 15.0f;
 		if (Center >= 32.0f && Center < 128.0f) {
-			// 坂とブロックの下面にいる間は、上の床へ抜けない。
+			// 坂とブロックの下面を通過しない。
 			assert(Player.Body().Position.Y >= 64.0f);
 		} else if (Center < 32.0f) {
 			ClearedTerrain = true;
@@ -2698,7 +2699,8 @@ void TestCharacterJumpsLeftAlong2x1HighSideConnectedToBlock() {
 		assert(Player.Body().Position.Y <= 64.0f);
 	}
 	assert(ClearedTerrain);
-	assert(RoseAfterClearing);
+	// 天井衝突でVelocityYは0になる。一度抜けた後にジャンプ初速を復活させない。
+	assert(!RoseAfterClearing);
 }
 
 void TestCharacterCannotRiseThroughStacked2x1RightEdge() {
@@ -4363,7 +4365,19 @@ void TestExternalStageSpawnStaysOnFloor() {
 
 } // namespace
 
-int main() {
+int main(int argc, char* argv[]) {
+	if (argc >= 2 && std::string(argv[1]) == "--native-stage-loader") {
+		TestStagePropertyValuesKeepTypes();
+		TestNativeStageDataSupportsOverlappingContent();
+		TestNativeStageDataValidationRejectsAmbiguousStructure();
+		TestNativeStageDataAllowsExternalTransitions();
+		TestNativeStageDataLoaderLoadsJsonAndCsv();
+		TestNativeStageDataLoaderRejectsUnsupportedVersion();
+		TestNativeStageDataLoaderRejectsNestedProperties();
+		std::cout << "Native stage data tests passed.\n";
+		return 0;
+	}
+
 	TestAssetPaths();
 	TestGridDataLoader();
 	TestExternalTerrainStage();
@@ -4447,7 +4461,7 @@ int main() {
 	TestCharacterLeaves2x1HighEdgeWithoutWarpingToLowerFloor();
 	TestRisingCharacterCannotPass2x1HighSideInsideColumn();
 	TestCharacterJumpsLeftAlong2x1HighSideAndLands();
-	TestCharacterJumpsLeftAlong2x1HighSideConnectedToBlock();
+	TestCharacterJumpIsCancelledUnder2x1HighSideConnectedToBlock();
 	TestCharacterCannotRiseThroughStacked2x1RightEdge();
 	TestCharacterJumpArcUnderLongStacked2x1Slope();
 	TestJumpingCharacterCanMoveAbove2x1SurfaceInsideColumn();
