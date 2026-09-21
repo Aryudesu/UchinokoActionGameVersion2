@@ -44,6 +44,16 @@ dat/stage/native-test/
   "mode": "Action",
   "startArea": "main",
   "properties": {},
+  "tileSets": [
+    {
+      "id": "mapobj",
+      "source": "../../img/mapobj.bmp",
+      "tileSize": [32, 32],
+      "grid": [10, 22],
+      "emptyTile": 0,
+      "transparent": true
+    }
+  ],
   "areas": []
 }
 ```
@@ -64,6 +74,30 @@ Optional string.
 - `Sokoban`
 
 Default: `Action`.
+
+## TileSet
+
+```json
+{
+  "id": "mapobj",
+  "source": "../../img/mapobj.bmp",
+  "tileSize": [32, 32],
+  "grid": [10, 22],
+  "emptyTile": 0,
+  "transparent": true
+}
+```
+
+Fields:
+
+- `id`: stable TileSet ID
+- `source`: image path relative to `stage.json`
+- `tileSize`: one tile's pixel size; default `[32, 32]`
+- `grid`: required source-image division count `[columns, rows]`
+- `emptyTile`: tile value that is not drawn; default `0`
+- `transparent`: whether DxLib draws the divided image with transparency; default `true`
+
+`StageData::FindTileSet()` resolves the metadata, while the actual DxLib graph handles belong to the rendering/runtime side.
 
 ## Area
 
@@ -106,6 +140,7 @@ All fields are optional.
   "id": "terrain",
   "name": "Terrain",
   "role": "terrain",
+  "tileSet": "mapobj",
   "zOrder": 0,
   "visible": true,
   "source": "main/terrain.csv"
@@ -117,6 +152,7 @@ Fields:
 - `id`: required stable ID
 - `name`: optional; defaults to `id`
 - `role`: required, `terrain` or `visual`
+- `tileSet`: required by the native JSON loader; references a root `tileSets[].id`
 - `zOrder`: optional, default 0
 - `visible`: optional, default true
 - `source`: required CSV path relative to stage.json
@@ -136,6 +172,8 @@ CSV contains only integer tile values.
 ```
 
 The existing `GridDataLoader` is reused.
+
+The current sandbox renderer treats a non-empty CSV value as the direct divided-image index inside the referenced TileSet. This is the first visual rendering contract only. Terrain collision semantics / TileDefinition-to-ImageIndex mapping will be connected separately before native gameplay runtime replaces the existing Action path.
 
 Do not put object/event data into TileLayer CSV.
 
@@ -279,7 +317,7 @@ Load sequence:
 ```text
 stage.json
    ↓ nlohmann/json
-metadata / objects / regions / transitions
+tile sets / metadata / objects / regions / transitions
    ↓
 TileLayer.source
    ↓ GridDataLoader
