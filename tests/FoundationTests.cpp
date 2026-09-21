@@ -379,6 +379,23 @@ void TestLegacyDamagingRuleStillTargetsPlayer() {
 	assert(Damaging->Rules[0].Target == TileTarget::Player);
 }
 
+void TestDamageKnockbackMovesAwayFromHazardCenter() {
+	// 危険ブロック中心より左にいれば左へ逃がす。
+	assert(DamageReactionState::DirectionAwayFromSource(
+		95.0f, 112.0f, 1) == -1);
+
+	// 今回の問題ケース:
+	// 危険ブロック右側なら、右向きだったとしても右へ逃がす。
+	assert(DamageReactionState::DirectionAwayFromSource(
+		129.0f, 112.0f, -1) == 1);
+
+	// 真上/真下などX中心が一致した時だけfallbackを使う。
+	assert(DamageReactionState::DirectionAwayFromSource(
+		112.0f, 112.0f, -1) == -1);
+	assert(DamageReactionState::DirectionAwayFromSource(
+		112.0f, 112.0f, 1) == 1);
+}
+
 void TestDamageReactionMatchesVersion1SixteenFrames() {
 	DamageReactionState Damage;
 	assert(!Damage.Active());
@@ -3801,6 +3818,7 @@ int main() {
 	TestHazardDefinitionsMatchVersion1Targets();
 	TestHazardTargetsFilterPlayerAndEnemyActors();
 	TestLegacyDamagingRuleStillTargetsPlayer();
+	TestDamageKnockbackMovesAwayFromHazardCenter();
 	TestDamageReactionMatchesVersion1SixteenFrames();
 	TestGoalStageDefinitionsAndEffects();
 	TestNormalAndSecretGoalProgressAreIndependent();
