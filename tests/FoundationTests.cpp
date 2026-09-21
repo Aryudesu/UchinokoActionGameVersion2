@@ -32,6 +32,8 @@ using namespace uchinoko;
 
 namespace {
 
+bool NearlyEqual(float Left, float Right);
+
 void TestAssetPaths() {
 	AssetPaths Paths("dat/");
 	assert(Paths.Image("player.bmp") == "dat/img/player.bmp");
@@ -93,12 +95,12 @@ void TestLegacyStageLoaderSeparatesLegacyLayers() {
 	assert(Stage.Enemies.size() == 2);
 	assert(Stage.Enemies[0].LegacyCode == -2);
 	assert(Stage.Enemies[0].EnemyKind == 1);
-	assert(Stage.Enemies[0].Position == TilePosition{3, 0});
+	assert(Stage.Enemies[0].Position == (TilePosition{3, 0}));
 	assert(NearlyEqual(Stage.Enemies[0].WorldPosition.X, 96.0f));
 	assert(NearlyEqual(Stage.Enemies[0].WorldPosition.Y, 0.0f));
 	assert(Stage.Enemies[1].LegacyCode == -6);
 	assert(Stage.Enemies[1].EnemyKind == 5);
-	assert(Stage.Enemies[1].Position == TilePosition{0, 2});
+	assert(Stage.Enemies[1].Position == (TilePosition{0, 2}));
 	assert(*Object.TryGet({3, 0}) == 1);
 	assert(*Object.TryGet({0, 2}) == 5);
 
