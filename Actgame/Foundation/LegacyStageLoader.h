@@ -28,8 +28,10 @@ struct LegacyStageData {
 	WorldPosition PlayerSpawn;
 	std::vector<LegacyEnemySpawn> Enemies;
 
-	// 現行V1のBlockFactory/Player生成規則では直接解釈できない値。
-	// HSP版では意味を持った100/110/301/321..325/-79等も、C++版V1互換では実行時に空扱いする。\n\t// ただし移植調査用メタデータとして元コードは失わず保持する。
+	// C++版V1のBlockFactory/Player生成規則では直接解釈できない値。
+	// HSP版では意味を持った100/110/301/321..325/-79等も、
+	// C++版V1互換では実行時に空扱いする。
+	// ただし移植調査用メタデータとして元コードは失わず保持する。
 	std::vector<LegacyMapMarker> UnresolvedMarkers;
 };
 
