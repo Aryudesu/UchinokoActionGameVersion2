@@ -27,10 +27,10 @@ PR #28は現時点で未マージ。
 
 推奨順:
 
-1. PR #32のTileSet参照 + NativeStageSandbox描画をレビュー・マージ
-2. Native Terrainの意味ID → TileDefinition / ImageIndex mappingを設計
-3. Native StageのTerrainをCharacterControllerへ接続
-4. TypeId/property schemaを設計
+1. PR #33のNative Terrain semantics + CharacterController接続をレビュー・マージ
+2. Native TileRule schema（Coin / Damage / Goal / SpawnItem等）を設計
+3. ObjectSpawn TypeId/property schemaを設計
+4. Region / Transition runtimeを接続
 5. PR #28を旧ARY parser / converter入力として整理
 6. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
 7. V1 Block ID 0..45 → V2 native Tile定義への変換mapping
