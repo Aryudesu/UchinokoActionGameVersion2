@@ -436,6 +436,7 @@
     <None Include="..\dat\stage\collectible-test\tiles.csv"><Filter>Stage Data</Filter></None>
     <None Include="..\third_party\nlohmann\LICENSE.MIT" />
     <None Include="..\dat\stage\native-test\stage.json"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\native-test\tiles.png"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\native-test\main\terrain.csv"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\native-test\main\background.csv"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\native-test\main\foreground.csv"><Filter>Stage Data</Filter></None>
