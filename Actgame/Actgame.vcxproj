@@ -194,6 +194,7 @@
     <ClInclude Include="Foundation\AssetPaths.h" />
     <ClInclude Include="Foundation\BrickSystem.h" />
     <ClInclude Include="Foundation\DamageReactionState.h" />
+    <ClInclude Include="Foundation\PlayerResourceRules.h" />
     <ClInclude Include="Foundation\CharacterController.h" />
     <ClInclude Include="Foundation\CharacterSafety.h" />
     <ClInclude Include="Foundation\ConditionalTerrain.h" />
@@ -275,6 +276,9 @@
     <None Include="..\dat\stage\hazard-test\stage.ini" />
     <None Include="..\dat\stage\hazard-test\terrain.csv" />
     <None Include="..\dat\stage\hazard-test\tiles.csv" />
+    <None Include="..\dat\stage\collectible-test\stage.ini" />
+    <None Include="..\dat\stage\collectible-test\terrain.csv" />
+    <None Include="..\dat\stage\collectible-test\tiles.csv" />
 
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -376,6 +376,7 @@
     <ClInclude Include="Foundation\AssetPaths.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\BrickSystem.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\DamageReactionState.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\PlayerResourceRules.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\CharacterController.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\CharacterSafety.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\ConditionalTerrain.h"><Filter>Foundation</Filter></ClInclude>
@@ -421,6 +422,9 @@
     <None Include="..\dat\stage\hazard-test\stage.ini"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\hazard-test\terrain.csv"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\hazard-test\tiles.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\collectible-test\stage.ini"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\collectible-test\terrain.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\collectible-test\tiles.csv"><Filter>Stage Data</Filter></None>
 
   </ItemGroup>
 </Project>

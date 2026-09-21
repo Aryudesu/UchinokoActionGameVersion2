@@ -5,6 +5,7 @@
 #include "InputKey.h"
 #include "SceneChanger.h"
 #include "Foundation/TerrainStageLoader.h"
+#include "Foundation/PlayerResourceRules.h"
 
 #include <utility>
 #include <vector>
@@ -32,7 +33,7 @@ GimmickSandboxScene::GimmickSandboxScene() {
 
 void GimmickSandboxScene::Reload() {
 	uchinoko::Result<uchinoko::TerrainStageData> Loaded =
-		uchinoko::TerrainStageLoader::Load("dat/stage/hazard-test/stage.ini");
+		uchinoko::TerrainStageLoader::Load("dat/stage/collectible-test/stage.ini");
 	if (Loaded.IsFailure()) {
 		LoadError_ = Loaded.Error();
 		return;
@@ -57,8 +58,8 @@ void GimmickSandboxScene::Reload() {
 
 	Coins_ = 0;
 	Score_ = 0;
-	Health_ = 5;
-	Lives_ = 0;
+	Health_ = 4;
+	Lives_ = 3;
 	Broken_ = 0;
 	FacingDirection_ = 1;
 	Completion_.Reset();
@@ -72,13 +73,16 @@ void GimmickSandboxScene::ApplyEffectList(
 	for (std::size_t Index = 0; Index < Effects.size(); ++Index) {
 		switch (Effects[Index].Type) {
 		case uchinoko::TileEffectType::AddCoin:
-			Coins_ += Effects[Index].Value;
+			uchinoko::PlayerResourceRules::AddCoin(
+				Effects[Index].Value, Coins_, Lives_);
 			break;
 		case uchinoko::TileEffectType::AddHealth:
-			Health_ += Effects[Index].Value;
+			uchinoko::PlayerResourceRules::AddHealth(
+				Effects[Index].Value, Health_);
 			break;
 		case uchinoko::TileEffectType::AddLife:
-			Lives_ += Effects[Index].Value;
+			uchinoko::PlayerResourceRules::AddLife(
+				Effects[Index].Value, Lives_);
 			break;
 		case uchinoko::TileEffectType::AddScore:
 			Score_ += Effects[Index].Value;
@@ -225,6 +229,8 @@ void GimmickSandboxScene::update() {
 		return;
 	}
 
+	if (ReturnKey(KEY_INPUT_9) == 1) Coins_ = 99;
+
 	uchinoko::CharacterInput Input;
 	if (ReturnKey(KEY_INPUT_LEFT) != 0) Input.Horizontal -= 1.0f;
 	if (ReturnKey(KEY_INPUT_RIGHT) != 0) Input.Horizontal += 1.0f;
@@ -369,6 +375,19 @@ void GimmickSandboxScene::draw() {
 					Left + Map_.TileWidth() / 2,
 					Top + Map_.TileHeight() / 2,
 					9, GetColor(240, 210, 70), TRUE);
+			}
+			if (HasAction(*Definition, uchinoko::TileAction::AddHealth)) {
+				const int X = Left + Map_.TileWidth() / 2;
+				const int Y = Top + Map_.TileHeight() / 2;
+				DrawCircle(X, Y, 9, GetColor(100, 220, 130), TRUE);
+				DrawLine(X - 5, Y, X + 5, Y, GetColor(255, 255, 255), 2);
+				DrawLine(X, Y - 5, X, Y + 5, GetColor(255, 255, 255), 2);
+			}
+			if (HasAction(*Definition, uchinoko::TileAction::AddLife)) {
+				const int X = Left + Map_.TileWidth() / 2;
+				const int Y = Top + Map_.TileHeight() / 2;
+				DrawCircle(X, Y, 10, GetColor(120, 210, 255), TRUE);
+				DrawString(X - 6, Y - 7, "1", GetColor(20, 40, 80));
 			}
 			if (HasAction(*Definition, uchinoko::TileAction::BreakTile)) {
 				DrawBox(Left + 2, Top + 2, Right - 2, Bottom - 2,
@@ -557,28 +576,21 @@ void GimmickSandboxScene::draw() {
 	}
 
 	DrawString(16, 16,
-		"Hazard test: LEFT/RIGHT, Z jump, R reload, Esc",
+		"Collectible test: LEFT/RIGHT, Z jump, 9=Coins99, R reload, Esc",
 		GetColor(255, 255, 255));
 	DrawString(16, 40,
-		"DP/DE/DB = Damage Player/Enemy/Both",
-		GetColor(255, 220, 190));
+		"Yellow=Coin  Green=HealingCoin  Blue=OneUPCoin",
+		GetColor(230, 235, 255));
 	DrawString(16, 64,
-		"KP/KE/KB = Kill Player/Enemy/Both",
-		GetColor(255, 190, 200));
-	DrawString(16, 88,
-		"Hit debug: Yellow=Body  Cyan=Touch16x32  Pink=Probe  Red=Tile",
-		GetColor(255, 255, 180));
-	DrawFormatString(16, 112, GetColor(255, 255, 255),
-		"HP:%d  Damage:%s  Frame:%d  Facing:%s",
-		Health_,
-		DamageReaction_.Active() ? "ON" : "-",
-		DamageReaction_.Frame(),
-		FacingDirection_ > 0 ? "RIGHT" : "LEFT");
-	if (Dead_) {
-		DrawString(16, 136,
-			"DEAD - R: reload",
-			GetColor(255, 100, 100));
-	}
+		"V1: Coin +1/+100score, Heal +1HP/+1000score, OneUP +1life",
+		GetColor(255, 225, 180));
+	DrawFormatString(16, 88, GetColor(255, 255, 255),
+		"Coins:%d  HP:%d/%d  Lives:%d/%d  Score:%d",
+		Coins_, Health_, uchinoko::PlayerResourceRules::MaxHealth,
+		Lives_, uchinoko::PlayerResourceRules::MaxLives, Score_);
+	DrawString(16, 112,
+		"100 coins -> +1 life and coins -100",
+		GetColor(200, 255, 210));
 
 	// V1のSetBrightによる暗転と同じタイミングを、
 	// Sandboxでは黒いオーバーレイで再現する。
