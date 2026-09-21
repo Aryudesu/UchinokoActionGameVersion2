@@ -311,6 +311,11 @@ Example:
 
 Nested objects and arbitrary arrays are intentionally rejected.
 
+JSON serializers are allowed to normalize a lexical value such as `2.0` to `2`.
+Therefore consumers must not rely on the textual presence of a decimal point for semantic float properties.
+`StagePropertyValue::TryGetFloat()` accepts both stored Float and Integer values, widening Integer to float.
+`Type()` still reports the stored JSON-derived type.
+
 Complex authoring data should receive a real schema/type rather than becoming an untyped JSON tree.
 
 ## Loader
