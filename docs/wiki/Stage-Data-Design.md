@@ -492,3 +492,58 @@ ValidateStageData
 まで行う。
 
 EditorはJSON DOMを直接編集するのではなく、同じ `StageData` を編集対象とする。
+
+
+---
+
+## 15. Native Terrain semantics / CharacterController
+
+PR #33で、Terrain CSVの値を画像indexではなく**意味ID**として扱う経路を追加。
+
+```text
+Terrain CSV semantic ID
+        ↓
+TileSet.terrainTiles[]
+        ↓
+TileDefinition
+  ├ Collision / Movement → CharacterController
+  └ ImageIndex           → Renderer
+```
+
+Visual Layerは従来通りCSV値を画像indexとして直接利用する。
+
+Native Stage専用のcollision処理は作らず、
+
+```cpp
+TileSetDefinition::BuildTerrainCatalog()
+```
+
+から既存Foundation `TileCatalog` を生成する。
+
+Native JSONで現在扱うTerrain定義:
+
+- id
+- imageIndex
+- collision
+- movement
+
+TileRuleは次段階。
+
+### PlayerSpawn
+
+開始位置はStage直下の特殊フィールドではなく、
+
+```json
+{
+  "id": "player-start",
+  "type": "PlayerSpawn",
+  "position": [32, 128]
+}
+```
+
+というObjectSpawnとして表す。
+
+これにより将来editorで通常のObjectと同じ配置操作を利用できる。
+
+PR #33のNativeStageSandboxではPlayerSpawnからCharacterControllerを生成し、
+LEFT/RIGHT + Zでnative-test上を歩行・ジャンプできる。
