@@ -122,7 +122,7 @@ Result<LegacyStageData> LegacyStageLoader::Build(
 				Spawn.EnemyKind = EnemyKind;
 				Spawn.LegacyCode = Code;
 				Spawn.Position = Position;
-				Spawn.WorldPosition = {
+				Spawn.World = {
 					static_cast<float>(Column * static_cast<std::size_t>(TileWidth)),
 					static_cast<float>(Row * static_cast<std::size_t>(TileHeight))
 				};
