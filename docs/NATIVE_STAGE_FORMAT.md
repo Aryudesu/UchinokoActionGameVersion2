@@ -29,6 +29,7 @@ Both Actgame and FoundationTests add `$(SolutionDir)third_party` to their includ
 ```text
 dat/stage/native-test/
   stage.json
+  tiles.png
   main/
     terrain.csv
     background.csv
@@ -46,10 +47,10 @@ dat/stage/native-test/
   "properties": {},
   "tileSets": [
     {
-      "id": "mapobj",
-      "source": "../../img/mapobj.bmp",
+      "id": "native-test",
+      "source": "tiles.png",
       "tileSize": [32, 32],
-      "grid": [10, 22],
+      "grid": [4, 1],
       "emptyTile": 0,
       "transparent": true
     }
@@ -79,10 +80,10 @@ Default: `Action`.
 
 ```json
 {
-  "id": "mapobj",
-  "source": "../../img/mapobj.bmp",
+  "id": "native-test",
+  "source": "tiles.png",
   "tileSize": [32, 32],
-  "grid": [10, 22],
+  "grid": [4, 1],
   "emptyTile": 0,
   "transparent": true
 }
@@ -140,7 +141,7 @@ All fields are optional.
   "id": "terrain",
   "name": "Terrain",
   "role": "terrain",
-  "tileSet": "mapobj",
+  "tileSet": "native-test",
   "zOrder": 0,
   "visible": true,
   "source": "main/terrain.csv"
@@ -152,7 +153,7 @@ Fields:
 - `id`: required stable ID
 - `name`: optional; defaults to `id`
 - `role`: required, `terrain` or `visual`
-- `tileSet`: required by the native JSON loader; references a root `tileSets[].id`
+- `tileSet`: optional TileSet reference. Visual rendering requires it; omitting it remains valid for headless/migration StageData
 - `zOrder`: optional, default 0
 - `visible`: optional, default true
 - `source`: required CSV path relative to stage.json
@@ -172,6 +173,13 @@ CSV contains only integer tile values.
 ```
 
 The existing `GridDataLoader` is reused.
+
+The committed `native-test/tiles.png` is a self-contained four-tile fixture:
+
+- 0: transparent/empty
+- 1: background
+- 2: terrain block
+- 3: foreground overlay
 
 The current sandbox renderer treats a non-empty CSV value as the direct divided-image index inside the referenced TileSet. This is the first visual rendering contract only. Terrain collision semantics / TileDefinition-to-ImageIndex mapping will be connected separately before native gameplay runtime replaces the existing Action path.
 
