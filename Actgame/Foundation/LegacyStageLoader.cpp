@@ -130,7 +130,7 @@ Result<LegacyStageData> LegacyStageLoader::Build(
 				continue;
 			}
 
-			// 301=Goal、321..325、-79等の旧エディタ/未移植コードを
+			// 301、321..325、-79等、現行V1では直接解釈しないコードを
 			// 空白へ潰さずEventレイヤと一覧の両方へ残す。
 			Event[Row][Column] = Code;
 			LegacyMapMarker Marker;
