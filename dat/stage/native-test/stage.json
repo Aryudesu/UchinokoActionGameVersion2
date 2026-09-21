@@ -9,8 +9,14 @@
   "areas": [
     {
       "id": "main",
-      "size": [8, 6],
-      "tileSize": [32, 32],
+      "size": [
+        8,
+        6
+      ],
+      "tileSize": [
+        32,
+        32
+      ],
       "settings": {
         "timeLimitSeconds": 300,
         "bgm": "test-bgm",
@@ -25,21 +31,24 @@
           "name": "Background",
           "role": "visual",
           "zOrder": -10,
-          "source": "main/background.csv"
+          "source": "main/background.csv",
+          "tileSet": "mapobj"
         },
         {
           "id": "terrain",
           "name": "Terrain",
           "role": "terrain",
           "zOrder": 0,
-          "source": "main/terrain.csv"
+          "source": "main/terrain.csv",
+          "tileSet": "mapobj"
         },
         {
           "id": "foreground",
           "name": "Foreground",
           "role": "visual",
           "zOrder": 20,
-          "source": "main/foreground.csv"
+          "source": "main/foreground.csv",
+          "tileSet": "mapobj"
         }
       ],
       "objectLayers": [
@@ -51,22 +60,31 @@
             {
               "id": "enemy-1",
               "type": "WalkingEnemy",
-              "position": [96, 96],
+              "position": [
+                96,
+                96
+              ],
               "properties": {
                 "direction": "left",
                 "variant": 1,
-                "speed": 2.0,
+                "speed": 2,
                 "aggressive": false
               }
             },
             {
               "id": "lift-1",
               "type": "HorizontalLift",
-              "position": [96, 96],
+              "position": [
+                96,
+                96
+              ],
               "properties": {
-                "range": 192.0,
-                "speed": 2.0,
-                "pathDelta": [192.0, 0.0]
+                "range": 192,
+                "speed": 2,
+                "pathDelta": [
+                  192,
+                  0
+                ]
               }
             }
           ]
@@ -83,8 +101,14 @@
               "type": "Goal",
               "geometry": {
                 "shape": "rectangle",
-                "position": [192, 64],
-                "size": [32, 64]
+                "position": [
+                  192,
+                  64
+                ],
+                "size": [
+                  32,
+                  64
+                ]
               },
               "properties": {
                 "goalKind": "normal"
@@ -99,14 +123,36 @@
           "type": "Pipe",
           "entry": {
             "shape": "point",
-            "position": [64, 96]
+            "position": [
+              64,
+              96
+            ]
           },
           "targetArea": "main",
-          "exitPosition": [192, 96],
+          "exitPosition": [
+            192,
+            96
+          ],
           "enterDirection": "down",
           "exitDirection": "up"
         }
       ]
+    }
+  ],
+  "tileSets": [
+    {
+      "id": "mapobj",
+      "source": "../../img/mapobj.bmp",
+      "tileSize": [
+        32,
+        32
+      ],
+      "grid": [
+        10,
+        22
+      ],
+      "emptyTile": 0,
+      "transparent": true
     }
   ]
 }
