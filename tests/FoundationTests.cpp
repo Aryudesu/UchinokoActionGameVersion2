@@ -3,6 +3,7 @@
 #include "../Actgame/Foundation/CharacterController.h"
 #include "../Actgame/Foundation/CharacterSafety.h"
 #include "../Actgame/Foundation/ConditionalTerrain.h"
+#include "../Actgame/Foundation/DamageReactionState.h"
 #include "../Actgame/Foundation/CanvasMasaoTerrain.h"
 #include "../Actgame/Foundation/ExtendedSlopeTerrain.h"
 #include "../Actgame/Foundation/GridDataLoader.h"
@@ -251,6 +252,218 @@ void TestBrickIgnoresRepeatedHitsWhileAnimating() {
 	const ActiveBrick* Active = Bricks.TryGet({0, 0});
 	assert(Active != nullptr);
 	assert(Active->Phase == BrickPhase::Bumping);
+}
+
+void TestHazardDefinitionsMatchVersion1Targets() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/hazard-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	struct ExpectedHazard {
+		int Id;
+		TileAction Action;
+		TileTarget Target;
+		int Value;
+	};
+	const ExpectedHazard Expected[] = {
+		{73, TileAction::Damage, TileTarget::Player, 1},
+		{74, TileAction::Damage, TileTarget::Enemy, 1},
+		{75, TileAction::Damage, TileTarget::Both, 1},
+		{76, TileAction::InstantDeath, TileTarget::Player, 0},
+		{77, TileAction::InstantDeath, TileTarget::Enemy, 0},
+		{78, TileAction::InstantDeath, TileTarget::Both, 0}
+	};
+
+	for (const ExpectedHazard& Hazard : Expected) {
+		const TileDefinition* Definition = Loaded.Value().Find(Hazard.Id);
+		assert(Definition != nullptr);
+		assert(Definition->Collision == CollisionShape::Solid);
+		assert(Definition->Rules.size() == 1);
+		assert(Definition->Rules[0].Trigger == TileTrigger::Touch);
+		assert(Definition->Rules[0].Action == Hazard.Action);
+		assert(Definition->Rules[0].Target == Hazard.Target);
+		assert(Definition->Rules[0].Value == Hazard.Value);
+		assert(!Definition->Rules[0].Once);
+	}
+}
+
+void TestHazardTargetsFilterPlayerAndEnemyActors() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/hazard-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	auto ApplyHazard = [&](int TileId, TileActor Actor) {
+		TileMap Map = MakeMap({{TileId}});
+		TileRuntimeMap Runtime(Map);
+		TileInteraction Interaction;
+		Interaction.Trigger = TileTrigger::Touch;
+		Interaction.Position = {0, 0};
+		Interaction.TileId = TileId;
+		Interaction.Actor = Actor;
+		return TileBehaviorSystem::Apply(
+			Interaction, Map, Loaded.Value(), Runtime);
+	};
+
+	TileBehaviorResult Result = ApplyHazard(73, TileActor::Player);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::Damage);
+	assert(Result.Effects[0].Actor == TileActor::Player);
+
+	Result = ApplyHazard(74, TileActor::Player);
+	assert(!Result.Handled);
+	assert(Result.Effects.empty());
+
+	Result = ApplyHazard(75, TileActor::Player);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::Damage);
+	assert(Result.Effects[0].Actor == TileActor::Player);
+
+	Result = ApplyHazard(76, TileActor::Player);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::InstantDeath);
+
+	Result = ApplyHazard(77, TileActor::Player);
+	assert(!Result.Handled);
+	assert(Result.Effects.empty());
+
+	Result = ApplyHazard(78, TileActor::Player);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::InstantDeath);
+
+	Result = ApplyHazard(73, TileActor::Enemy);
+	assert(!Result.Handled);
+	assert(Result.Effects.empty());
+
+	Result = ApplyHazard(74, TileActor::Enemy);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::Damage);
+	assert(Result.Effects[0].Actor == TileActor::Enemy);
+
+	Result = ApplyHazard(75, TileActor::Enemy);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::Damage);
+	assert(Result.Effects[0].Actor == TileActor::Enemy);
+
+	Result = ApplyHazard(76, TileActor::Enemy);
+	assert(!Result.Handled);
+	assert(Result.Effects.empty());
+
+	Result = ApplyHazard(77, TileActor::Enemy);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::InstantDeath);
+	assert(Result.Effects[0].Actor == TileActor::Enemy);
+
+	Result = ApplyHazard(78, TileActor::Enemy);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::InstantDeath);
+	assert(Result.Effects[0].Actor == TileActor::Enemy);
+}
+
+void TestLegacyDamagingRuleStillTargetsPlayer() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* Damaging = Loaded.Value().Find(22);
+	assert(Damaging != nullptr);
+	assert(Damaging->Rules.size() == 1);
+	assert(Damaging->Rules[0].Action == TileAction::Damage);
+	assert(Damaging->Rules[0].Target == TileTarget::Player);
+}
+
+void TestCharacterExposesActualTouchProbePoints() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/hazard-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0}
+	});
+
+	CharacterBody Body;
+	Body.Position = {32.0f, 32.0f};
+	Body.Grounded = false;
+	CharacterController Player(Body);
+
+	CharacterInput Input;
+	Player.Step(Input, Map, Loaded.Value());
+
+	const std::vector<WorldPosition>& Probes = Player.TouchProbePoints();
+	assert(Probes.size() == 5);
+
+	const CharacterBody& Current = Player.Body();
+	const CharacterTouchBounds Bounds = Player.TouchBounds();
+	assert(NearlyEqual(Bounds.Left, Current.Position.X + 8.0f));
+	assert(NearlyEqual(Bounds.Right, Current.Position.X + 24.0f));
+	assert(NearlyEqual(Bounds.Top, Current.Position.Y));
+	assert(NearlyEqual(Bounds.Bottom, Current.Position.Y + 32.0f));
+
+	assert(NearlyEqual(Probes[0].X, Bounds.Left));
+	assert(NearlyEqual(Probes[0].Y, Bounds.Top));
+	assert(NearlyEqual(Probes[1].X, Bounds.Right));
+	assert(NearlyEqual(Probes[1].Y, Bounds.Top));
+	assert(NearlyEqual(Probes[2].X, Bounds.Left));
+	assert(NearlyEqual(Probes[2].Y, Bounds.Bottom));
+	assert(NearlyEqual(Probes[3].X, Bounds.Right));
+	assert(NearlyEqual(Probes[3].Y, Bounds.Bottom));
+	assert(NearlyEqual(Probes[4].X, Current.Position.X + Current.Width * 0.5f));
+	assert(NearlyEqual(Probes[4].Y, Current.Position.Y + Current.Height * 0.5f));
+}
+
+void TestDamageKnockbackMovesAwayFromHazardCenter() {
+	// 危険ブロック中心より左にいれば左へ逃がす。
+	assert(DamageReactionState::DirectionAwayFromSource(
+		95.0f, 112.0f, 1) == -1);
+
+	// 今回の問題ケース:
+	// 危険ブロック右側なら、右向きだったとしても右へ逃がす。
+	assert(DamageReactionState::DirectionAwayFromSource(
+		129.0f, 112.0f, -1) == 1);
+
+	// 真上/真下などX中心が一致した時だけfallbackを使う。
+	assert(DamageReactionState::DirectionAwayFromSource(
+		112.0f, 112.0f, -1) == -1);
+	assert(DamageReactionState::DirectionAwayFromSource(
+		112.0f, 112.0f, 1) == 1);
+}
+
+void TestDamageReactionMatchesVersion1SixteenFrames() {
+	DamageReactionState Damage;
+	assert(!Damage.Active());
+	assert(Damage.Begin(-1));
+	assert(Damage.Active());
+	assert(Damage.KnockbackDirection() == -1);
+	assert(!Damage.Begin(1));
+
+	for (int Frame = 1;
+		Frame < DamageReactionState::Version1DurationFrames; ++Frame) {
+		assert(Damage.AdvanceFrame() == -1.0f);
+		assert(Damage.Active());
+		assert(Damage.Frame() == Frame);
+	}
+
+	assert(Damage.AdvanceFrame() == 0.0f);
+	assert(!Damage.Active());
+	assert(Damage.Frame() == DamageReactionState::Version1DurationFrames);
+
+	assert(Damage.Begin(1));
+	assert(Damage.KnockbackDirection() == 1);
+	assert(Damage.AdvanceFrame() == 1.0f);
+
+	Damage.Reset();
+	assert(!Damage.Active());
+	assert(Damage.Frame() == 0);
 }
 
 void TestGoalStageDefinitionsAndEffects() {
@@ -1420,11 +1633,24 @@ void TestCharacterEmitsTouchForCollectible() {
 	Body.Position = {0.0f, 0.0f};
 	Body.Grounded = true;
 	CharacterController Player(Body);
-	Player.Step(1.0f, false, Map, Catalog);
 
+	// 見た目32pxの右端が近づいただけではTouchしない。
+	// 中央16pxの右端が次タイルへ入った時点で初めて反応する。
+	Player.Step(1.0f, false, Map, Catalog);
 	bool FoundTouch = false;
-	for (std::size_t Index = 0; Index < Player.Interactions().size(); ++Index) {
-		const TileInteraction& Interaction = Player.Interactions()[Index];
+	for (const TileInteraction& Interaction : Player.Interactions()) {
+		if (Interaction.Trigger == TileTrigger::Touch &&
+			Interaction.Position.Column == 1 && Interaction.Position.Row == 0 &&
+			Interaction.TileId == 20) {
+			FoundTouch = true;
+		}
+	}
+	assert(!FoundTouch);
+
+	Player.Step(1.0f, false, Map, Catalog);
+	Player.Step(1.0f, false, Map, Catalog);
+	FoundTouch = false;
+	for (const TileInteraction& Interaction : Player.Interactions()) {
 		if (Interaction.Trigger == TileTrigger::Touch &&
 			Interaction.Position.Column == 1 && Interaction.Position.Row == 0 &&
 			Interaction.TileId == 20) {
@@ -1439,6 +1665,43 @@ void TestCharacterEmitsTouchForCollectible() {
 	assert(Effects.size() == 1);
 	assert(Effects[0].Type == TileEffectType::AddCoin);
 	assert(*Map.TryGet({1, 0}) == 0);
+}
+
+void TestCentralTouchHitboxStillTouchesSolidHazardFromSide() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/hazard-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 73, 0},
+		{1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {0.0f, 0.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	bool FoundDamageTouch = false;
+	for (int Frame = 0; Frame < 10 && !FoundDamageTouch; ++Frame) {
+		Player.Step(1.0f, false, Map, Loaded.Value());
+		for (const TileInteraction& Interaction : Player.Interactions()) {
+			if (Interaction.Trigger == TileTrigger::Touch &&
+				Interaction.Position.Column == 1 &&
+				Interaction.Position.Row == 0 &&
+				Interaction.TileId == 73) {
+				FoundDamageTouch = true;
+				break;
+			}
+		}
+	}
+
+	assert(FoundDamageTouch);
+	// Solid衝突は中央軸で止まり、見た目は半分ほどブロックへ重なる。
+	// その位置で中央16px Touch範囲も危険ブロックへ到達している。
+	assert(NearlyEqual(Player.Body().Position.X, 16.0f));
+	const CharacterTouchBounds Bounds = Player.TouchBounds();
+	assert(NearlyEqual(Bounds.Left, 24.0f));
+	assert(NearlyEqual(Bounds.Right, 40.0f));
 }
 
 void TestCharacterTouchIncludesSolidContact() {
@@ -3644,6 +3907,12 @@ int main() {
 	TestBrickWithLowHealthBumpsButDoesNotBreak();
 	TestBrickWithFullHealthBreaksAfterVersion1Delay();
 	TestBrickIgnoresRepeatedHitsWhileAnimating();
+	TestHazardDefinitionsMatchVersion1Targets();
+	TestHazardTargetsFilterPlayerAndEnemyActors();
+	TestLegacyDamagingRuleStillTargetsPlayer();
+	TestCharacterExposesActualTouchProbePoints();
+	TestDamageKnockbackMovesAwayFromHazardCenter();
+	TestDamageReactionMatchesVersion1SixteenFrames();
 	TestGoalStageDefinitionsAndEffects();
 	TestNormalAndSecretGoalProgressAreIndependent();
 	TestStageCompletionEndsRunWithOneGoal();
@@ -3682,6 +3951,7 @@ int main() {
 	TestQuestionBlockSpawnsItemAndBecomesUsed();
 	TestHiddenItemBlockOnlyBlocksFromBelow();
 	TestCharacterEmitsTouchForCollectible();
+	TestCentralTouchHitboxStillTouchesSolidHazardFromSide();
 	TestCharacterTouchIncludesSolidContact();
 	TestCharacterEmitsHitFromBelowForBlock();
 	TestCanvasMasaoTerrainCodesAndCoordinates();

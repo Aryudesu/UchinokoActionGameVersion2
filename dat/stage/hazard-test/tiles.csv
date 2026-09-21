@@ -1,0 +1,9 @@
+# id, collision shape, image index, breakable, damaging, rules [, switch_channel, switch_on_tile, switch_off_tile [, auto_toggle_period [, condition [, movement_region]]]]
+0,None,0,0,0,-
+1,Solid,0,0,0,-
+73,Solid,0,0,0,Touch:Damage:1:repeat:any:Player
+74,Solid,0,0,0,Touch:Damage:1:repeat:any:Enemy
+75,Solid,0,0,0,Touch:Damage:1:repeat:any:Both
+76,Solid,0,0,0,Touch:InstantDeath:0:repeat:any:Player
+77,Solid,0,0,0,Touch:InstantDeath:0:repeat:any:Enemy
+78,Solid,0,0,0,Touch:InstantDeath:0:repeat:any:Both

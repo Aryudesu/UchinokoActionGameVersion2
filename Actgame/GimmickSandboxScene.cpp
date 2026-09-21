@@ -32,7 +32,7 @@ GimmickSandboxScene::GimmickSandboxScene() {
 
 void GimmickSandboxScene::Reload() {
 	uchinoko::Result<uchinoko::TerrainStageData> Loaded =
-		uchinoko::TerrainStageLoader::Load("dat/stage/brick-test/stage.ini");
+		uchinoko::TerrainStageLoader::Load("dat/stage/hazard-test/stage.ini");
 	if (Loaded.IsFailure()) {
 		LoadError_ = Loaded.Error();
 		return;
@@ -42,6 +42,7 @@ void GimmickSandboxScene::Reload() {
 	Catalog_ = std::move(Loaded.Value().Catalog);
 	Pipes_ = std::move(Loaded.Value().Pipes);
 	Pipe_.Reset();
+	DamageReaction_.Reset();
 	Runtime_.Reset(Map_);
 	Items_.Reset();
 	Bricks_.Reset();
@@ -56,9 +57,10 @@ void GimmickSandboxScene::Reload() {
 
 	Coins_ = 0;
 	Score_ = 0;
-	Health_ = 4;
+	Health_ = 5;
 	Lives_ = 0;
 	Broken_ = 0;
+	FacingDirection_ = 1;
 	Completion_.Reset();
 	Dead_ = false;
 	SynchronizeConditionalTerrain();
@@ -84,8 +86,33 @@ void GimmickSandboxScene::ApplyEffectList(
 		case uchinoko::TileEffectType::TileBroken:
 			++Broken_;
 			break;
+		case uchinoko::TileEffectType::Damage:
+			if (Effects[Index].Actor == uchinoko::TileActor::Player && !Dead_) {
+				const uchinoko::CharacterBody& Body = Player_.Body();
+				const float PlayerCenterX =
+					Body.Position.X + Body.Width * 0.5f;
+				const float HazardCenterX =
+					(static_cast<float>(Effects[Index].Position.Column) + 0.5f) *
+					static_cast<float>(Map_.TileWidth());
+				const int KnockbackDirection =
+					uchinoko::DamageReactionState::DirectionAwayFromSource(
+						PlayerCenterX, HazardCenterX, -FacingDirection_);
+
+				if (DamageReaction_.Begin(KnockbackDirection)) {
+					// V1 Damaged(): 被ダメージ開始時に speed.y=0。
+					Player_.Reposition(Player_.Body().Position);
+					Health_ -= Effects[Index].Value;
+					if (Health_ <= 0) {
+						Health_ = 0;
+						Dead_ = true;
+					}
+				}
+			}
+			break;
 		case uchinoko::TileEffectType::InstantDeath:
-			Dead_ = true;
+			if (Effects[Index].Actor == uchinoko::TileActor::Player) {
+				Dead_ = true;
+			}
 			break;
 		case uchinoko::TileEffectType::Goal: {
 			uchinoko::GoalKind Kind;
@@ -128,6 +155,7 @@ void GimmickSandboxScene::ApplyEffects() {
 	Items_.ConsumeTileEffects(TileEffects, Map_.TileWidth(), Map_.TileHeight());
 	Bricks_.ConsumeTileEffects(TileEffects, MakeGameStateSnapshot());
 	ApplyEffectList(TileEffects);
+	if (Dead_) return;
 
 	// ゴール取得フレームではGoalと同時に発生したScore等だけ反映し、
 	// その後の地形・Item更新へ進まずステージ終了状態で止める。
@@ -187,9 +215,15 @@ void GimmickSandboxScene::update() {
 		return;
 	}
 
-	// brick-test: V1のBRICKHP=5の境界をその場で切り替える。
-	if (ReturnKey(KEY_INPUT_4) == 1) Health_ = 4;
-	if (ReturnKey(KEY_INPUT_5) == 1) Health_ = 5;
+	// V1 DamageMotion相当。被ダメージ中はユーザー入力を無視し、
+	// 1～15Fは3px/frameでノックバック、16F目は横0で通常へ戻る。
+	if (DamageReaction_.Active()) {
+		uchinoko::CharacterInput DamageInput;
+		DamageInput.Horizontal = DamageReaction_.AdvanceFrame();
+		Player_.Step(DamageInput, Map_, Catalog_);
+		ApplyEffects();
+		return;
+	}
 
 	uchinoko::CharacterInput Input;
 	if (ReturnKey(KEY_INPUT_LEFT) != 0) Input.Horizontal -= 1.0f;
@@ -197,6 +231,8 @@ void GimmickSandboxScene::update() {
 	if (ReturnKey(KEY_INPUT_UP) != 0) Input.Vertical -= 1.0f;
 	if (ReturnKey(KEY_INPUT_DOWN) != 0) Input.Vertical += 1.0f;
 	Input.JumpPressed = ReturnKey(KEY_INPUT_Z) == 1;
+	if (Input.Horizontal > 0.0f) FacingDirection_ = 1;
+	else if (Input.Horizontal < 0.0f) FacingDirection_ = -1;
 
 	// V1のMovingUpdate相当。土管移動中は通常物理・通常ギミック更新を止める。
 	if (Pipe_.IsActive()) {
@@ -232,6 +268,9 @@ void GimmickSandboxScene::draw() {
 
 			const bool SpawnsItem = HasAction(*Definition, uchinoko::TileAction::SpawnItem);
 			const bool BrickTile = HasAction(*Definition, uchinoko::TileAction::HitBrick);
+			const bool DamageTile = HasAction(*Definition, uchinoko::TileAction::Damage);
+			const bool KillTile = HasAction(*Definition, uchinoko::TileAction::InstantDeath);
+			const bool HazardTile = DamageTile || KillTile;
 			const bool Hidden =
 				Definition->Collision == uchinoko::CollisionShape::HitFromBelowOnly;
 
@@ -260,9 +299,11 @@ void GimmickSandboxScene::draw() {
 					Left, Top, Right, Bottom,
 					IsPipeTile(*Id)
 						? GetColor(70, 170, 90)
-						: (BrickTile
-							? GetColor(175, 95, 55)
-							: (SpawnsItem ? GetColor(210, 160, 70) : GetColor(80, 130, 190))),
+						: (HazardTile
+							? (KillTile ? GetColor(145, 45, 65) : GetColor(205, 95, 70))
+							: (BrickTile
+								? GetColor(175, 95, 55)
+								: (SpawnsItem ? GetColor(210, 160, 70) : GetColor(80, 130, 190)))),
 					TRUE);
 				if (IsPipeTile(*Id)) {
 					DrawBox(Left + 3, Top + 3, Right - 3, Bottom - 3,
@@ -348,6 +389,27 @@ void GimmickSandboxScene::draw() {
 						Bricks_.VisualFrameOffset({Column, Row}));
 				}
 			}
+			if (HazardTile) {
+				const uchinoko::TileRule* HazardRule = nullptr;
+				for (std::size_t RuleIndex = 0;
+					RuleIndex < Definition->Rules.size(); ++RuleIndex) {
+					const uchinoko::TileAction Action =
+						Definition->Rules[RuleIndex].Action;
+					if (Action == uchinoko::TileAction::Damage ||
+						Action == uchinoko::TileAction::InstantDeath) {
+						HazardRule = &Definition->Rules[RuleIndex];
+						break;
+					}
+				}
+				if (HazardRule != nullptr) {
+					const char* Target = "P";
+					if (HazardRule->Target == uchinoko::TileTarget::Enemy) Target = "E";
+					else if (HazardRule->Target == uchinoko::TileTarget::Both) Target = "B";
+					DrawFormatString(
+						Left + 6, Top + 7, GetColor(255, 255, 255),
+						"%s%s", KillTile ? "K" : "D", Target);
+				}
+			}
 			if (HasAction(*Definition, uchinoko::TileAction::Goal)) {
 				int GoalValue = 0;
 				for (std::size_t RuleIndex = 0;
@@ -425,11 +487,56 @@ void GimmickSandboxScene::draw() {
 	}
 
 	const uchinoko::CharacterBody& Body = Player_.Body();
+	const int BodyLeft = static_cast<int>(Body.Position.X);
+	const int BodyTop = static_cast<int>(Body.Position.Y);
+	const int BodyRight = static_cast<int>(Body.Position.X + Body.Width);
+	const int BodyBottom = static_cast<int>(Body.Position.Y + Body.Height);
+
 	DrawBox(
-		static_cast<int>(Body.Position.X), static_cast<int>(Body.Position.Y),
-		static_cast<int>(Body.Position.X + Body.Width),
-		static_cast<int>(Body.Position.Y + Body.Height),
+		BodyLeft, BodyTop, BodyRight, BodyBottom,
 		GetColor(240, 210, 80), TRUE);
+
+	// Hazard debug:
+	// 黄色枠 = CharacterBody（見た目32x32）
+	DrawBox(
+		BodyLeft, BodyTop, BodyRight, BodyBottom,
+		GetColor(255, 255, 80), FALSE);
+
+	// シアン枠 = 実際のTileTrigger::Touch判定範囲（中央16x32）。
+	const uchinoko::CharacterTouchBounds TouchBounds = Player_.TouchBounds();
+	DrawBox(
+		static_cast<int>(TouchBounds.Left),
+		static_cast<int>(TouchBounds.Top),
+		static_cast<int>(TouchBounds.Right),
+		static_cast<int>(TouchBounds.Bottom),
+		GetColor(80, 230, 255), FALSE);
+
+	// 赤枠 = このフレームにTileTrigger::Touchとなったタイル。
+	// 同じタイルへの複数ProbeはTileInteraction側で重複排除される。
+	const std::vector<uchinoko::TileInteraction>& Interactions =
+		Player_.Interactions();
+	for (std::size_t Index = 0; Index < Interactions.size(); ++Index) {
+		if (Interactions[Index].Trigger != uchinoko::TileTrigger::Touch) continue;
+		const int Left =
+			Interactions[Index].Position.Column * Map_.TileWidth();
+		const int Top =
+			Interactions[Index].Position.Row * Map_.TileHeight();
+		DrawBox(
+			Left, Top,
+			Left + Map_.TileWidth(), Top + Map_.TileHeight(),
+			GetColor(255, 80, 80), FALSE);
+	}
+
+	// ピンク十字 = CharacterControllerが実際にTouch判定へ使った全Probe。
+	// 四隅+中央に加え、接地・壁接触・頭突き等で追加されたProbeも見える。
+	const std::vector<uchinoko::WorldPosition>& TouchProbes =
+		Player_.TouchProbePoints();
+	for (std::size_t Index = 0; Index < TouchProbes.size(); ++Index) {
+		const int X = static_cast<int>(TouchProbes[Index].X);
+		const int Y = static_cast<int>(TouchProbes[Index].Y);
+		DrawLine(X - 4, Y, X + 4, Y, GetColor(255, 80, 220), 2);
+		DrawLine(X, Y - 4, X, Y + 4, GetColor(255, 80, 220), 2);
+	}
 
 	// V1は土管移動中だけ主人公をMapより先に描画していた。
 	// Sandboxでは土管タイルを再描画し、潜り込み/出現部分を隠す。
@@ -450,20 +557,26 @@ void GimmickSandboxScene::draw() {
 	}
 
 	DrawString(16, 16,
-		"Brick test: LEFT/RIGHT, Z jump, 4=HP4, 5=HP5, R reload, Esc",
+		"Hazard test: LEFT/RIGHT, Z jump, R reload, Esc",
 		GetColor(255, 255, 255));
 	DrawString(16, 40,
-		"V1 BRICKHP=5: HP4=bump only / HP5=break",
-		GetColor(255, 225, 190));
-	DrawFormatString(16, 64, GetColor(255, 255, 255),
-		"HP:%d  Score:%d  Broken:%d  Fragments:%d",
-		Health_, Score_, Broken_, static_cast<int>(Bricks_.Fragments().size()));
+		"DP/DE/DB = Damage Player/Enemy/Both",
+		GetColor(255, 220, 190));
+	DrawString(16, 64,
+		"KP/KE/KB = Kill Player/Enemy/Both",
+		GetColor(255, 190, 200));
 	DrawString(16, 88,
-		"Break result: +10 score and 5 falling fragments",
-		GetColor(220, 235, 255));
+		"Hit debug: Yellow=Body  Cyan=Touch16x32  Pink=Probe  Red=Tile",
+		GetColor(255, 255, 180));
+	DrawFormatString(16, 112, GetColor(255, 255, 255),
+		"HP:%d  Damage:%s  Frame:%d  Facing:%s",
+		Health_,
+		DamageReaction_.Active() ? "ON" : "-",
+		DamageReaction_.Frame(),
+		FacingDirection_ > 0 ? "RIGHT" : "LEFT");
 	if (Dead_) {
-		DrawString(16, 112,
-			"CRUSHED - InstantDeath (R: reload)",
+		DrawString(16, 136,
+			"DEAD - R: reload",
 			GetColor(255, 100, 100));
 	}
 
