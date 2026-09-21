@@ -21,6 +21,17 @@ enum class TileTrigger {
 
 // 1つのタイルへ複数ルールを合成できるため、CoinBlock/HealingBlock/... の
 // 派生クラス増殖を避けられる。
+enum class TileActor {
+	Player,
+	Enemy
+};
+
+enum class TileTarget {
+	Player,
+	Enemy,
+	Both
+};
+
 enum class TileAction {
 	None,
 	ReplaceTile,
@@ -54,12 +65,14 @@ struct TileRule {
 	bool Once = false;
 	TileCountCondition CountCondition = TileCountCondition::Any;
 	int CountValue = 0;
+	TileTarget Target = TileTarget::Player;
 };
 
 struct TileInteraction {
 	TileTrigger Trigger = TileTrigger::Touch;
 	TilePosition Position;
 	int TileId = 0;
+	TileActor Actor = TileActor::Player;
 };
 
 // Foundation は SoundManager/GameData 等を直接呼ばず、外側へ意味のある結果を返す。
@@ -82,6 +95,7 @@ struct TileEffect {
 	TilePosition Position;
 	int Value = 0;
 	int SourceTileId = 0;
+	TileActor Actor = TileActor::Player;
 };
 
 struct TileRuntimeState {
