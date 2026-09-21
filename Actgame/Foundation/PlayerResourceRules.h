@@ -12,11 +12,11 @@ struct PlayerResourceRules {
 	static constexpr int MaxLives = 999;
 
 	static void AddHealth(int Value, int& Health) {
-		Health = std::min(MaxHealth, Health + Value);
+		Health = (std::min)(MaxHealth, Health + Value);
 	}
 
 	static void AddLife(int Value, int& Lives) {
-		Lives = std::min(MaxLives, Lives + Value);
+		Lives = (std::min)(MaxLives, Lives + Value);
 	}
 
 	// V1 PlayerManager::PlusCoin() と同様、
