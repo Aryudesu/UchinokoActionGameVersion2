@@ -3,6 +3,7 @@
 #include "../Actgame/Foundation/CharacterController.h"
 #include "../Actgame/Foundation/CharacterSafety.h"
 #include "../Actgame/Foundation/ConditionalTerrain.h"
+#include "../Actgame/Foundation/DamageReactionState.h"
 #include "../Actgame/Foundation/CanvasMasaoTerrain.h"
 #include "../Actgame/Foundation/ExtendedSlopeTerrain.h"
 #include "../Actgame/Foundation/GridDataLoader.h"
@@ -251,6 +252,159 @@ void TestBrickIgnoresRepeatedHitsWhileAnimating() {
 	const ActiveBrick* Active = Bricks.TryGet({0, 0});
 	assert(Active != nullptr);
 	assert(Active->Phase == BrickPhase::Bumping);
+}
+
+void TestHazardDefinitionsMatchVersion1Targets() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/hazard-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	struct ExpectedHazard {
+		int Id;
+		TileAction Action;
+		TileTarget Target;
+		int Value;
+	};
+	const ExpectedHazard Expected[] = {
+		{73, TileAction::Damage, TileTarget::Player, 1},
+		{74, TileAction::Damage, TileTarget::Enemy, 1},
+		{75, TileAction::Damage, TileTarget::Both, 1},
+		{76, TileAction::InstantDeath, TileTarget::Player, 0},
+		{77, TileAction::InstantDeath, TileTarget::Enemy, 0},
+		{78, TileAction::InstantDeath, TileTarget::Both, 0}
+	};
+
+	for (const ExpectedHazard& Hazard : Expected) {
+		const TileDefinition* Definition = Loaded.Value().Find(Hazard.Id);
+		assert(Definition != nullptr);
+		assert(Definition->Collision == CollisionShape::Solid);
+		assert(Definition->Rules.size() == 1);
+		assert(Definition->Rules[0].Trigger == TileTrigger::Touch);
+		assert(Definition->Rules[0].Action == Hazard.Action);
+		assert(Definition->Rules[0].Target == Hazard.Target);
+		assert(Definition->Rules[0].Value == Hazard.Value);
+		assert(!Definition->Rules[0].Once);
+	}
+}
+
+void TestHazardTargetsFilterPlayerAndEnemyActors() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/hazard-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	auto ApplyHazard = [&](int TileId, TileActor Actor) {
+		TileMap Map = MakeMap({{TileId}});
+		TileRuntimeMap Runtime(Map);
+		TileInteraction Interaction;
+		Interaction.Trigger = TileTrigger::Touch;
+		Interaction.Position = {0, 0};
+		Interaction.TileId = TileId;
+		Interaction.Actor = Actor;
+		return TileBehaviorSystem::Apply(
+			Interaction, Map, Loaded.Value(), Runtime);
+	};
+
+	TileBehaviorResult Result = ApplyHazard(73, TileActor::Player);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::Damage);
+	assert(Result.Effects[0].Actor == TileActor::Player);
+
+	Result = ApplyHazard(74, TileActor::Player);
+	assert(!Result.Handled);
+	assert(Result.Effects.empty());
+
+	Result = ApplyHazard(75, TileActor::Player);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::Damage);
+	assert(Result.Effects[0].Actor == TileActor::Player);
+
+	Result = ApplyHazard(76, TileActor::Player);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::InstantDeath);
+
+	Result = ApplyHazard(77, TileActor::Player);
+	assert(!Result.Handled);
+	assert(Result.Effects.empty());
+
+	Result = ApplyHazard(78, TileActor::Player);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::InstantDeath);
+
+	Result = ApplyHazard(73, TileActor::Enemy);
+	assert(!Result.Handled);
+	assert(Result.Effects.empty());
+
+	Result = ApplyHazard(74, TileActor::Enemy);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::Damage);
+	assert(Result.Effects[0].Actor == TileActor::Enemy);
+
+	Result = ApplyHazard(75, TileActor::Enemy);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::Damage);
+	assert(Result.Effects[0].Actor == TileActor::Enemy);
+
+	Result = ApplyHazard(76, TileActor::Enemy);
+	assert(!Result.Handled);
+	assert(Result.Effects.empty());
+
+	Result = ApplyHazard(77, TileActor::Enemy);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::InstantDeath);
+	assert(Result.Effects[0].Actor == TileActor::Enemy);
+
+	Result = ApplyHazard(78, TileActor::Enemy);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::InstantDeath);
+	assert(Result.Effects[0].Actor == TileActor::Enemy);
+}
+
+void TestLegacyDamagingRuleStillTargetsPlayer() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* Damaging = Loaded.Value().Find(22);
+	assert(Damaging != nullptr);
+	assert(Damaging->Rules.size() == 1);
+	assert(Damaging->Rules[0].Action == TileAction::Damage);
+	assert(Damaging->Rules[0].Target == TileTarget::Player);
+}
+
+void TestDamageReactionMatchesVersion1SixteenFrames() {
+	DamageReactionState Damage;
+	assert(!Damage.Active());
+	assert(Damage.Begin(-1));
+	assert(Damage.Active());
+	assert(Damage.KnockbackDirection() == -1);
+	assert(!Damage.Begin(1));
+
+	for (int Frame = 1;
+		Frame < DamageReactionState::Version1DurationFrames; ++Frame) {
+		assert(Damage.AdvanceFrame() == -1.0f);
+		assert(Damage.Active());
+		assert(Damage.Frame() == Frame);
+	}
+
+	assert(Damage.AdvanceFrame() == 0.0f);
+	assert(!Damage.Active());
+	assert(Damage.Frame() == DamageReactionState::Version1DurationFrames);
+
+	assert(Damage.Begin(1));
+	assert(Damage.KnockbackDirection() == 1);
+	assert(Damage.AdvanceFrame() == 1.0f);
+
+	Damage.Reset();
+	assert(!Damage.Active());
+	assert(Damage.Frame() == 0);
 }
 
 void TestGoalStageDefinitionsAndEffects() {
@@ -3644,6 +3798,10 @@ int main() {
 	TestBrickWithLowHealthBumpsButDoesNotBreak();
 	TestBrickWithFullHealthBreaksAfterVersion1Delay();
 	TestBrickIgnoresRepeatedHitsWhileAnimating();
+	TestHazardDefinitionsMatchVersion1Targets();
+	TestHazardTargetsFilterPlayerAndEnemyActors();
+	TestLegacyDamagingRuleStillTargetsPlayer();
+	TestDamageReactionMatchesVersion1SixteenFrames();
 	TestGoalStageDefinitionsAndEffects();
 	TestNormalAndSecretGoalProgressAreIndependent();
 	TestStageCompletionEndsRunWithOneGoal();
