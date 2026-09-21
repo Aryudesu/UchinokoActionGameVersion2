@@ -14,7 +14,7 @@ struct LegacyEnemySpawn {
 	int EnemyKind = 0;
 	int LegacyCode = 0;
 	TilePosition Position;
-	WorldPosition WorldPosition;
+	WorldPosition World;
 };
 
 struct LegacyMapMarker {
