@@ -11,6 +11,7 @@
 #include "../Actgame/Foundation/ItemSystem.h"
 #include "../Actgame/Foundation/LayeredMap.h"
 #include "../Actgame/Foundation/PipeTransport.h"
+#include "../Actgame/Foundation/PlayerResourceRules.h"
 #include "../Actgame/Foundation/StageDefinition.h"
 #include "../Actgame/Foundation/TerrainCollision.h"
 #include "../Actgame/Foundation/TerrainStageLoader.h"
@@ -464,6 +465,113 @@ void TestDamageReactionMatchesVersion1SixteenFrames() {
 	Damage.Reset();
 	assert(!Damage.Active());
 	assert(Damage.Frame() == 0);
+}
+
+void TestDirectCollectibleDefinitionsMatchVersion1() {
+	Result<TerrainStageData> Loaded =
+		TerrainStageLoader::Load("dat/stage/collectible-test/stage.ini");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* Coin = Loaded.Value().Catalog.Find(79);
+	const TileDefinition* Healing = Loaded.Value().Catalog.Find(80);
+	const TileDefinition* OneUp = Loaded.Value().Catalog.Find(81);
+	assert(Coin != nullptr && Healing != nullptr && OneUp != nullptr);
+
+	assert(Coin->Collision == CollisionShape::None);
+	assert(Healing->Collision == CollisionShape::None);
+	assert(OneUp->Collision == CollisionShape::None);
+
+	assert(Coin->Rules.size() == 3);
+	assert(Coin->Rules[0].Trigger == TileTrigger::Touch);
+	assert(Coin->Rules[0].Action == TileAction::AddCoin);
+	assert(Coin->Rules[0].Value == 1);
+	assert(Coin->Rules[1].Action == TileAction::AddScore);
+	assert(Coin->Rules[1].Value == 100);
+	assert(Coin->Rules[2].Action == TileAction::ReplaceTile);
+	assert(Coin->Rules[2].Value == 0);
+
+	assert(Healing->Rules.size() == 3);
+	assert(Healing->Rules[0].Action == TileAction::AddHealth);
+	assert(Healing->Rules[0].Value == 1);
+	assert(Healing->Rules[1].Action == TileAction::AddScore);
+	assert(Healing->Rules[1].Value == 1000);
+	assert(Healing->Rules[2].Action == TileAction::ReplaceTile);
+	assert(Healing->Rules[2].Value == 0);
+
+	assert(OneUp->Rules.size() == 2);
+	assert(OneUp->Rules[0].Action == TileAction::AddLife);
+	assert(OneUp->Rules[0].Value == 1);
+	assert(OneUp->Rules[1].Action == TileAction::ReplaceTile);
+	assert(OneUp->Rules[1].Value == 0);
+}
+
+void TestDirectCollectiblesEmitVersion1RewardsAndDisappear() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/collectible-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	auto TouchCollectible = [&](int Id) {
+		TileMap Map = MakeMap({{Id}});
+		TileRuntimeMap Runtime(Map);
+		TileInteraction Touch;
+		Touch.Trigger = TileTrigger::Touch;
+		Touch.Position = {0, 0};
+		Touch.TileId = Id;
+		const TileBehaviorResult Result =
+			TileBehaviorSystem::Apply(Touch, Map, Loaded.Value(), Runtime);
+		assert(*Map.TryGet({0, 0}) == 0);
+		return Result.Effects;
+	};
+
+	std::vector<TileEffect> Effects = TouchCollectible(79);
+	assert(Effects.size() == 2);
+	assert(Effects[0].Type == TileEffectType::AddCoin);
+	assert(Effects[0].Value == 1);
+	assert(Effects[1].Type == TileEffectType::AddScore);
+	assert(Effects[1].Value == 100);
+
+	Effects = TouchCollectible(80);
+	assert(Effects.size() == 2);
+	assert(Effects[0].Type == TileEffectType::AddHealth);
+	assert(Effects[0].Value == 1);
+	assert(Effects[1].Type == TileEffectType::AddScore);
+	assert(Effects[1].Value == 1000);
+
+	Effects = TouchCollectible(81);
+	assert(Effects.size() == 1);
+	assert(Effects[0].Type == TileEffectType::AddLife);
+	assert(Effects[0].Value == 1);
+}
+
+void TestPlayerResourceRulesMatchVersion1Limits() {
+	int Health = 4;
+	PlayerResourceRules::AddHealth(1, Health);
+	assert(Health == 5);
+	PlayerResourceRules::AddHealth(1, Health);
+	assert(Health == PlayerResourceRules::MaxHealth);
+
+	int Lives = 998;
+	PlayerResourceRules::AddLife(1, Lives);
+	assert(Lives == 999);
+	PlayerResourceRules::AddLife(1, Lives);
+	assert(Lives == PlayerResourceRules::MaxLives);
+
+	int Coins = 98;
+	Lives = 3;
+	assert(!PlayerResourceRules::AddCoin(1, Coins, Lives));
+	assert(Coins == 99);
+	assert(Lives == 3);
+
+	assert(PlayerResourceRules::AddCoin(1, Coins, Lives));
+	assert(Coins == 0);
+	assert(Lives == 4);
+
+	// V1は残機999でも100コイン到達時にCoinを100減らす。
+	Coins = 99;
+	Lives = 999;
+	assert(PlayerResourceRules::AddCoin(1, Coins, Lives));
+	assert(Coins == 0);
+	assert(Lives == 999);
 }
 
 void TestGoalStageDefinitionsAndEffects() {
@@ -3913,6 +4021,9 @@ int main() {
 	TestCharacterExposesActualTouchProbePoints();
 	TestDamageKnockbackMovesAwayFromHazardCenter();
 	TestDamageReactionMatchesVersion1SixteenFrames();
+	TestDirectCollectibleDefinitionsMatchVersion1();
+	TestDirectCollectiblesEmitVersion1RewardsAndDisappear();
+	TestPlayerResourceRulesMatchVersion1Limits();
 	TestGoalStageDefinitionsAndEffects();
 	TestNormalAndSecretGoalProgressAreIndependent();
 	TestStageCompletionEndsRunWithOneGoal();
