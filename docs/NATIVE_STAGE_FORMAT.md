@@ -252,6 +252,15 @@ Terrain-layer CSV values are semantic IDs. The renderer resolves them through `t
 
 Do not put object/event data into TileLayer CSV.
 
+### Number types in properties
+
+`properties` intentionally preserves JSON number types.
+
+- `2` -> Integer
+- `2.0` -> Float
+
+This matters because `StagePropertyValue::TryGetInteger()` and `TryGetFloat()` are strict. Authoring/export tools must therefore preserve a decimal literal when a property is defined as Float.
+
 ## ObjectLayer
 
 ```json
