@@ -31,6 +31,7 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #28 | Version1 ARYステージをLayeredMapへ分解する移行parser | open / 実装PR |
 | #29 | Wiki草案: HSP / Version1 / Version2 仕様・移植状況 | open draft / **DO NOT MERGE** |
 | #30 | V2ネイティブStageData / Layer / Object / Regionモデル | open |
+| #31 | Native StageData JSON + CSV Loader | open / #30へのstacked PR |
 
 ## 読み方
 
@@ -57,8 +58,11 @@ V1 block/item behavior
 #28-29
 Legacy調査・移行資料
 
-#30-
+#30
 V2 native stage data / editor-ready model
+
+#31-
+Native JSON + CSV data / runtime loading
 ```
 
 という流れです。
