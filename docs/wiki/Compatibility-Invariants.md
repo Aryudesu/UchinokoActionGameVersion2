@@ -1,10 +1,13 @@
-# 互換性の不変条件
+# 旧資産変換時の不変条件
 
-Legacy importer / Version1互換処理を変更するときに壊してはいけない条件です。
+HSP / Version1資産をVersion2形式へ**変換・解析するとき**に、旧データの意味を取り違えないための条件です。
+
+これはVersion2 runtimeの後方互換要件ではありません。
+V2本体が `map*.ary`, `img*.ary`, `Data*.inf` を恒久的に直接読める必要はありません。
 
 ## 1. 「HSP互換」と「C++ Version1互換」を混同しない
 
-Version2のLegacy importerが対象とする正規資産は **C++ Version1**。
+V1資産を変換するときの入力仕様として正とするのは **C++ Version1**。
 
 HSPコードの意味が判明していても、C++ Version1で無効だった値を勝手に有効化しない。
 
@@ -36,7 +39,7 @@ Version1はmap走査中に `SetInitPos` を呼ぶ。
 
 複数の `-1` が存在した場合、後から読んだものが上書きするため、**row-major走査で最後のspawnが有効**。
 
-Legacy importerもこれを保持する。
+変換器はこのルールで入力を解釈し、最終的には単一のV2 PlayerSpawnへ正規化する。
 
 ## 4. Enemy marker
 
@@ -54,7 +57,7 @@ TerrainとしてはEmptyにする。
 
 Version1 `img*.ary` は `map*.ary` から生成されたBlockの見た目を上書きする。
 
-Legacy importではTerrainとVisualを混同しない。
+変換時にはTerrainとVisualを別概念として取り出し、V2ネイティブ表現へ正規化する。
 
 ## 6. HSPコードは消さない
 
@@ -100,21 +103,23 @@ Foundationは、
 
 意味のあるEffect/Stateを返し、外側のadapterがゲームruntimeへ接続する。
 
-## 11. LegacyとNativeを分ける
+## 11. Legacy parser/converterとNative runtimeを分ける
 
-### Legacy
+### Legacy parser / converter
 
-V1資産をなるべく忠実に取り込む。
+旧資産を正しく**読むための一時的な入口**。
 
-### Native V2
+### Native V2 runtime
 
-新設計を使う。
+新設計だけを使う。
 
-Legacyの制約をNative V2へ強制しない。
+理想形では、変換済みステージを本番runtimeが読み、Legacy parserは開発ツール・offline converter側に隔離する。
+
+旧形式の制約をNative V2へ強制しない。
 
 ## 12. Regression checklist
 
-Legacy importerを変更したら最低限確認:
+旧資産parser / converterを変更したら最低限確認:
 
 - 0..45がTerrainへ入る
 - 46..50がV1同様Empty
