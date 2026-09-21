@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Foundation/CharacterController.h"
+#include "Foundation/DamageReactionState.h"
 #include "Foundation/BrickSystem.h"
 #include "Foundation/TileInteraction.h"
 #include "Foundation/ItemSystem.h"
@@ -36,12 +37,14 @@ private:
 	std::vector<uchinoko::PipeLink> Pipes_;
 	uchinoko::PipeTransport Pipe_;
 	uchinoko::CharacterController Player_;
+	uchinoko::DamageReactionState DamageReaction_;
 	std::string LoadError_;
 	int Coins_ = 0;
 	int Score_ = 0;
 	int Health_ = 0;
 	int Lives_ = 0;
 	int Broken_ = 0;
+	int FacingDirection_ = 1;
 	uchinoko::StageClearState ClearState_;
 	uchinoko::StageCompletionState Completion_;
 	bool Dead_ = false;
