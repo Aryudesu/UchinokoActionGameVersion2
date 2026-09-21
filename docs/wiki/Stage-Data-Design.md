@@ -348,9 +348,17 @@ Version2
 - Pipe/Transitionは直接リンク
 - Legacy形式は変換入力。runtime互換対象にはしない
 
+### PR #31で採用
+
+- native serializer v1: JSON + CSV
+- JSON: Stage / Area / Layer定義 / Object / Region / Transition / Settings
+- CSV: TileLayerの整数grid
+- JSON parser: nlohmann/json (vcpkg)
+- `formatVersion = 1` を必須化
+
 ### 未決
 
-- native serializerの形式(JSON / 独自テキスト / binary等)
+- 将来binary/export formatを追加するか
 - TileLayerを保存時にfull gridにするか圧縮するか
 - TypeIdごとのproperty schema
 - Lift path表現
@@ -429,3 +437,47 @@ PR #30では現在、
 とする。
 
 この機能はoptionalであり、不要なStageへ追加設定を強制しない。
+
+
+---
+
+## 14. Native file format v1
+
+PR #31で最初のnative file formatを実装。
+
+```text
+stage.json
+  ├ Stage / Area / Settings
+  ├ TileLayer metadata
+  ├ ObjectLayer / ObjectSpawn
+  ├ RegionLayer / StageRegion
+  └ Transition
+
+*.csv
+  └ TileLayer grid
+```
+
+格子状データだけCSV、構造化データはJSONへ置く。
+
+`TileLayer.source` は `stage.json` からの相対パス。
+
+Loader:
+
+```cpp
+NativeStageDataLoader::Load("dat/stage/.../stage.json")
+```
+
+で、
+
+```text
+JSON
+ + CSV
+   ↓
+StageData
+   ↓
+ValidateStageData
+```
+
+まで行う。
+
+EditorはJSON DOMを直接編集するのではなく、同じ `StageData` を編集対象とする。
