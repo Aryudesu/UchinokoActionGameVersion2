@@ -145,6 +145,7 @@
     <ClCompile Include="Foundation\ItemSystem.cpp" />
     <ClCompile Include="Foundation\LayeredMap.cpp" />
     <ClCompile Include="Foundation\PipeTransport.cpp" />
+    <ClCompile Include="Foundation\StageProgress.cpp" />
     <ClCompile Include="Foundation\StageDefinition.cpp" />
     <ClCompile Include="Foundation\TerrainCollision.cpp" />
     <ClCompile Include="Foundation\TerrainStageLoader.cpp" />
@@ -206,6 +207,7 @@
     <ClInclude Include="Foundation\LayeredMap.h" />
     <ClInclude Include="Foundation\PipeTransport.h" />
     <ClInclude Include="Foundation\GoalState.h" />
+    <ClInclude Include="Foundation\StageProgress.h" />
     <ClInclude Include="Foundation\Result.h" />
     <ClInclude Include="Foundation\StageDefinition.h" />
     <ClInclude Include="Foundation\TerrainCollision.h" />

@@ -364,6 +364,7 @@
     <ClCompile Include="Foundation\ItemSystem.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\LayeredMap.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\PipeTransport.cpp"><Filter>Foundation</Filter></ClCompile>
+    <ClCompile Include="Foundation\StageProgress.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\StageDefinition.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\TerrainCollision.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\TerrainStageLoader.cpp"><Filter>Foundation</Filter></ClCompile>
@@ -390,6 +391,7 @@
     <ClInclude Include="Foundation\LayeredMap.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\PipeTransport.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\GoalState.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\StageProgress.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\Result.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\StageDefinition.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\TerrainCollision.h"><Filter>Foundation</Filter></ClInclude>

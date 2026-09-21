@@ -8,6 +8,7 @@
 #include "../Actgame/Foundation/ExtendedSlopeTerrain.h"
 #include "../Actgame/Foundation/GridDataLoader.h"
 #include "../Actgame/Foundation/GoalState.h"
+#include "../Actgame/Foundation/StageProgress.h"
 #include "../Actgame/Foundation/ItemSystem.h"
 #include "../Actgame/Foundation/LayeredMap.h"
 #include "../Actgame/Foundation/PipeTransport.h"
@@ -668,6 +669,35 @@ void TestStageCompletionEndsRunWithOneGoal() {
 	Completion.Complete(GoalKind::Secret);
 	assert(Completion.Cleared);
 	assert(Completion.Goal == GoalKind::Secret);
+}
+
+void TestStageProgressTracksClearStatePerStage() {
+	StageProgress Progress;
+	assert(!Progress.IsCleared(7, GoalKind::Normal));
+	assert(!Progress.IsCleared(7, GoalKind::Secret));
+	assert(!Progress.Satisfies(7, ClearRequirement::Either));
+	assert(!Progress.Satisfies(7, ClearRequirement::Both));
+
+	assert(Progress.MarkCleared(7, GoalKind::Normal));
+	assert(!Progress.MarkCleared(7, GoalKind::Normal));
+	assert(Progress.IsCleared(7, GoalKind::Normal));
+	assert(!Progress.IsCleared(7, GoalKind::Secret));
+	assert(Progress.Satisfies(7, ClearRequirement::Normal));
+	assert(!Progress.Satisfies(7, ClearRequirement::Secret));
+	assert(Progress.Satisfies(7, ClearRequirement::Either));
+	assert(!Progress.Satisfies(7, ClearRequirement::Both));
+
+	assert(Progress.MarkCleared(7, GoalKind::Secret));
+	assert(Progress.Satisfies(7, ClearRequirement::Both));
+
+	// 別ステージの進行は独立している。
+	assert(!Progress.IsCleared(8, GoalKind::Normal));
+	assert(!Progress.Satisfies(8, ClearRequirement::Either));
+	assert(!Progress.MarkCleared(-1, GoalKind::Normal));
+
+	Progress.Reset();
+	assert(!Progress.IsCleared(7, GoalKind::Normal));
+	assert(!Progress.IsCleared(7, GoalKind::Secret));
 }
 
 void TestStepWithoutInputStopsHorizontalAndSettlesVertically() {
@@ -4027,6 +4057,7 @@ int main() {
 	TestGoalStageDefinitionsAndEffects();
 	TestNormalAndSecretGoalProgressAreIndependent();
 	TestStageCompletionEndsRunWithOneGoal();
+	TestStageProgressTracksClearStatePerStage();
 	TestStepWithoutInputStopsHorizontalAndSettlesVertically();
 	TestExternalPipeStage();
 	TestPipeDirectionInputMatching();

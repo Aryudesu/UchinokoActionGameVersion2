@@ -45,6 +45,7 @@
     <ClCompile Include="..\Actgame\Foundation\ItemSystem.cpp" />
     <ClCompile Include="..\Actgame\Foundation\LayeredMap.cpp" />
     <ClCompile Include="..\Actgame\Foundation\PipeTransport.cpp" />
+    <ClCompile Include="..\Actgame\Foundation\StageProgress.cpp" />
     <ClCompile Include="..\Actgame\Foundation\StageDefinition.cpp" />
     <ClCompile Include="..\Actgame\Foundation\TerrainCollision.cpp" />
     <ClCompile Include="..\Actgame\Foundation\TerrainStageLoader.cpp" />
