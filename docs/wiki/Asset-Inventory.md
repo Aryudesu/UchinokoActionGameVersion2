@@ -70,15 +70,34 @@ HSP側・別世代Item画像の対応確認用。
 
 ### `enemy.bmp`
 
-C++ Version1 `Action::LoadImg` では、
+確認済み。
 
-```cpp
-LoadImg(ENEMY, 12, 7, "enemy.bmp");
-```
+実ファイル:
 
-として読まれる。
+- 384×444 px
+- Version1は `LoadImg(ENEMY, 12, 7, ...)`
+- 32×32を12列×7行として、先頭384×224pxを使用
 
-Legacy `-2..-6` → EnemyKind 1..5 と実際の見た目・アニメーションの対応確認に使いたい。
+現在のVersion1 `EnemyFactory` / `Enemy.cpp` と照合すると、map markerからsprite rowまで次のように対応する。
+
+| map marker | EnemyKind | Class | BaseImg | sprite row |
+|---:|---:|---|---:|---:|
+| `-2` | 1 | `WalkingEnemy1` | 0 | 0 |
+| `-3` | 2 | `WalkingEnemy2` | 12 | 1 |
+| `-4` | 3 | `CarrotMan` | 24 | 2 |
+| `-5` | 4 | `BallSlime` | 36 | 3 |
+| `-6` | 5 | `BallSlime2` | 48 | 4 |
+
+`Charactor::draw` は `BaseImg + image` を `ENEMY` sheetから描画する。
+
+画像上でも先頭5行にそれぞれ敵spriteが並んでおり、現在の5種類と整合する。
+
+7行分ロードするが、現行5Enemyが使用するのは主にrow 0..4。
+row 5..6は現行コード上ではBaseImgとして参照されていない。
+
+また実ファイルの高さ444pxに対し、Version1が分割ロードする範囲は224pxまでであり、それ以降は現行runtimeでは使用しない。確認した範囲では下部は背景色のみ。
+
+このため、`enemy.bmp` については **map -2..-6 → EnemyKind 1..5 → sprite row 0..4** を正規V1対応として扱える。
 
 ### `maincharactor.bmp`
 
