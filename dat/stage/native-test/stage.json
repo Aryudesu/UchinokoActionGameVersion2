@@ -75,7 +75,7 @@
               "properties": {
                 "direction": "left",
                 "variant": 1,
-                "speed": 2,
+                "speed": 2.0,
                 "aggressive": false
               }
             },
@@ -87,8 +87,8 @@
                 96
               ],
               "properties": {
-                "range": 192,
-                "speed": 2,
+                "range": 192.0,
+                "speed": 2.0,
                 "pathDelta": [
                   192,
                   0
