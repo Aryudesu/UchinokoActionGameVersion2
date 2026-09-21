@@ -10,6 +10,10 @@
 - [HSP → V1 → V2 移植対応表](Migration-Matrix.md)
 - [残件・未移植・設計判断](Remaining-Work.md)
 - [Version2 ステージデータ設計案](Stage-Data-Design.md)
+- [開発引き継ぎ・新規スレッド開始ガイド](Development-Handoff.md)
+- [互換性の不変条件](Compatibility-Invariants.md)
+- [Stage 5 実データ対応例](Reference-Stage5.md)
+- [設計判断ログ](Architecture-Decisions.md)
 
 ## 仕様を読むときの優先順位
 
@@ -84,3 +88,23 @@ Version2のFoundationには多くの機能が移植済みですが、**本編の
 
 - PR #28: Version1 ARYステージをLayeredMapへ取り込む互換ローダー
 - PR #29: このWiki内容の調査・移植履歴を保持する資料用Draft PR
+
+
+## 新しいスレッドから再開するとき
+
+まず [開発引き継ぎ・新規スレッド開始ガイド](Development-Handoff.md) を確認し、その時点の `dev` とOpen PRを再取得してください。
+
+PR #29は履歴・Wiki草案の入口ですが、実装状況そのものは常に最新の `dev` / Open PRを優先します。
+
+## 互換実装を触る前に
+
+[互換性の不変条件](Compatibility-Invariants.md) を確認してください。
+
+特に、
+
+- HSPの意味が分かっていてもV1で無効なら勝手に有効化しない
+- Legacy V1とV2 nativeを分ける
+- Player spawnはV1のrow-major上書き挙動を維持
+- V1 block IDとV2正式IDを同一視しない
+
+を重要な前提とします。
