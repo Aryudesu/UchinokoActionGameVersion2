@@ -52,7 +52,21 @@ dat/stage/native-test/
       "tileSize": [32, 32],
       "grid": [4, 1],
       "emptyTile": 0,
-      "transparent": true
+      "transparent": true,
+      "terrainTiles": [
+        {
+          "id": 0,
+          "imageIndex": 0,
+          "collision": "none",
+          "movement": "none"
+        },
+        {
+          "id": 2,
+          "imageIndex": 2,
+          "collision": "solid",
+          "movement": "none"
+        }
+      ]
     }
   ],
   "areas": []
@@ -97,8 +111,59 @@ Fields:
 - `grid`: required source-image division count `[columns, rows]`
 - `emptyTile`: tile value that is not drawn; default `0`
 - `transparent`: whether DxLib draws the divided image with transparency; default `true`
+- `terrainTiles`: optional semantic definitions used by terrain layers
 
 `StageData::FindTileSet()` resolves the metadata, while the actual DxLib graph handles belong to the rendering/runtime side.
+
+### terrainTiles
+
+Terrain CSV values are semantic tile IDs, not image indices.
+
+```json
+{
+  "id": 2,
+  "imageIndex": 2,
+  "collision": "solid",
+  "movement": "none"
+}
+```
+
+Current fields:
+
+- `id`: semantic terrain ID stored in terrain CSV
+- `imageIndex`: divided-image index inside the TileSet; defaults to `id`
+- `collision`: collision behavior
+- `movement`: optional movement region
+
+Supported `collision` values:
+
+- `none`
+- `solid`
+- `oneWay`
+- `dropThroughOneWay`
+- `hitFromBelowOnly`
+- `slopeUpRight`
+- `slopeUpLeft`
+- `stair2x1UpRightLow`
+- `stair2x1UpRightHigh`
+- `stair2x1UpLeftHigh`
+- `stair2x1UpLeftLow`
+- `stair1x2UpRightBottom`
+- `stair1x2UpRightTop`
+- `stair1x2UpLeftTop`
+- `stair1x2UpLeftBottom`
+
+Supported `movement` values:
+
+- `none`
+- `ladder`
+- `water`
+- `gravityUp`
+- `gravityDown`
+
+The TileSet builds the existing Foundation `TileCatalog`, so CharacterController consumes native terrain through the same collision implementation already used by the Foundation sandboxes.
+
+Tile interaction rules (coin/damage/goal/item/etc.) are intentionally not part of this first native terrain schema yet.
 
 ## Area
 
@@ -181,7 +246,9 @@ The committed `native-test/tiles.png` is a self-contained four-tile fixture:
 - 2: terrain block
 - 3: foreground overlay
 
-The current sandbox renderer treats a non-empty CSV value as the direct divided-image index inside the referenced TileSet. This is the first visual rendering contract only. Terrain collision semantics / TileDefinition-to-ImageIndex mapping will be connected separately before native gameplay runtime replaces the existing Action path.
+Visual-layer CSV values are direct divided-image indices.
+
+Terrain-layer CSV values are semantic IDs. The renderer resolves them through `terrainTiles[].imageIndex`, while CharacterController resolves collision/movement through the same generated `TileCatalog`.
 
 Do not put object/event data into TileLayer CSV.
 
@@ -209,6 +276,18 @@ Do not put object/event data into TileLayer CSV.
 Objects use world coordinates and are not constrained to tile boundaries.
 
 Multiple objects may occupy the same coordinates.
+
+`PlayerSpawn` is the native authoring convention for the player start position:
+
+```json
+{
+  "id": "player-start",
+  "type": "PlayerSpawn",
+  "position": [32, 128]
+}
+```
+
+The current NativeStageSandbox requires exactly one PlayerSpawn in the start Area. It is deliberately represented as an ObjectSpawn so the future editor can place/move it like other stage objects.
 
 ## RegionLayer
 
