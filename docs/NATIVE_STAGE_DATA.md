@@ -8,6 +8,7 @@ Version2の本番runtimeと将来のステージエディタが共有する、�
 
 ```text
 StageData
+  ├ TileSets[]
   └ Areas[]
       ├ TileLayers[]
       ├ ObjectLayers[]
@@ -16,6 +17,19 @@ StageData
 ```
 
 保存形式はモデルとは分離する。最初のnative serializer形式としてJSON + CSVを採用し、仕様は `NATIVE_STAGE_FORMAT.md` に記録する。
+
+## TileSet
+
+TileLayerの描画元画像を定義する。
+
+- stable ID
+- image file
+- tile pixel size
+- source image grid (columns / rows)
+- empty tile value
+- transparency
+
+画像handleそのものはStageDataへ持たせず、DxLib依存はrenderer/runtime側へ隔離する。
 
 ## TileLayer
 
@@ -26,6 +40,8 @@ StageData
 - ZOrderで描画順を表現
 
 全TileLayerはAreaと同じgridサイズ/tileサイズを持つ。
+
+Native JSONでは各TileLayerが `TileSetId` を参照する。現在のSandbox描画ではCSV値をTileSet内の画像indexとして直接描画する。Terrainの意味ID→ImageIndex対応は、native gameplay runtime接続時にTileCatalogと統合する。
 
 ## ObjectLayer
 
@@ -101,6 +117,9 @@ Lift
 - Stage/Area/Layer/entity IDが空でない
 - Area IDが一意
 - StartAreaが存在
+- TileSet IDが一意で、画像・分割サイズが妥当
+- TileLayerが指定したTileSetが存在
+- TileSetとAreaのtile sizeが一致
 - AreaごとにTerrain layerがちょうど1枚
 - TileLayerのgrid/tile sizeがAreaと一致
 - Layer IDがArea内で一意
