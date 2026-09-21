@@ -11,6 +11,7 @@
 #include "../Actgame/Foundation/StageProgress.h"
 #include "../Actgame/Foundation/ItemSystem.h"
 #include "../Actgame/Foundation/LayeredMap.h"
+#include "../Actgame/Foundation/NativeStageDataLoader.h"
 #include "../Actgame/Foundation/PipeTransport.h"
 #include "../Actgame/Foundation/PlayerResourceRules.h"
 #include "../Actgame/Foundation/StageDefinition.h"
@@ -1258,6 +1259,114 @@ void TestNativeStageDataAllowsExternalTransitions() {
 	Data.Areas = {Area};
 
 	assert(ValidateStageData(Data).IsSuccess());
+}
+
+void TestNativeStageDataLoaderLoadsJsonAndCsv() {
+	Result<StageData> Loaded =
+		NativeStageDataLoader::Load("dat/stage/native-test/stage.json");
+	assert(Loaded.IsSuccess());
+
+	const StageData& Data = Loaded.Value();
+	assert(Data.Id == "native-test");
+	assert(Data.Mode == GameMode::Action);
+	assert(Data.StartAreaId == "main");
+	assert(Data.Areas.size() == 1);
+
+	const StageArea* Area = Data.FindArea("main");
+	assert(Area != nullptr);
+	assert(Area->Width == 8);
+	assert(Area->Height == 6);
+	assert(Area->TileWidth == 32);
+	assert(Area->TileHeight == 32);
+	assert(Area->Settings.TimeLimitSeconds == 300);
+	assert(Area->Settings.BgmId == "test-bgm");
+	assert(Area->Settings.BackgroundId == "test-sky");
+
+	assert(Area->TileLayers.size() == 3);
+	const TileLayer* Background = Area->FindTileLayer("background");
+	const TileLayer* Terrain = Area->FindTileLayer("terrain");
+	const TileLayer* Foreground = Area->FindTileLayer("foreground");
+	assert(Background != nullptr);
+	assert(Terrain != nullptr);
+	assert(Foreground != nullptr);
+	assert(Background->Role == TileLayerRole::Visual);
+	assert(Terrain->Role == TileLayerRole::Terrain);
+	assert(Foreground->Role == TileLayerRole::Visual);
+	assert(Background->Metadata.ZOrder == -10);
+	assert(Terrain->Metadata.ZOrder == 0);
+	assert(Foreground->Metadata.ZOrder == 20);
+	assert(*Background->Map.TryGet({0, 0}) == 10);
+	assert(*Terrain->Map.TryGet({2, 3}) == 1);
+	assert(*Foreground->Map.TryGet({7, 4}) == 20);
+
+	const ObjectLayer* Objects = Area->FindObjectLayer("objects");
+	assert(Objects != nullptr);
+	assert(Objects->Objects.size() == 2);
+	assert(NearlyEqual(Objects->Objects[0].Position.X, 96.0f));
+	assert(NearlyEqual(Objects->Objects[0].Position.Y, 96.0f));
+	assert(NearlyEqual(
+		Objects->Objects[1].Position.X,
+		Objects->Objects[0].Position.X));
+	assert(NearlyEqual(
+		Objects->Objects[1].Position.Y,
+		Objects->Objects[0].Position.Y));
+
+	std::string Direction;
+	int Variant = 0;
+	float Speed = 0.0f;
+	bool Aggressive = true;
+	assert(Objects->Objects[0].Properties.at("direction").TryGetString(Direction));
+	assert(Direction == "left");
+	assert(Objects->Objects[0].Properties.at("variant").TryGetInteger(Variant));
+	assert(Variant == 1);
+	assert(Objects->Objects[0].Properties.at("speed").TryGetFloat(Speed));
+	assert(NearlyEqual(Speed, 2.0f));
+	assert(Objects->Objects[0].Properties.at("aggressive").TryGetBoolean(Aggressive));
+	assert(!Aggressive);
+
+	WorldPosition PathDelta;
+	assert(Objects->Objects[1].Properties.at("pathDelta").TryGetVector2(PathDelta));
+	assert(NearlyEqual(PathDelta.X, 192.0f));
+	assert(NearlyEqual(PathDelta.Y, 0.0f));
+
+	const RegionLayer* Events = Area->FindRegionLayer("events");
+	assert(Events != nullptr);
+	assert(Events->Regions.size() == 1);
+	assert(Events->Regions[0].Geometry.Shape == StageRegionShape::Rectangle);
+	assert(NearlyEqual(Events->Regions[0].Geometry.Position.X, 192.0f));
+	assert(NearlyEqual(Events->Regions[0].Geometry.Size.Y, 64.0f));
+
+	assert(Area->Transitions.size() == 1);
+	const StageTransition& Pipe = Area->Transitions[0];
+	assert(Pipe.Id == "pipe-1");
+	assert(Pipe.TargetStageId.empty());
+	assert(Pipe.TargetAreaId == "main");
+	assert(Pipe.EnterDirection == StageDirection::Down);
+	assert(Pipe.ExitDirection == StageDirection::Up);
+	assert(NearlyEqual(Pipe.ExitPosition.X, 192.0f));
+}
+
+void TestNativeStageDataLoaderRejectsUnsupportedVersion() {
+	const std::string Json =
+		"{\"formatVersion\":2,"
+		"\"id\":\"future\","
+		"\"startArea\":\"main\","
+		"\"areas\":[]}";
+	Result<StageData> Loaded = NativeStageDataLoader::Parse(Json);
+	assert(Loaded.IsFailure());
+	assert(Loaded.Error().find("formatVersion") != std::string::npos);
+}
+
+void TestNativeStageDataLoaderRejectsNestedProperties() {
+	const std::string Json =
+		"{\"formatVersion\":1,"
+		"\"id\":\"bad-property\","
+		"\"startArea\":\"main\","
+		"\"properties\":{\"nested\":{\"value\":1}},"
+		"\"areas\":[]}";
+	Result<StageData> Loaded = NativeStageDataLoader::Parse(Json);
+	assert(Loaded.IsFailure());
+	assert(Loaded.Error().find("properties.nested") != std::string::npos);
 }
 
 void TestLayeredMap() {
@@ -4290,6 +4399,9 @@ int main() {
 	TestSlopeSideBlocks();
 	TestSlopeGroundSnap();
 	TestLayeredMap();
+	TestNativeStageDataLoaderLoadsJsonAndCsv();
+	TestNativeStageDataLoaderRejectsUnsupportedVersion();
+	TestNativeStageDataLoaderRejectsNestedProperties();
 	TestStagePropertyValuesKeepTypes();
 	TestNativeStageDataSupportsOverlappingContent();
 	TestNativeStageDataValidationRejectsAmbiguousStructure();
