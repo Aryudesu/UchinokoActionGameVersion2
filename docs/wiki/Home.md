@@ -6,6 +6,7 @@
 
 - [HSP版仕様](HSP-Spec.md)
 - [Version1仕様](Version1-Spec.md)
+- [Version1 WorldMapデータ仕様](Version1-WorldMap-Data.md)
 - [Version2仕様](Version2-Spec.md)
 - [HSP → V1 → V2 移植対応表](Migration-Matrix.md)
 - [残件・未移植・設計判断](Remaining-Work.md)
