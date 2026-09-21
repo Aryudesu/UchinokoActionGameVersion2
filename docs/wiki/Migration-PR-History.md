@@ -30,6 +30,7 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #27 | V1の直接取得Coin・HealingCoin・OneUPCoinを移植 | merged |
 | #28 | Version1 ARYステージをLayeredMapへ取り込む互換ローダー | open / 実装PR |
 | #29 | Wiki草案: HSP / Version1 / Version2 仕様・移植状況 | open draft / **DO NOT MERGE** |
+| #30 | V2ネイティブStageData / Layer / Object / Regionモデル | open |
 
 ## 読み方
 
@@ -53,8 +54,11 @@ Goal / persistent progress
 #25-27
 V1 block/item behavior
 
-#28-
-Legacy stage data import
+#28-29
+Legacy調査・移行資料
+
+#30-
+V2 native stage data / editor-ready model
 ```
 
 という流れです。
