@@ -64,6 +64,18 @@ dat/stage/<Stage>/
 | `-6` | EnemyKind 5 |
 | その他 | Empty |
 
+EnemyFactoryと `enemy.bmp` を合わせると、Enemy markerは次のクラスへ対応します。
+
+| map marker | EnemyKind | Class | enemy.bmp row |
+|---:|---:|---|---:|
+| `-2` | 1 | `WalkingEnemy1` | 0 |
+| `-3` | 2 | `WalkingEnemy2` | 1 |
+| `-4` | 3 | `CarrotMan` | 2 |
+| `-5` | 4 | `BallSlime` | 3 |
+| `-6` | 5 | `BallSlime2` | 4 |
+
+`enemy.bmp` はVersion1で32×32、12列×7行としてロードされ、各クラスは `BaseImg = 12 * row` を持ちます。
+
 ただし現行 `BlockFactory` で意味を持つのは `0..45` で、`46..50` は結果的にEmptyになります。
 
 ### HSP由来コード
