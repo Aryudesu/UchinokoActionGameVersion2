@@ -28,7 +28,7 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #25 | V1互換のレンガブロックをBrickSystemとして移植 | merged |
 | #26 | V1の対象別ダメージ・即死ブロックを移植 | merged |
 | #27 | V1の直接取得Coin・HealingCoin・OneUPCoinを移植 | merged |
-| #28 | Version1 ARYステージをLayeredMapへ取り込む互換ローダー | open / 実装PR |
+| #28 | Version1 ARYステージをLayeredMapへ分解する移行parser | open / 実装PR |
 | #29 | Wiki草案: HSP / Version1 / Version2 仕様・移植状況 | open draft / **DO NOT MERGE** |
 | #30 | V2ネイティブStageData / Layer / Object / Regionモデル | open |
 
