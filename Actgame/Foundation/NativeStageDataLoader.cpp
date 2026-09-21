@@ -239,6 +239,60 @@ GameMode ReadGameMode(const Json& Root) {
 		"stage.mode must be 'Action' or 'Sokoban'");
 }
 
+CollisionShape ReadCollisionShape(
+	const Json& Object,
+	const char* Name,
+	const std::string& Context) {
+	const std::string Value =
+		OptionalString(Object, Name, "none", Context);
+	if (Value == "none") return CollisionShape::None;
+	if (Value == "solid") return CollisionShape::Solid;
+	if (Value == "oneWay") return CollisionShape::OneWay;
+	if (Value == "dropThroughOneWay") return CollisionShape::DropThroughOneWay;
+	if (Value == "hitFromBelowOnly") return CollisionShape::HitFromBelowOnly;
+	if (Value == "slopeUpRight") return CollisionShape::SlopeUpRight;
+	if (Value == "slopeUpLeft") return CollisionShape::SlopeUpLeft;
+	if (Value == "stair2x1UpRightLow") return CollisionShape::Stair2x1UpRightLow;
+	if (Value == "stair2x1UpRightHigh") return CollisionShape::Stair2x1UpRightHigh;
+	if (Value == "stair2x1UpLeftHigh") return CollisionShape::Stair2x1UpLeftHigh;
+	if (Value == "stair2x1UpLeftLow") return CollisionShape::Stair2x1UpLeftLow;
+	if (Value == "stair1x2UpRightBottom") return CollisionShape::Stair1x2UpRightBottom;
+	if (Value == "stair1x2UpRightTop") return CollisionShape::Stair1x2UpRightTop;
+	if (Value == "stair1x2UpLeftTop") return CollisionShape::Stair1x2UpLeftTop;
+	if (Value == "stair1x2UpLeftBottom") return CollisionShape::Stair1x2UpLeftBottom;
+	throw std::runtime_error(
+		Context + "." + Name + " has unknown collision shape: " + Value);
+}
+
+MovementRegion ReadMovementRegion(
+	const Json& Object,
+	const char* Name,
+	const std::string& Context) {
+	const std::string Value =
+		OptionalString(Object, Name, "none", Context);
+	if (Value == "none") return MovementRegion::None;
+	if (Value == "ladder") return MovementRegion::Ladder;
+	if (Value == "water") return MovementRegion::Water;
+	if (Value == "gravityUp") return MovementRegion::GravityUp;
+	if (Value == "gravityDown") return MovementRegion::GravityDown;
+	throw std::runtime_error(
+		Context + "." + Name + " has unknown movement region: " + Value);
+}
+
+TileDefinition ReadTerrainTileDefinition(
+	const Json& Object,
+	const std::string& Context) {
+	TileDefinition Definition;
+	Definition.Id = RequireInteger(Object, "id", Context);
+	Definition.ImageIndex = OptionalInteger(
+		Object, "imageIndex", Definition.Id, Context);
+	Definition.Collision = ReadCollisionShape(
+		Object, "collision", Context);
+	Definition.Movement = ReadMovementRegion(
+		Object, "movement", Context);
+	return Definition;
+}
+
 TileSetDefinition ReadTileSet(
 	const Json& Object,
 	const std::string& BaseDirectory,
@@ -269,6 +323,23 @@ TileSetDefinition ReadTileSet(
 		Object, "emptyTile", 0, Context);
 	TileSet.Transparent = OptionalBoolean(
 		Object, "transparent", true, Context);
+
+	const auto TerrainTiles = Object.find("terrainTiles");
+	if (TerrainTiles != Object.end()) {
+		if (!TerrainTiles->is_array()) {
+			throw std::runtime_error(
+				Context + ".terrainTiles must be an array");
+		}
+		std::size_t Index = 0;
+		for (const Json& Definition : *TerrainTiles) {
+			TileSet.TerrainTiles.push_back(
+				ReadTerrainTileDefinition(
+					Definition,
+					Context + ".terrainTiles[" +
+					std::to_string(Index) + "]"));
+			++Index;
+		}
+	}
 	return TileSet;
 }
 
