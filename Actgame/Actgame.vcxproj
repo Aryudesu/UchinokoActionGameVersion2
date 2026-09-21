@@ -290,6 +290,7 @@
     <None Include="..\dat\stage\collectible-test\tiles.csv" />
     <None Include="..\third_party\nlohmann\LICENSE.MIT" />
     <None Include="..\dat\stage\native-test\stage.json" />
+    <None Include="..\dat\stage\native-test\tiles.png" />
     <None Include="..\dat\stage\native-test\main\terrain.csv" />
     <None Include="..\dat\stage\native-test\main\background.csv" />
     <None Include="..\dat\stage\native-test\main\foreground.csv" />
