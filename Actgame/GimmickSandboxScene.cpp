@@ -256,6 +256,9 @@ void GimmickSandboxScene::draw() {
 
 			const bool SpawnsItem = HasAction(*Definition, uchinoko::TileAction::SpawnItem);
 			const bool BrickTile = HasAction(*Definition, uchinoko::TileAction::HitBrick);
+			const bool DamageTile = HasAction(*Definition, uchinoko::TileAction::Damage);
+			const bool KillTile = HasAction(*Definition, uchinoko::TileAction::InstantDeath);
+			const bool HazardTile = DamageTile || KillTile;
 			const bool Hidden =
 				Definition->Collision == uchinoko::CollisionShape::HitFromBelowOnly;
 
@@ -284,9 +287,11 @@ void GimmickSandboxScene::draw() {
 					Left, Top, Right, Bottom,
 					IsPipeTile(*Id)
 						? GetColor(70, 170, 90)
-						: (BrickTile
-							? GetColor(175, 95, 55)
-							: (SpawnsItem ? GetColor(210, 160, 70) : GetColor(80, 130, 190))),
+						: (HazardTile
+							? (KillTile ? GetColor(145, 45, 65) : GetColor(205, 95, 70))
+							: (BrickTile
+								? GetColor(175, 95, 55)
+								: (SpawnsItem ? GetColor(210, 160, 70) : GetColor(80, 130, 190)))),
 					TRUE);
 				if (IsPipeTile(*Id)) {
 					DrawBox(Left + 3, Top + 3, Right - 3, Bottom - 3,
@@ -370,6 +375,27 @@ void GimmickSandboxScene::draw() {
 						"%s%d",
 						Brick->Phase == uchinoko::BrickPhase::Breaking ? "X" : "B",
 						Bricks_.VisualFrameOffset({Column, Row}));
+				}
+			}
+			if (HazardTile) {
+				const uchinoko::TileRule* HazardRule = nullptr;
+				for (std::size_t RuleIndex = 0;
+					RuleIndex < Definition->Rules.size(); ++RuleIndex) {
+					const uchinoko::TileAction Action =
+						Definition->Rules[RuleIndex].Action;
+					if (Action == uchinoko::TileAction::Damage ||
+						Action == uchinoko::TileAction::InstantDeath) {
+						HazardRule = &Definition->Rules[RuleIndex];
+						break;
+					}
+				}
+				if (HazardRule != nullptr) {
+					const char* Target = "P";
+					if (HazardRule->Target == uchinoko::TileTarget::Enemy) Target = "E";
+					else if (HazardRule->Target == uchinoko::TileTarget::Both) Target = "B";
+					DrawFormatString(
+						Left + 6, Top + 7, GetColor(255, 255, 255),
+						"%s%s", KillTile ? "K" : "D", Target);
 				}
 			}
 			if (HasAction(*Definition, uchinoko::TileAction::Goal)) {
@@ -474,20 +500,23 @@ void GimmickSandboxScene::draw() {
 	}
 
 	DrawString(16, 16,
-		"Brick test: LEFT/RIGHT, Z jump, 4=HP4, 5=HP5, R reload, Esc",
+		"Hazard test: LEFT/RIGHT, Z jump, R reload, Esc",
 		GetColor(255, 255, 255));
 	DrawString(16, 40,
-		"V1 BRICKHP=5: HP4=bump only / HP5=break",
-		GetColor(255, 225, 190));
-	DrawFormatString(16, 64, GetColor(255, 255, 255),
-		"HP:%d  Score:%d  Broken:%d  Fragments:%d",
-		Health_, Score_, Broken_, static_cast<int>(Bricks_.Fragments().size()));
-	DrawString(16, 88,
-		"Break result: +10 score and 5 falling fragments",
-		GetColor(220, 235, 255));
+		"DP/DE/DB = Damage Player/Enemy/Both",
+		GetColor(255, 220, 190));
+	DrawString(16, 64,
+		"KP/KE/KB = Kill Player/Enemy/Both",
+		GetColor(255, 190, 200));
+	DrawFormatString(16, 88, GetColor(255, 255, 255),
+		"HP:%d  Damage:%s  Frame:%d  Facing:%s",
+		Health_,
+		DamageReaction_.Active() ? "ON" : "-",
+		DamageReaction_.Frame(),
+		FacingDirection_ > 0 ? "RIGHT" : "LEFT");
 	if (Dead_) {
 		DrawString(16, 112,
-			"CRUSHED - InstantDeath (R: reload)",
+			"DEAD - R: reload",
 			GetColor(255, 100, 100));
 	}
 
