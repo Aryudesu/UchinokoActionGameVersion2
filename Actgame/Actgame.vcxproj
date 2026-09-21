@@ -78,7 +78,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\DxLib_VC\プロジェクトに追加すべきファイル_VC用;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)third_party;C:\DxLib_VC\プロジェクトに追加すべきファイル_VC用;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -91,7 +91,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\DxLib_VC\プロジェクトに追加すべきファイル_VC用;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)third_party;C:\DxLib_VC\プロジェクトに追加すべきファイル_VC用;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -106,7 +106,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\DxLib_VC\プロジェクトに追加すべきファイル_VC用;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)third_party;C:\DxLib_VC\プロジェクトに追加すべきファイル_VC用;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -123,7 +123,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\DxLib_VC\プロジェクトに追加すべきファイル_VC用;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)third_party;C:\DxLib_VC\プロジェクトに追加すべきファイル_VC用;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -144,6 +144,7 @@
     <ClCompile Include="Foundation\GridDataLoader.cpp" />
     <ClCompile Include="Foundation\ItemSystem.cpp" />
     <ClCompile Include="Foundation\LayeredMap.cpp" />
+    <ClCompile Include="Foundation\NativeStageDataLoader.cpp" />
     <ClCompile Include="Foundation\PipeTransport.cpp" />
     <ClCompile Include="Foundation\StageProgress.cpp" />
     <ClCompile Include="Foundation\StageDefinition.cpp" />
@@ -206,6 +207,7 @@
     <ClInclude Include="Foundation\GridDataLoader.h" />
     <ClInclude Include="Foundation\ItemSystem.h" />
     <ClInclude Include="Foundation\LayeredMap.h" />
+    <ClInclude Include="Foundation\NativeStageDataLoader.h" />
     <ClInclude Include="Foundation\PipeTransport.h" />
     <ClInclude Include="Foundation\GoalState.h" />
     <ClInclude Include="Foundation\StageProgress.h" />
@@ -218,6 +220,7 @@
     <ClInclude Include="Foundation\TileInteraction.h" />
     <ClInclude Include="Foundation\TileMap.h" />
     <ClInclude Include="Foundation\WorldState.h" />
+    <ClInclude Include="..\third_party\nlohmann\json.hpp" />
     <ClInclude Include="Base64.h" />
     <ClInclude Include="Block.h" />
     <ClInclude Include="BlockFactory.h" />
@@ -283,6 +286,11 @@
     <None Include="..\dat\stage\collectible-test\stage.ini" />
     <None Include="..\dat\stage\collectible-test\terrain.csv" />
     <None Include="..\dat\stage\collectible-test\tiles.csv" />
+    <None Include="..\third_party\nlohmann\LICENSE.MIT" />
+    <None Include="..\dat\stage\native-test\stage.json" />
+    <None Include="..\dat\stage\native-test\main\terrain.csv" />
+    <None Include="..\dat\stage\native-test\main\background.csv" />
+    <None Include="..\dat\stage\native-test\main\foreground.csv" />
 
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

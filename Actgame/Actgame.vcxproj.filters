@@ -363,6 +363,7 @@
     <ClCompile Include="Foundation\GridDataLoader.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\ItemSystem.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\LayeredMap.cpp"><Filter>Foundation</Filter></ClCompile>
+    <ClCompile Include="Foundation\NativeStageDataLoader.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\PipeTransport.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\StageProgress.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\StageDefinition.cpp"><Filter>Foundation</Filter></ClCompile>
@@ -390,6 +391,7 @@
     <ClInclude Include="Foundation\GridDataLoader.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\ItemSystem.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\LayeredMap.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\NativeStageDataLoader.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\PipeTransport.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\GoalState.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\StageProgress.h"><Filter>Foundation</Filter></ClInclude>
@@ -402,6 +404,7 @@
     <ClInclude Include="Foundation\TileInteraction.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\TileMap.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\WorldState.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="..\third_party\nlohmann\json.hpp"><Filter>Foundation</Filter></ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\dat\stage\slope-test\stage.ini"><Filter>Stage Data</Filter></None>
@@ -429,6 +432,11 @@
     <None Include="..\dat\stage\collectible-test\stage.ini"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\collectible-test\terrain.csv"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\collectible-test\tiles.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\third_party\nlohmann\LICENSE.MIT" />
+    <None Include="..\dat\stage\native-test\stage.json"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\native-test\main\terrain.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\native-test\main\background.csv"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\native-test\main\foreground.csv"><Filter>Stage Data</Filter></None>
 
   </ItemGroup>
 </Project>
