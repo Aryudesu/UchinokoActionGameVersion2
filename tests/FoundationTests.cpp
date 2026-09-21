@@ -14,6 +14,7 @@
 #include "../Actgame/Foundation/PipeTransport.h"
 #include "../Actgame/Foundation/PlayerResourceRules.h"
 #include "../Actgame/Foundation/StageDefinition.h"
+#include "../Actgame/Foundation/StageData.h"
 #include "../Actgame/Foundation/TerrainCollision.h"
 #include "../Actgame/Foundation/TerrainStageLoader.h"
 #include "../Actgame/Foundation/TileDefinition.h"
@@ -1042,6 +1043,221 @@ void TestSlopeGroundSnap() {
 	assert(Hit.Shape == CollisionShape::SlopeUpRight);
 	assert(!TerrainCollision::FindGround(Map, Catalog, {-1.0f, 0.0f}, 8.0f, 8.0f, Hit));
 	assert(!TerrainCollision::FindGround(Map, Catalog, {100.0f, 0.0f}, 8.0f, 8.0f, Hit));
+}
+
+void TestStagePropertyValuesKeepTypes() {
+	StagePropertyValue Integer = StagePropertyValue::Integer(7);
+	StagePropertyValue Float = StagePropertyValue::Float(2.5f);
+	StagePropertyValue Boolean = StagePropertyValue::Boolean(true);
+	StagePropertyValue String = StagePropertyValue::String("left");
+	StagePropertyValue Vector = StagePropertyValue::Vector2({12.0f, 34.0f});
+
+	int IntValue = 0;
+	float FloatValue = 0.0f;
+	bool BoolValue = false;
+	std::string StringValue;
+	WorldPosition VectorValue;
+
+	assert(Integer.TryGetInteger(IntValue));
+	assert(IntValue == 7);
+	assert(!Integer.TryGetFloat(FloatValue));
+
+	assert(Float.TryGetFloat(FloatValue));
+	assert(NearlyEqual(FloatValue, 2.5f));
+
+	assert(Boolean.TryGetBoolean(BoolValue));
+	assert(BoolValue);
+
+	assert(String.TryGetString(StringValue));
+	assert(StringValue == "left");
+
+	assert(Vector.TryGetVector2(VectorValue));
+	assert(NearlyEqual(VectorValue.X, 12.0f));
+	assert(NearlyEqual(VectorValue.Y, 34.0f));
+}
+
+void TestNativeStageDataSupportsOverlappingContent() {
+	TileLayer Terrain;
+	Terrain.Metadata.Id = "terrain";
+	Terrain.Metadata.Name = "Terrain";
+	Terrain.Metadata.ZOrder = 0;
+	Terrain.Role = TileLayerRole::Terrain;
+	Terrain.Map = MakeMap({{1, 1}, {1, 1}});
+
+	TileLayer BackDecoration;
+	BackDecoration.Metadata.Id = "decoration-back";
+	BackDecoration.Metadata.Name = "Back Decoration";
+	BackDecoration.Metadata.ZOrder = -10;
+	BackDecoration.Role = TileLayerRole::Visual;
+	BackDecoration.Map = MakeMap({{2, 0}, {0, 0}});
+
+	TileLayer FrontDecoration;
+	FrontDecoration.Metadata.Id = "decoration-front";
+	FrontDecoration.Metadata.Name = "Front Decoration";
+	FrontDecoration.Metadata.ZOrder = 10;
+	FrontDecoration.Role = TileLayerRole::Visual;
+	FrontDecoration.Map = MakeMap({{3, 0}, {0, 0}});
+
+	ObjectSpawn Enemy;
+	Enemy.Id = "enemy-1";
+	Enemy.TypeId = "WalkingEnemy";
+	Enemy.Position = {32.0f, 32.0f};
+	Enemy.Properties["direction"] = StagePropertyValue::String("left");
+
+	ObjectSpawn Lift;
+	Lift.Id = "lift-1";
+	Lift.TypeId = "HorizontalLift";
+	Lift.Position = {32.0f, 32.0f};
+	Lift.Properties["range"] = StagePropertyValue::Float(192.0f);
+	Lift.Properties["speed"] = StagePropertyValue::Float(2.0f);
+
+	ObjectLayer Objects;
+	Objects.Metadata.Id = "objects";
+	Objects.Metadata.Name = "Objects";
+	Objects.Metadata.ZOrder = 5;
+	Objects.Objects.push_back(Enemy);
+	Objects.Objects.push_back(Lift);
+
+	StageRegion CameraRegion;
+	CameraRegion.Id = "camera-1";
+	CameraRegion.TypeId = "CameraTrigger";
+	CameraRegion.Geometry = StageRegionGeometry::Rectangle(
+		{32.0f, 32.0f}, 64.0f, 32.0f);
+
+	RegionLayer Events;
+	Events.Metadata.Id = "events";
+	Events.Metadata.Name = "Events";
+	Events.Metadata.ZOrder = 20;
+	Events.Regions.push_back(CameraRegion);
+
+	StageTransition Pipe;
+	Pipe.Id = "pipe-1";
+	Pipe.TypeId = "Pipe";
+	Pipe.Entry = StageRegionGeometry::Point({32.0f, 32.0f});
+	Pipe.TargetAreaId = "main";
+	Pipe.ExitPosition = {0.0f, 32.0f};
+	Pipe.EnterDirection = StageDirection::Down;
+	Pipe.ExitDirection = StageDirection::Up;
+
+	StageArea Area;
+	Area.Id = "main";
+	Area.Width = 2;
+	Area.Height = 2;
+	Area.TileLayers = {BackDecoration, Terrain, FrontDecoration};
+	Area.ObjectLayers = {Objects};
+	Area.RegionLayers = {Events};
+	Area.Transitions = {Pipe};
+
+	StageData Data;
+	Data.Id = "overlap-test";
+	Data.StartAreaId = "main";
+	Data.Areas = {Area};
+
+	Result<bool> Validation = ValidateStageData(Data);
+	assert(Validation.IsSuccess());
+
+	const StageArea* LoadedArea = Data.FindArea("main");
+	assert(LoadedArea != nullptr);
+	assert(LoadedArea->TerrainLayer() != nullptr);
+	assert(LoadedArea->FindTileLayer("decoration-back") != nullptr);
+	assert(LoadedArea->FindTileLayer("decoration-front") != nullptr);
+
+	const ObjectLayer* LoadedObjects = LoadedArea->FindObjectLayer("objects");
+	assert(LoadedObjects != nullptr);
+	assert(LoadedObjects->Objects.size() == 2);
+	assert(NearlyEqual(
+		LoadedObjects->Objects[0].Position.X,
+		LoadedObjects->Objects[1].Position.X));
+	assert(NearlyEqual(
+		LoadedObjects->Objects[0].Position.Y,
+		LoadedObjects->Objects[1].Position.Y));
+
+	const RegionLayer* LoadedEvents = LoadedArea->FindRegionLayer("events");
+	assert(LoadedEvents != nullptr);
+	assert(LoadedEvents->Regions.size() == 1);
+	assert(LoadedArea->Transitions.size() == 1);
+}
+
+void TestNativeStageDataValidationRejectsAmbiguousStructure() {
+	TileLayer TerrainA;
+	TerrainA.Metadata.Id = "terrain-a";
+	TerrainA.Metadata.Name = "Terrain A";
+	TerrainA.Role = TileLayerRole::Terrain;
+	TerrainA.Map = MakeMap({{1}});
+
+	TileLayer TerrainB = TerrainA;
+	TerrainB.Metadata.Id = "terrain-b";
+	TerrainB.Metadata.Name = "Terrain B";
+
+	StageArea Area;
+	Area.Id = "main";
+	Area.Width = 1;
+	Area.Height = 1;
+	Area.TileLayers = {TerrainA, TerrainB};
+
+	StageData Data;
+	Data.Id = "invalid";
+	Data.StartAreaId = "main";
+	Data.Areas = {Area};
+
+	assert(ValidateStageData(Data).IsFailure());
+
+	Area.TileLayers = {TerrainA};
+	ObjectSpawn Enemy;
+	Enemy.Id = "shared-id";
+	Enemy.TypeId = "WalkingEnemy";
+
+	ObjectLayer Objects;
+	Objects.Metadata.Id = "objects";
+	Objects.Metadata.Name = "Objects";
+	Objects.Objects.push_back(Enemy);
+
+	StageRegion Region;
+	Region.Id = "shared-id";
+	Region.TypeId = "Goal";
+	Region.Geometry = StageRegionGeometry::Point({0.0f, 0.0f});
+
+	RegionLayer Events;
+	Events.Metadata.Id = "events";
+	Events.Metadata.Name = "Events";
+	Events.Regions.push_back(Region);
+
+	Area.ObjectLayers = {Objects};
+	Area.RegionLayers = {Events};
+	Data.Areas = {Area};
+
+	assert(ValidateStageData(Data).IsFailure());
+}
+
+void TestNativeStageDataAllowsExternalTransitions() {
+	TileLayer Terrain;
+	Terrain.Metadata.Id = "terrain";
+	Terrain.Metadata.Name = "Terrain";
+	Terrain.Role = TileLayerRole::Terrain;
+	Terrain.Map = MakeMap({{1}});
+
+	StageTransition Exit;
+	Exit.Id = "exit-to-stage-2";
+	Exit.TypeId = "Door";
+	Exit.Entry = StageRegionGeometry::Rectangle(
+		{0.0f, 0.0f}, 32.0f, 32.0f);
+	Exit.TargetStageId = "stage-2";
+	Exit.TargetAreaId = "entrance";
+	Exit.ExitPosition = {64.0f, 96.0f};
+
+	StageArea Area;
+	Area.Id = "main";
+	Area.Width = 1;
+	Area.Height = 1;
+	Area.TileLayers = {Terrain};
+	Area.Transitions = {Exit};
+
+	StageData Data;
+	Data.Id = "stage-1";
+	Data.StartAreaId = "main";
+	Data.Areas = {Area};
+
+	assert(ValidateStageData(Data).IsSuccess());
 }
 
 void TestLayeredMap() {
@@ -4074,6 +4290,10 @@ int main() {
 	TestSlopeSideBlocks();
 	TestSlopeGroundSnap();
 	TestLayeredMap();
+	TestStagePropertyValuesKeepTypes();
+	TestNativeStageDataSupportsOverlappingContent();
+	TestNativeStageDataValidationRejectsAmbiguousStructure();
+	TestNativeStageDataAllowsExternalTransitions();
 	TestTileRuleCatalogAndLegacyCompatibility();
 	TestTileBehaviorComposesEffectsWithoutManagers();
 	TestLegacyBreakableBecomesRuleDriven();
