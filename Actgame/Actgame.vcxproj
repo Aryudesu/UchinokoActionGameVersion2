@@ -165,6 +165,7 @@
     <ClCompile Include="function.cpp" />
     <ClCompile Include="GameData.cpp" />
     <ClCompile Include="GimmickSandboxScene.cpp" />
+    <ClCompile Include="NativeStageSandboxScene.cpp" />
     <ClCompile Include="LevelChanger.cpp" />
     <ClCompile Include="LoadIni.cpp" />
     <ClCompile Include="MainLoop.cpp" />
@@ -229,6 +230,7 @@
     <ClInclude Include="EnemyFactory.h" />
     <ClInclude Include="GameData.h" />
     <ClInclude Include="GimmickSandboxScene.h" />
+    <ClInclude Include="NativeStageSandboxScene.h" />
     <ClInclude Include="LoadIni.h" />
     <ClInclude Include="MainLoop.h" />
     <ClInclude Include="GameCollection.h" />
