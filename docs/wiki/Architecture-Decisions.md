@@ -18,7 +18,7 @@ HSP/V1コードは旧操作感の参考資料には使うが、見つけた処�
 
 ---
 
-## ADR-002: Legacy V1互換ではC++ V1 runtimeを正とする
+## ADR-002: V1資産の変換規則ではC++ V1 runtimeを正とする
 
 **状態:** 採用
 
@@ -26,7 +26,9 @@ HSP/V1コードは旧操作感の参考資料には使うが、見つけた処�
 
 正規V1データ内にはHSPコードが残存しているが、V1 runtimeでは無効。
 
-HSP由来の意味を復活させると「Version1互換」ではなく別仕様になる。
+HSP由来の意味を復活させると、V1資産をV2へ変換した結果がV1での実際の挙動と変わってしまう。
+
+ただし、これはVersion2 runtimeにV1互換性を持たせるという意味ではない。
 
 ### 例
 
@@ -127,17 +129,17 @@ Version2では `GoalKind` と `StageClearState` で明示する。
 
 ---
 
-## ADR-008: Legacy formatとV2 native formatを分ける
+## ADR-008: Legacy parser/converterとV2 native runtimeを分ける
 
 **状態:** 採用
 
 ### Legacy
 
-既存V1資産の救済・互換。
+既存HSP/V1資産を解析してV2形式へ変換するための入力側。
 
 ### Native
 
-Version2向けに整理したデータ。
+Version2 runtimeが通常利用する整理済みデータ。
 
 ### 理由
 
@@ -173,3 +175,54 @@ HSP、V1、Foundation test dataでID体系が異なる。
 - 未実装
 
 を区別する。
+
+
+---
+
+## ADR-011: Version2 runtimeは旧形式との後方互換を持たない
+
+**状態:** 採用
+
+### 方針
+
+HSP/V1のデータを将来利用する必要がある場合は、
+
+```text
+Legacy data
+   ↓
+parser / converter
+   ↓
+V2 native data
+```
+
+へ変換する。
+
+Version2本体へ、
+
+- V1 block ID分岐
+- HSP map code分岐
+- `StageMoving`
+- `AppearData`
+- `mov/coo/inf`
+
+等の旧形式都合を恒久的に持ち込まない。
+
+### 理由
+
+後方互換が製品要件ではないため、runtimeを単純に保つ利益の方が大きい。
+
+旧ステージを残したい場合も一度変換できればよく、旧形式を毎回実行時に解釈する必要はない。
+
+### PR #28の位置付け
+
+`LegacyStageLoader` のコードは無駄ではない。
+
+旧ARYの意味を解析し、
+
+- Terrain
+- Visual
+- Player spawn
+- Enemy spawn
+- 未解釈marker
+
+へ分解できるため、**runtime互換ローダーではなく変換器の入力parser / 中間表現生成器**として利用できる。
