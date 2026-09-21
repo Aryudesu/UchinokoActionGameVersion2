@@ -1,0 +1,112 @@
+{
+  "formatVersion": 1,
+  "id": "native-test",
+  "mode": "Action",
+  "startArea": "main",
+  "properties": {
+    "authoringNote": "Native StageData loader fixture"
+  },
+  "areas": [
+    {
+      "id": "main",
+      "size": [8, 6],
+      "tileSize": [32, 32],
+      "settings": {
+        "timeLimitSeconds": 300,
+        "bgm": "test-bgm",
+        "background": "test-sky",
+        "properties": {
+          "cameraMode": "follow"
+        }
+      },
+      "tileLayers": [
+        {
+          "id": "background",
+          "name": "Background",
+          "role": "visual",
+          "zOrder": -10,
+          "source": "main/background.csv"
+        },
+        {
+          "id": "terrain",
+          "name": "Terrain",
+          "role": "terrain",
+          "zOrder": 0,
+          "source": "main/terrain.csv"
+        },
+        {
+          "id": "foreground",
+          "name": "Foreground",
+          "role": "visual",
+          "zOrder": 20,
+          "source": "main/foreground.csv"
+        }
+      ],
+      "objectLayers": [
+        {
+          "id": "objects",
+          "name": "Objects",
+          "zOrder": 10,
+          "objects": [
+            {
+              "id": "enemy-1",
+              "type": "WalkingEnemy",
+              "position": [96, 96],
+              "properties": {
+                "direction": "left",
+                "variant": 1,
+                "speed": 2.0,
+                "aggressive": false
+              }
+            },
+            {
+              "id": "lift-1",
+              "type": "HorizontalLift",
+              "position": [96, 96],
+              "properties": {
+                "range": 192.0,
+                "speed": 2.0,
+                "pathDelta": [192.0, 0.0]
+              }
+            }
+          ]
+        }
+      ],
+      "regionLayers": [
+        {
+          "id": "events",
+          "name": "Events",
+          "zOrder": 30,
+          "regions": [
+            {
+              "id": "goal-1",
+              "type": "Goal",
+              "geometry": {
+                "shape": "rectangle",
+                "position": [192, 64],
+                "size": [32, 64]
+              },
+              "properties": {
+                "goalKind": "normal"
+              }
+            }
+          ]
+        }
+      ],
+      "transitions": [
+        {
+          "id": "pipe-1",
+          "type": "Pipe",
+          "entry": {
+            "shape": "point",
+            "position": [64, 96]
+          },
+          "targetArea": "main",
+          "exitPosition": [192, 96],
+          "enterDirection": "down",
+          "exitDirection": "up"
+        }
+      ]
+    }
+  ]
+}

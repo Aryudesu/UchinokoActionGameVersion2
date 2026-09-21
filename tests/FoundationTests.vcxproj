@@ -30,7 +30,7 @@
     <LocalDebuggerWorkingDirectory>$(SolutionDir)</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
   <ItemDefinitionGroup>
-    <ClCompile><WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck><ConformanceMode>true</ConformanceMode><LanguageStandard>stdcpp14</LanguageStandard></ClCompile>
+    <ClCompile><WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck><ConformanceMode>true</ConformanceMode><LanguageStandard>stdcpp14</LanguageStandard><AdditionalIncludeDirectories>$(SolutionDir)third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories></ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="FoundationTests.cpp" />
@@ -44,9 +44,11 @@
     <ClCompile Include="..\Actgame\Foundation\GridDataLoader.cpp" />
     <ClCompile Include="..\Actgame\Foundation\ItemSystem.cpp" />
     <ClCompile Include="..\Actgame\Foundation\LayeredMap.cpp" />
+    <ClCompile Include="..\Actgame\Foundation\NativeStageDataLoader.cpp" />
     <ClCompile Include="..\Actgame\Foundation\PipeTransport.cpp" />
     <ClCompile Include="..\Actgame\Foundation\StageProgress.cpp" />
     <ClCompile Include="..\Actgame\Foundation\StageDefinition.cpp" />
+    <ClCompile Include="..\Actgame\Foundation\StageData.cpp" />
     <ClCompile Include="..\Actgame\Foundation\TerrainCollision.cpp" />
     <ClCompile Include="..\Actgame\Foundation\TerrainStageLoader.cpp" />
     <ClCompile Include="..\Actgame\Foundation\TileDefinition.cpp" />
