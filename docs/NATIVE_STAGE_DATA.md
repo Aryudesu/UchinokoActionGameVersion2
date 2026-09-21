@@ -135,3 +135,55 @@ V2 runtime
 とする。
 
 本番runtimeが旧形式を直接読むことは目標にしない。
+
+
+## Future: Scrolling / Parallax Tile Layers
+
+Some stages may need tile layers whose visual position moves differently from the main world/camera scroll.
+
+Examples:
+
+- distant background clouds
+- parallax scenery
+- foreground decoration
+- screen-relative decorative layers
+
+This should not become a mandatory stage feature.
+
+The preferred extension is to add optional transform/scroll metadata to individual `TileLayer` / `LayerMetadata`, rather than adding one dedicated "scroll layer" field to `StageData`.
+
+Conceptually:
+
+```cpp
+struct LayerTransform {
+    WorldPosition Offset;
+    WorldPosition ScrollFactor { 1.0f, 1.0f };
+};
+```
+
+Typical meanings:
+
+```text
+(1.0, 1.0) normal world layer
+(0.5, 1.0) horizontal parallax
+(0.0, 0.0) camera-fixed visual
+(1.2, 1.0) foreground moving faster than the camera
+```
+
+The current PR intentionally does not implement this yet.
+
+### Moving collision terrain
+
+Visual parallax and collision terrain movement are different problems.
+
+PR #30 currently requires exactly one `Terrain` TileLayer per Area.
+
+If a future stage needs an entire collision tile layer to move independently, this invariant may need to be relaxed or a separate moving-terrain concept introduced.
+
+Before doing that, compare the requirement with `ObjectSpawn`-based moving platforms/lifts. Small or local moving terrain is often better represented as an object; a whole independently moving tile field may justify a dedicated moving tile layer.
+
+Therefore:
+
+- visual scrolling/parallax: planned as an optional per-layer property
+- independently moving collision tile layers: deferred design decision
+- existing stages do not need either feature
