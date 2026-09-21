@@ -1667,6 +1667,43 @@ void TestCharacterEmitsTouchForCollectible() {
 	assert(*Map.TryGet({1, 0}) == 0);
 }
 
+void TestCentralTouchHitboxStillTouchesSolidHazardFromSide() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/hazard-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 73, 0},
+		{1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {0.0f, 0.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	bool FoundDamageTouch = false;
+	for (int Frame = 0; Frame < 10 && !FoundDamageTouch; ++Frame) {
+		Player.Step(1.0f, false, Map, Loaded.Value());
+		for (const TileInteraction& Interaction : Player.Interactions()) {
+			if (Interaction.Trigger == TileTrigger::Touch &&
+				Interaction.Position.Column == 1 &&
+				Interaction.Position.Row == 0 &&
+				Interaction.TileId == 73) {
+				FoundDamageTouch = true;
+				break;
+			}
+		}
+	}
+
+	assert(FoundDamageTouch);
+	// Solid衝突は中央軸で止まり、見た目は半分ほどブロックへ重なる。
+	// その位置で中央16px Touch範囲も危険ブロックへ到達している。
+	assert(NearlyEqual(Player.Body().Position.X, 16.0f));
+	const CharacterTouchBounds Bounds = Player.TouchBounds();
+	assert(NearlyEqual(Bounds.Left, 24.0f));
+	assert(NearlyEqual(Bounds.Right, 40.0f));
+}
+
 void TestCharacterTouchIncludesSolidContact() {
 	Result<TileCatalog> Loaded =
 		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
@@ -3914,6 +3951,7 @@ int main() {
 	TestQuestionBlockSpawnsItemAndBecomesUsed();
 	TestHiddenItemBlockOnlyBlocksFromBelow();
 	TestCharacterEmitsTouchForCollectible();
+	TestCentralTouchHitboxStillTouchesSolidHazardFromSide();
 	TestCharacterTouchIncludesSolidContact();
 	TestCharacterEmitsHitFromBelowForBlock();
 	TestCanvasMasaoTerrainCodesAndCoordinates();
