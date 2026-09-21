@@ -594,6 +594,12 @@ void CharacterController::MoveVertical(
 
 void CharacterController::EmitInteractionAtWorld(
 	TileTrigger Trigger, const TileMap& Map, float X, float Y) {
+	// Tile単位でInteractionが重複排除される前の、実際の判定点を保存する。
+	// これによりデバッグ表示でCharacterControllerが見た位置をそのまま確認できる。
+	if (Trigger == TileTrigger::Touch) {
+		TouchProbePoints_.push_back({X, Y});
+	}
+
 	TilePosition Position;
 	if (!Map.TryWorldToTile({X, Y}, Position)) return;
 	const int* Id = Map.TryGet(Position);
@@ -767,6 +773,7 @@ void CharacterController::Step(
 	const CharacterInput& RawInput,
 	const TileMap& Map, const TileCatalog& Catalog) {
 	Interactions_.clear();
+	TouchProbePoints_.clear();
 
 	CharacterInput Input = RawInput;
 	Input.Horizontal = std::max(-1.0f, std::min(1.0f, Input.Horizontal));
