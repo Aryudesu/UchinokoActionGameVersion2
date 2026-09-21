@@ -226,3 +226,38 @@ Version2本体へ、
 - 未解釈marker
 
 へ分解できるため、**runtime互換ローダーではなく変換器の入力parser / 中間表現生成器**として利用できる。
+
+
+---
+
+## ADR-012: スクロールレイヤーは専用枠ではなくTileLayerのoptional特性として追加する
+
+**状態:** 将来拡張方針
+
+### 背景
+
+一部ステージで、通常のWorld scrollとは異なる速度で背景・前景等を移動させたい可能性がある。
+
+すべてのStageで必要な機能ではない。
+
+### 方針
+
+専用の固定 `ParallaxLayer` フィールドをStageへ増やさず、既存 `TileLayer` へ将来的に、
+
+- Offset
+- ScrollFactor
+- 必要なら座標系
+
+等のoptional propertyを追加する。
+
+これにより必要なStageだけ任意のVisual TileLayerを追加できる。
+
+### Terrainについて
+
+PR #30ではTerrain TileLayerをAreaごとに1枚へ制限する。
+
+Visualの独立scrollにはこの制約は影響しない。
+
+一方でCollisionを持つTileMap全体を独立移動させたい場合は、Terrain複数化またはMoving TileLayerを別途設計する。
+
+局所的な動く足場については、まず `ObjectSpawn / MovingPlatform` を使う。
