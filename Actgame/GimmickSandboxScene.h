@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Foundation/CharacterController.h"
+#include "Foundation/BrickSystem.h"
 #include "Foundation/TileInteraction.h"
 #include "Foundation/ItemSystem.h"
 #include "Foundation/PipeTransport.h"
@@ -30,6 +31,7 @@ private:
 	uchinoko::TileCatalog Catalog_;
 	uchinoko::TileRuntimeMap Runtime_;
 	uchinoko::ItemSystem Items_;
+	uchinoko::BrickSystem Bricks_;
 	uchinoko::WorldState World_;
 	std::vector<uchinoko::PipeLink> Pipes_;
 	uchinoko::PipeTransport Pipe_;

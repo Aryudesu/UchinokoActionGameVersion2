@@ -24,21 +24,6 @@ bool IsPipeTile(int Id) {
 	return Id >= 61 && Id <= 68;
 }
 
-const char* PipePhaseName(uchinoko::PipeTransportPhase Phase) {
-	switch (Phase) {
-	case uchinoko::PipeTransportPhase::Idle: return "IDLE";
-	case uchinoko::PipeTransportPhase::Entering: return "IN";
-	case uchinoko::PipeTransportPhase::FadeOut: return "FADE OUT";
-	case uchinoko::PipeTransportPhase::FadeIn: return "FADE IN";
-	case uchinoko::PipeTransportPhase::Emerging: return "OUT";
-	}
-	return "?";
-}
-
-const char* GoalKindName(uchinoko::GoalKind Kind) {
-	return Kind == uchinoko::GoalKind::Normal ? "NORMAL" : "SECRET";
-}
-
 } // namespace
 
 GimmickSandboxScene::GimmickSandboxScene() {
@@ -47,7 +32,7 @@ GimmickSandboxScene::GimmickSandboxScene() {
 
 void GimmickSandboxScene::Reload() {
 	uchinoko::Result<uchinoko::TerrainStageData> Loaded =
-		uchinoko::TerrainStageLoader::Load("dat/stage/goal-test/stage.ini");
+		uchinoko::TerrainStageLoader::Load("dat/stage/brick-test/stage.ini");
 	if (Loaded.IsFailure()) {
 		LoadError_ = Loaded.Error();
 		return;
@@ -59,6 +44,7 @@ void GimmickSandboxScene::Reload() {
 	Pipe_.Reset();
 	Runtime_.Reset(Map_);
 	Items_.Reset();
+	Bricks_.Reset();
 	// Version1 の GameData 初期値と同じく ON から開始する。
 	World_.Reset(2, true);
 	World_.Synchronize(Map_, Catalog_);
@@ -70,7 +56,7 @@ void GimmickSandboxScene::Reload() {
 
 	Coins_ = 0;
 	Score_ = 0;
-	Health_ = 0;
+	Health_ = 4;
 	Lives_ = 0;
 	Broken_ = 0;
 	Completion_.Reset();
@@ -140,11 +126,18 @@ void GimmickSandboxScene::ApplyEffects() {
 		uchinoko::TileBehaviorSystem::ApplyAll(
 			Player_.Interactions(), Map_, Catalog_, Runtime_);
 	Items_.ConsumeTileEffects(TileEffects, Map_.TileWidth(), Map_.TileHeight());
+	Bricks_.ConsumeTileEffects(TileEffects, MakeGameStateSnapshot());
 	ApplyEffectList(TileEffects);
 
 	// ゴール取得フレームではGoalと同時に発生したScore等だけ反映し、
 	// その後の地形・Item更新へ進まずステージ終了状態で止める。
 	if (Completion_.Cleared) return;
+
+	const std::vector<uchinoko::TileEffect> BrickEffects =
+		Bricks_.Update(
+			Map_, Map_.TileWidth(), Map_.TileHeight(),
+			static_cast<float>(WINDOWY + 32 * 3));
+	ApplyEffectList(BrickEffects);
 
 	// 共有状態を切り替えて地形を同期した直後だけ、安全判定を行う。
 	const uchinoko::WorldStateUpdate WorldUpdate =
@@ -194,10 +187,9 @@ void GimmickSandboxScene::update() {
 		return;
 	}
 
-	// 条件ブロックの境界値確認用デバッグキー。
-	if (ReturnKey(KEY_INPUT_1) == 1) Coins_ = 0;
-	if (ReturnKey(KEY_INPUT_2) == 1) Coins_ = 49;
-	if (ReturnKey(KEY_INPUT_3) == 1) Coins_ = 50;
+	// brick-test: V1のBRICKHP=5の境界をその場で切り替える。
+	if (ReturnKey(KEY_INPUT_4) == 1) Health_ = 4;
+	if (ReturnKey(KEY_INPUT_5) == 1) Health_ = 5;
 
 	uchinoko::CharacterInput Input;
 	if (ReturnKey(KEY_INPUT_LEFT) != 0) Input.Horizontal -= 1.0f;
@@ -239,6 +231,7 @@ void GimmickSandboxScene::draw() {
 			const int Bottom = Top + Map_.TileHeight();
 
 			const bool SpawnsItem = HasAction(*Definition, uchinoko::TileAction::SpawnItem);
+			const bool BrickTile = HasAction(*Definition, uchinoko::TileAction::HitBrick);
 			const bool Hidden =
 				Definition->Collision == uchinoko::CollisionShape::HitFromBelowOnly;
 
@@ -267,7 +260,9 @@ void GimmickSandboxScene::draw() {
 					Left, Top, Right, Bottom,
 					IsPipeTile(*Id)
 						? GetColor(70, 170, 90)
-						: (SpawnsItem ? GetColor(210, 160, 70) : GetColor(80, 130, 190)),
+						: (BrickTile
+							? GetColor(175, 95, 55)
+							: (SpawnsItem ? GetColor(210, 160, 70) : GetColor(80, 130, 190))),
 					TRUE);
 				if (IsPipeTile(*Id)) {
 					DrawBox(Left + 3, Top + 3, Right - 3, Bottom - 3,
@@ -338,6 +333,21 @@ void GimmickSandboxScene::draw() {
 				DrawBox(Left + 2, Top + 2, Right - 2, Bottom - 2,
 					GetColor(190, 110, 70), FALSE);
 			}
+			if (BrickTile) {
+				DrawLine(Left + 2, Top + 10, Right - 2, Top + 10,
+					GetColor(245, 175, 105), 2);
+				DrawLine(Left + 2, Top + 21, Right - 2, Top + 21,
+					GetColor(245, 175, 105), 2);
+				const uchinoko::ActiveBrick* Brick =
+					Bricks_.TryGet({Column, Row});
+				if (Brick != nullptr) {
+					DrawFormatString(
+						Left + 6, Top + 7, GetColor(255, 245, 200),
+						"%s%d",
+						Brick->Phase == uchinoko::BrickPhase::Breaking ? "X" : "B",
+						Bricks_.VisualFrameOffset({Column, Row}));
+				}
+			}
 			if (HasAction(*Definition, uchinoko::TileAction::Goal)) {
 				int GoalValue = 0;
 				for (std::size_t RuleIndex = 0;
@@ -407,6 +417,13 @@ void GimmickSandboxScene::draw() {
 		}
 	}
 
+	for (std::size_t Index = 0; Index < Bricks_.Fragments().size(); ++Index) {
+		const uchinoko::BrickFragment& Fragment = Bricks_.Fragments()[Index];
+		const int X = static_cast<int>(Fragment.Position.X);
+		const int Y = static_cast<int>(Fragment.Position.Y);
+		DrawBox(X, Y, X + 7, Y + 7, GetColor(190, 105, 60), TRUE);
+	}
+
 	const uchinoko::CharacterBody& Body = Player_.Body();
 	DrawBox(
 		static_cast<int>(Body.Position.X), static_cast<int>(Body.Position.Y),
@@ -433,23 +450,17 @@ void GimmickSandboxScene::draw() {
 	}
 
 	DrawString(16, 16,
-		"Goal test: LEFT/RIGHT move, Z jump, R retry, Esc",
+		"Brick test: LEFT/RIGHT, Z jump, 4=HP4, 5=HP5, R reload, Esc",
 		GetColor(255, 255, 255));
 	DrawString(16, 40,
-		"Green N: Normal Goal / Purple S: Secret Goal",
-		GetColor(220, 240, 255));
+		"V1 BRICKHP=5: HP4=bump only / HP5=break",
+		GetColor(255, 225, 190));
 	DrawFormatString(16, 64, GetColor(255, 255, 255),
-		"Record Normal:%s  Secret:%s  All:%s  RunScore:%d",
-		ClearState_.NormalCleared ? "CLEAR" : "-",
-		ClearState_.SecretCleared ? "CLEAR" : "-",
-		ClearState_.AllCleared() ? "CLEAR" : "-",
-		Score_);
-	if (Completion_.Cleared) {
-		DrawFormatString(16, 88, GetColor(120, 255, 160),
-			"STAGE CLEAR (%s) - %s  R: retry / Esc: menu",
-			GoalKindName(Completion_.Goal),
-			Player_.Body().Grounded ? "LANDED" : "settling...");
-	}
+		"HP:%d  Score:%d  Broken:%d  Fragments:%d",
+		Health_, Score_, Broken_, static_cast<int>(Bricks_.Fragments().size()));
+	DrawString(16, 88,
+		"Break result: +10 score and 5 falling fragments",
+		GetColor(220, 235, 255));
 	if (Dead_) {
 		DrawString(16, 112,
 			"CRUSHED - InstantDeath (R: reload)",

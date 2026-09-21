@@ -133,6 +133,9 @@ TileBehaviorResult TileBehaviorSystem::Apply(
 		case TileAction::Goal:
 			AddEffect(Result, TileEffectType::Goal, Interaction, Rule.Value);
 			break;
+		case TileAction::HitBrick:
+			AddEffect(Result, TileEffectType::BrickHit, Interaction, Rule.Value);
+			break;
 		}
 		if (Rule.Once) {
 			State->ConsumedRules[Index] = true;

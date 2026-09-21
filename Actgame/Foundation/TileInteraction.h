@@ -34,7 +34,8 @@ enum class TileAction {
 	SpawnItem,
 	IncrementCount,
 	ToggleSwitch,
-	Goal
+	Goal,
+	HitBrick
 };
 
 enum class TileCountCondition {
@@ -72,6 +73,7 @@ enum class TileEffectType {
 	SpawnItem,
 	ToggleSwitch,
 	Goal,
+	BrickHit,
 	TileBroken
 };
 
