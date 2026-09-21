@@ -12,7 +12,7 @@
 - [残件・未移植・設計判断](Remaining-Work.md)
 - [Version2 ステージデータ設計案](Stage-Data-Design.md)
 - [開発引き継ぎ・新規スレッド開始ガイド](Development-Handoff.md)
-- [互換性の不変条件](Compatibility-Invariants.md)
+- [旧資産変換時の不変条件](Compatibility-Invariants.md)
 - [Stage 5 実データ対応例](Reference-Stage5.md)
 - [設計判断ログ](Architecture-Decisions.md)
 - [移植PR履歴](Migration-PR-History.md)
@@ -99,15 +99,34 @@ Version2のFoundationには多くの機能が移植済みですが、**本編の
 
 PR #29は履歴・Wiki草案の入口ですが、実装状況そのものは常に最新の `dev` / Open PRを優先します。
 
-## 互換実装を触る前に
+## 旧資産の変換処理を触る前に
 
 [互換性の不変条件](Compatibility-Invariants.md) を確認してください。
 
 特に、
 
-- HSPの意味が分かっていてもV1で無効なら勝手に有効化しない
+- V1資産を変換する際、HSPの意味が分かっていてもV1で無効なら勝手に有効化しない
 - Legacy V1とV2 nativeを分ける
-- Player spawnはV1のrow-major上書き挙動を維持
+- V1→V2変換時にPlayer spawnの解釈を再現できるようにする
 - V1 block IDとV2正式IDを同一視しない
 
 を重要な前提とします。
+
+
+## Version2の互換性方針
+
+Version2本体は、HSP版・C++ Version1のデータ形式やruntime APIとの後方互換を目標にしません。
+
+旧資産について必要なのは、
+
+```text
+old data
+   ↓ parse / analyze
+conversion tool
+   ↓
+V2 native data
+```
+
+と変換できることです。
+
+したがって、旧形式を直接読み続けるためだけの分岐・ID体系・クラス構造をVersion2 runtimeへ残さないことを優先します。
