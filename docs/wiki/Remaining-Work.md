@@ -28,21 +28,23 @@ PR #28は現時点で未マージ。
 推奨順:
 
 1. PR #30のV2 native `StageData / ObjectSpawn / Region / Transition` をレビュー・マージ
-2. native serializer形式とTypeId/property schemaを設計
-3. PR #28を旧ARY parser / converter入力として整理
-4. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
-5. V1 Block ID 0..45 → V2 native Tile定義への変換mapping
-6. 旧Stage 5をV2 native形式へ実際に変換するfixtureを作る
-7. `Action` をV2 native StageDataから動かす
-8. Foundation Effect → Player/GameData/SE adapter
-9. PlayerをCharacterControllerへ段階移行
-10. Legacy Enemy `-2..-6` → ObjectSpawn変換
-11. Pipe / stage transitionを本編へ接続
-12. Goal / StageProgress → GameData / Save / WorldMap
-13. Lift / moving platform
-14. Enemy runtime
-15. Boss / Event
-16. 旧Map / Block runtime撤去
+2. PR #31のJSON + CSV NativeStageDataLoaderをレビュー・マージ
+3. TileLayerをZOrder順に描画するnative renderer / sandboxを追加
+4. TypeId/property schemaを設計
+5. PR #28を旧ARY parser / converter入力として整理
+6. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
+7. V1 Block ID 0..45 → V2 native Tile定義への変換mapping
+8. 旧Stage 5をV2 native形式へ実際に変換するfixtureを作る
+9. `Action` をV2 native StageDataから動かす
+10. Foundation Effect → Player/GameData/SE adapter
+11. PlayerをCharacterControllerへ段階移行
+12. Legacy Enemy `-2..-6` → ObjectSpawn変換
+13. Pipe / stage transitionを本編へ接続
+14. Goal / StageProgress → GameData / Save / WorldMap
+15. Lift / moving platform
+16. Enemy runtime
+17. Boss / Event
+18. 旧Map / Block runtime撤去
 
 ---
 
@@ -125,8 +127,8 @@ Terrain / Visual / Object / Eventを分ける。
 
 PR #30でメモリ上の責務分離は確定。
 
-- native serializerをJSON / 独自テキスト / binary等のどれにするか
-- TileLayerを保存時にfull grid / sparse / chunkedのどれにするか
+- JSON + CSVをauthoring/native v1として採用済み。将来binary/export formatを追加するか
+- TileLayer CSVを将来full grid / sparse / chunkedへ最適化するか
 - TypeIdごとのproperty schema
 - Lift pathをObject propertyで持つかPath/Region等を別概念にするか
 - editor固有のvisibility / lock / selection等をstage dataと分離するか
