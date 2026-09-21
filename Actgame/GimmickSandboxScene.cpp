@@ -497,10 +497,19 @@ void GimmickSandboxScene::draw() {
 		GetColor(240, 210, 80), TRUE);
 
 	// Hazard debug:
-	// 黄色枠 = CharacterBody（通常地形の基準となる本体範囲）
+	// 黄色枠 = CharacterBody（見た目32x32）
 	DrawBox(
 		BodyLeft, BodyTop, BodyRight, BodyBottom,
 		GetColor(255, 255, 80), FALSE);
+
+	// シアン枠 = 実際のTileTrigger::Touch判定範囲（中央16x32）。
+	const uchinoko::CharacterTouchBounds TouchBounds = Player_.TouchBounds();
+	DrawBox(
+		static_cast<int>(TouchBounds.Left),
+		static_cast<int>(TouchBounds.Top),
+		static_cast<int>(TouchBounds.Right),
+		static_cast<int>(TouchBounds.Bottom),
+		GetColor(80, 230, 255), FALSE);
 
 	// 赤枠 = このフレームにTileTrigger::Touchとなったタイル。
 	// 同じタイルへの複数ProbeはTileInteraction側で重複排除される。
@@ -557,7 +566,7 @@ void GimmickSandboxScene::draw() {
 		"KP/KE/KB = Kill Player/Enemy/Both",
 		GetColor(255, 190, 200));
 	DrawString(16, 88,
-		"Hit debug: Yellow=Body  Pink=Touch probe  Red=Touch tile",
+		"Hit debug: Yellow=Body  Cyan=Touch16x32  Pink=Probe  Red=Tile",
 		GetColor(255, 255, 180));
 	DrawFormatString(16, 112, GetColor(255, 255, 255),
 		"HP:%d  Damage:%s  Frame:%d  Facing:%s",
