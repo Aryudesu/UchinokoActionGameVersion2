@@ -1,5 +1,66 @@
 # Stage 5 実データ対応例
 
+## 0. 基準fixture
+
+2026-09-21に提供されたC++ Version1 Stage 5一式を、今後のLegacy importer / Data.inf loader検証の基準fixtureとして扱う。
+
+| File | Size | Shape | SHA-256 |
+|---|---:|---|---|
+| `Data0.inf` | 150 bytes | - | `d74dfd6e3fbe9aa4ce89ccf36133b514d005d38f9260d8d0ea946ddc680b7801` |
+| `Data1.inf` | 153 bytes | - | `0a3417c65e15a507af315a89e4de98231ebe785ca76695a6eb7ffa671742bd1f` |
+| `map0.ary` | 27028 bytes | 30×180 | `2299926a9e0810292f76f07cf1f9b51d8b8444053c80d8ba78ca785e21f8461f` |
+| `img0.ary` | 27028 bytes | 30×180 | `effcb81e142f15b0a3b2c4aa09d4b30382184d86c80251be45f6fd5bb3159bde` |
+| `map1.ary` | 648 bytes | 10×16 | `bcf74fbebe4b145002fa52d6a26395b4c766349ec0d78df3916ecc100fcaaeec` |
+| `img1.ary` | 649 bytes | 10×16 | `ee07ff7972cb3929bdd05e1b766fcc0ba25c5a59f95308aa3c062a328b5bc26c` |
+
+`Data0.inf` / `Data1.inf` はUTF-8 BOM付きで確認。
+
+同梱の `Log.txt` はDxLib終了ログであり、Stage definition / runtime assetではないためfixture対象外。
+
+### Data0.inf
+
+```ini
+>StageData
+GameMode = 0
+Time = 300
+ScrollMode = 0
+StageMoving = 0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0
+>AppearData
+1 = 1,97.5,22
+>BGMData
+BGM = 1
+```
+
+### Data1.inf
+
+```ini
+>StageData
+Time = 0
+ScrollMode = 4
+StageAppear = 0
+StageMoving = 0,0
+>ImgDat
+Background = haikei3.bmp
+Background2 = haikei3.bmp
+>BGMData
+BGM = 2
+```
+
+このfixtureを使い、将来のloaderテストでは少なくとも、
+
+- detail 0 / detail 1 のサイズ差
+- optional key / section
+- `StageMoving`
+- `AppearData`
+- `StageAppear`
+- `ImgDat` override
+- BGM
+- V1で無効なHSP残存marker
+- Player / Enemy marker
+
+を確認する。
+
+
 HSP → C++ Version1の変換を実データで確認した基準ステージです。
 
 このページは「旧データがなぜこうなっているか」を調べる際のanchorとして使います。
