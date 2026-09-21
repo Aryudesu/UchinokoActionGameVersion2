@@ -1281,6 +1281,19 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(TileSet->TileCount() == 4);
 	assert(TileSet->EmptyTileId == 0);
 	assert(TileSet->Transparent);
+	assert(TileSet->TerrainTiles.size() == 2);
+	const TileDefinition* EmptyTerrain = TileSet->FindTerrainTile(0);
+	const TileDefinition* SolidTerrain = TileSet->FindTerrainTile(2);
+	assert(EmptyTerrain != nullptr);
+	assert(SolidTerrain != nullptr);
+	assert(EmptyTerrain->Collision == CollisionShape::None);
+	assert(EmptyTerrain->ImageIndex == 0);
+	assert(SolidTerrain->Collision == CollisionShape::Solid);
+	assert(SolidTerrain->ImageIndex == 2);
+	Result<TileCatalog> NativeCatalog = TileSet->BuildTerrainCatalog();
+	assert(NativeCatalog.IsSuccess());
+	assert(NativeCatalog.Value().Find(2) != nullptr);
+	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
 	assert(Data.Areas.size() == 1);
 
 	const StageArea* Area = Data.FindArea("main");
@@ -1315,31 +1328,36 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 
 	const ObjectLayer* Objects = Area->FindObjectLayer("objects");
 	assert(Objects != nullptr);
-	assert(Objects->Objects.size() == 2);
-	assert(NearlyEqual(Objects->Objects[0].Position.X, 96.0f));
-	assert(NearlyEqual(Objects->Objects[0].Position.Y, 96.0f));
+	assert(Objects->Objects.size() == 3);
+	assert(Objects->Objects[0].TypeId == "PlayerSpawn");
+	assert(NearlyEqual(Objects->Objects[0].Position.X, 32.0f));
+	assert(NearlyEqual(Objects->Objects[0].Position.Y, 128.0f));
+	assert(Objects->Objects[1].TypeId == "WalkingEnemy");
+	assert(Objects->Objects[2].TypeId == "HorizontalLift");
+	assert(NearlyEqual(Objects->Objects[1].Position.X, 96.0f));
+	assert(NearlyEqual(Objects->Objects[1].Position.Y, 96.0f));
 	assert(NearlyEqual(
-		Objects->Objects[1].Position.X,
-		Objects->Objects[0].Position.X));
+		Objects->Objects[2].Position.X,
+		Objects->Objects[1].Position.X));
 	assert(NearlyEqual(
-		Objects->Objects[1].Position.Y,
-		Objects->Objects[0].Position.Y));
+		Objects->Objects[2].Position.Y,
+		Objects->Objects[1].Position.Y));
 
 	std::string Direction;
 	int Variant = 0;
 	float Speed = 0.0f;
 	bool Aggressive = true;
-	assert(Objects->Objects[0].Properties.at("direction").TryGetString(Direction));
+	assert(Objects->Objects[1].Properties.at("direction").TryGetString(Direction));
 	assert(Direction == "left");
-	assert(Objects->Objects[0].Properties.at("variant").TryGetInteger(Variant));
+	assert(Objects->Objects[1].Properties.at("variant").TryGetInteger(Variant));
 	assert(Variant == 1);
-	assert(Objects->Objects[0].Properties.at("speed").TryGetFloat(Speed));
+	assert(Objects->Objects[1].Properties.at("speed").TryGetFloat(Speed));
 	assert(NearlyEqual(Speed, 2.0f));
-	assert(Objects->Objects[0].Properties.at("aggressive").TryGetBoolean(Aggressive));
+	assert(Objects->Objects[1].Properties.at("aggressive").TryGetBoolean(Aggressive));
 	assert(!Aggressive);
 
 	WorldPosition PathDelta;
-	assert(Objects->Objects[1].Properties.at("pathDelta").TryGetVector2(PathDelta));
+	assert(Objects->Objects[2].Properties.at("pathDelta").TryGetVector2(PathDelta));
 	assert(NearlyEqual(PathDelta.X, 192.0f));
 	assert(NearlyEqual(PathDelta.Y, 0.0f));
 
@@ -1358,6 +1376,87 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(Pipe.EnterDirection == StageDirection::Down);
 	assert(Pipe.ExitDirection == StageDirection::Up);
 	assert(NearlyEqual(Pipe.ExitPosition.X, 192.0f));
+}
+
+void TestNativeStageCharacterControllerUsesTerrainSemantics() {
+	Result<StageData> Loaded =
+		NativeStageDataLoader::Load("dat/stage/native-test/stage.json");
+	assert(Loaded.IsSuccess());
+
+	const StageData& Data = Loaded.Value();
+	const StageArea* Area = Data.FindArea(Data.StartAreaId);
+	assert(Area != nullptr);
+	const TileLayer* Terrain = Area->TerrainLayer();
+	assert(Terrain != nullptr);
+	const TileSetDefinition* TileSet = Data.FindTileSet(Terrain->TileSetId);
+	assert(TileSet != nullptr);
+
+	Result<TileCatalog> Catalog = TileSet->BuildTerrainCatalog();
+	assert(Catalog.IsSuccess());
+	assert(Catalog.Value().Find(2) != nullptr);
+	assert(Catalog.Value().Find(2)->Collision == CollisionShape::Solid);
+
+	const ObjectSpawn* Spawn = nullptr;
+	for (const ObjectLayer& Layer : Area->ObjectLayers) {
+		for (const ObjectSpawn& Object : Layer.Objects) {
+			if (Object.TypeId == "PlayerSpawn") {
+				assert(Spawn == nullptr);
+				Spawn = &Object;
+			}
+		}
+	}
+	assert(Spawn != nullptr);
+
+	CharacterBody Body;
+	Body.Position = Spawn->Position;
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	for (int Frame = 0; Frame < 4; ++Frame) {
+		Player.Step(1.0f, false, Terrain->Map, Catalog.Value());
+	}
+	assert(Player.Body().Position.X > Spawn->Position.X);
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 128.0f));
+
+	Player.Step(0.0f, true, Terrain->Map, Catalog.Value());
+	assert(Player.Body().Position.Y < 128.0f);
+	assert(!Player.Body().Grounded);
+}
+
+void TestNativeStageDataValidationRejectsUndefinedTerrainTile() {
+	TileSetDefinition TileSet;
+	TileSet.Id = "test";
+	TileSet.ImageFile = "dummy.png";
+	TileSet.Columns = 1;
+	TileSet.Rows = 1;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.ImageIndex = 0;
+	TileSet.TerrainTiles.push_back(Empty);
+
+	TileLayer Terrain;
+	Terrain.Metadata.Id = "terrain";
+	Terrain.Metadata.Name = "Terrain";
+	Terrain.Role = TileLayerRole::Terrain;
+	Terrain.TileSetId = "test";
+	Terrain.Map = MakeMap({{9}});
+
+	StageArea Area;
+	Area.Id = "main";
+	Area.Width = 1;
+	Area.Height = 1;
+	Area.TileLayers = {Terrain};
+
+	StageData Data;
+	Data.Id = "undefined-terrain";
+	Data.StartAreaId = "main";
+	Data.TileSets = {TileSet};
+	Data.Areas = {Area};
+
+	Result<bool> Validation = ValidateStageData(Data);
+	assert(Validation.IsFailure());
+	assert(Validation.Error().find("undefined tile id 9") != std::string::npos);
 }
 
 void TestNativeStageDataValidationRejectsUnknownTileSet() {
@@ -4410,6 +4509,8 @@ int main(int argc, char* argv[]) {
 		TestNativeStageDataValidationRejectsAmbiguousStructure();
 		TestNativeStageDataAllowsExternalTransitions();
 		TestNativeStageDataLoaderLoadsJsonAndCsv();
+		TestNativeStageCharacterControllerUsesTerrainSemantics();
+		TestNativeStageDataValidationRejectsUndefinedTerrainTile();
 		TestNativeStageDataValidationRejectsUnknownTileSet();
 		TestNativeStageDataLoaderRejectsUnsupportedVersion();
 		TestNativeStageDataLoaderRejectsNestedProperties();
@@ -4454,6 +4555,8 @@ int main(int argc, char* argv[]) {
 	TestSlopeGroundSnap();
 	TestLayeredMap();
 	TestNativeStageDataLoaderLoadsJsonAndCsv();
+	TestNativeStageCharacterControllerUsesTerrainSemantics();
+	TestNativeStageDataValidationRejectsUndefinedTerrainTile();
 	TestNativeStageDataValidationRejectsUnknownTileSet();
 	TestNativeStageDataLoaderRejectsUnsupportedVersion();
 	TestNativeStageDataLoaderRejectsNestedProperties();
