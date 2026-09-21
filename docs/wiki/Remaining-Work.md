@@ -27,21 +27,22 @@ PR #28は現時点で未マージ。
 
 推奨順:
 
-1. V2 native `StageData` / `ObjectSpawn` / `Event` / `Transition` の形を先に確定
-2. PR #28を旧ARY parser / converter入力として整理
-3. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
-4. V1 Block ID 0..45 → V2 native Tile定義への変換mapping
-5. 旧Stage 5をV2 native形式へ実際に変換するfixtureを作る
-6. `Action` をV2 native StageDataから動かす
-7. Foundation Effect → Player/GameData/SE adapter
-8. PlayerをCharacterControllerへ段階移行
-9. Legacy Enemy `-2..-6` → ObjectSpawn変換
-10. Pipe / stage transitionを本編へ接続
-11. Goal / StageProgress → GameData / Save / WorldMap
-12. Lift / moving platform
-13. Enemy runtime
-14. Boss / Event
-15. 旧Map / Block runtime撤去
+1. PR #30のV2 native `StageData / ObjectSpawn / Region / Transition` をレビュー・マージ
+2. native serializer形式とTypeId/property schemaを設計
+3. PR #28を旧ARY parser / converter入力として整理
+4. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
+5. V1 Block ID 0..45 → V2 native Tile定義への変換mapping
+6. 旧Stage 5をV2 native形式へ実際に変換するfixtureを作る
+7. `Action` をV2 native StageDataから動かす
+8. Foundation Effect → Player/GameData/SE adapter
+9. PlayerをCharacterControllerへ段階移行
+10. Legacy Enemy `-2..-6` → ObjectSpawn変換
+11. Pipe / stage transitionを本編へ接続
+12. Goal / StageProgress → GameData / Save / WorldMap
+13. Lift / moving platform
+14. Enemy runtime
+15. Boss / Event
+16. 旧Map / Block runtime撤去
 
 ---
 
