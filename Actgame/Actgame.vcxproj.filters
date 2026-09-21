@@ -360,6 +360,7 @@
     <ClCompile Include="Foundation\ExtendedSlopeTerrain.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="SlopeSandboxScene.cpp"><Filter>ソース ファイル\Scene</Filter></ClCompile>
     <ClCompile Include="GimmickSandboxScene.cpp"><Filter>ソース ファイル\Scene</Filter></ClCompile>
+    <ClCompile Include="NativeStageSandboxScene.cpp"><Filter>ソース ファイル\Scene</Filter></ClCompile>
     <ClCompile Include="Foundation\GridDataLoader.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\ItemSystem.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\LayeredMap.cpp"><Filter>Foundation</Filter></ClCompile>
@@ -387,6 +388,7 @@
     <ClInclude Include="Foundation\ExtendedSlopeTerrain.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="SlopeSandboxScene.h"><Filter>ヘッダー ファイル\Scene</Filter></ClInclude>
     <ClInclude Include="GimmickSandboxScene.h"><Filter>ヘッダー ファイル\Scene</Filter></ClInclude>
+    <ClInclude Include="NativeStageSandboxScene.h"><Filter>ヘッダー ファイル\Scene</Filter></ClInclude>
     <ClInclude Include="Foundation\Coordinates.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\GridDataLoader.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\ItemSystem.h"><Filter>Foundation</Filter></ClInclude>
@@ -434,6 +436,7 @@
     <None Include="..\dat\stage\collectible-test\tiles.csv"><Filter>Stage Data</Filter></None>
     <None Include="..\third_party\nlohmann\LICENSE.MIT" />
     <None Include="..\dat\stage\native-test\stage.json"><Filter>Stage Data</Filter></None>
+    <None Include="..\dat\stage\native-test\tiles.png"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\native-test\main\terrain.csv"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\native-test\main\background.csv"><Filter>Stage Data</Filter></None>
     <None Include="..\dat\stage\native-test\main\foreground.csv"><Filter>Stage Data</Filter></None>

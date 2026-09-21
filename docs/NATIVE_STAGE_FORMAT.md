@@ -29,6 +29,7 @@ Both Actgame and FoundationTests add `$(SolutionDir)third_party` to their includ
 ```text
 dat/stage/native-test/
   stage.json
+  tiles.png
   main/
     terrain.csv
     background.csv
@@ -44,6 +45,16 @@ dat/stage/native-test/
   "mode": "Action",
   "startArea": "main",
   "properties": {},
+  "tileSets": [
+    {
+      "id": "native-test",
+      "source": "tiles.png",
+      "tileSize": [32, 32],
+      "grid": [4, 1],
+      "emptyTile": 0,
+      "transparent": true
+    }
+  ],
   "areas": []
 }
 ```
@@ -64,6 +75,30 @@ Optional string.
 - `Sokoban`
 
 Default: `Action`.
+
+## TileSet
+
+```json
+{
+  "id": "native-test",
+  "source": "tiles.png",
+  "tileSize": [32, 32],
+  "grid": [4, 1],
+  "emptyTile": 0,
+  "transparent": true
+}
+```
+
+Fields:
+
+- `id`: stable TileSet ID
+- `source`: image path relative to `stage.json`
+- `tileSize`: one tile's pixel size; default `[32, 32]`
+- `grid`: required source-image division count `[columns, rows]`
+- `emptyTile`: tile value that is not drawn; default `0`
+- `transparent`: whether DxLib draws the divided image with transparency; default `true`
+
+`StageData::FindTileSet()` resolves the metadata, while the actual DxLib graph handles belong to the rendering/runtime side.
 
 ## Area
 
@@ -106,6 +141,7 @@ All fields are optional.
   "id": "terrain",
   "name": "Terrain",
   "role": "terrain",
+  "tileSet": "native-test",
   "zOrder": 0,
   "visible": true,
   "source": "main/terrain.csv"
@@ -117,6 +153,7 @@ Fields:
 - `id`: required stable ID
 - `name`: optional; defaults to `id`
 - `role`: required, `terrain` or `visual`
+- `tileSet`: optional TileSet reference. Visual rendering requires it; omitting it remains valid for headless/migration StageData
 - `zOrder`: optional, default 0
 - `visible`: optional, default true
 - `source`: required CSV path relative to stage.json
@@ -136,6 +173,15 @@ CSV contains only integer tile values.
 ```
 
 The existing `GridDataLoader` is reused.
+
+The committed `native-test/tiles.png` is a self-contained four-tile fixture:
+
+- 0: transparent/empty
+- 1: background
+- 2: terrain block
+- 3: foreground overlay
+
+The current sandbox renderer treats a non-empty CSV value as the direct divided-image index inside the referenced TileSet. This is the first visual rendering contract only. Terrain collision semantics / TileDefinition-to-ImageIndex mapping will be connected separately before native gameplay runtime replaces the existing Action path.
 
 Do not put object/event data into TileLayer CSV.
 
@@ -279,7 +325,7 @@ Load sequence:
 ```text
 stage.json
    ↓ nlohmann/json
-metadata / objects / regions / transitions
+tile sets / metadata / objects / regions / transitions
    ↓
 TileLayer.source
    ↓ GridDataLoader

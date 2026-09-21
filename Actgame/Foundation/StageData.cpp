@@ -163,7 +163,7 @@ Result<bool> ValidateAreaBasics(const StageArea& Area) {
 	return Result<bool>::Success(true);
 }
 
-Result<bool> ValidateAreaContent(const StageArea& Area) {
+Result<bool> ValidateAreaContent(const StageData& Data, const StageArea& Area) {
 	std::unordered_set<std::string> LayerIds;
 	std::unordered_set<std::string> EntityIds;
 	int TerrainLayerCount = 0;
@@ -180,6 +180,21 @@ Result<bool> ValidateAreaContent(const StageArea& Area) {
 			return Result<bool>::Failure(
 				"Tile layer dimensions or tile size do not match area: " +
 				Layer.Metadata.Id);
+		}
+
+		if (!Layer.TileSetId.empty()) {
+			const TileSetDefinition* TileSet = Data.FindTileSet(Layer.TileSetId);
+			if (TileSet == nullptr) {
+				return Result<bool>::Failure(
+					"Tile layer references unknown tile set: " +
+					Layer.Metadata.Id + " -> " + Layer.TileSetId);
+			}
+			if (TileSet->TileWidth != Area.TileWidth ||
+				TileSet->TileHeight != Area.TileHeight) {
+				return Result<bool>::Failure(
+					"Tile set tile size does not match area: " +
+					Layer.TileSetId);
+			}
 		}
 
 		if (Layer.Role == TileLayerRole::Terrain) ++TerrainLayerCount;
@@ -292,6 +307,18 @@ RegionLayer* StageArea::FindRegionLayer(const std::string& LayerId) {
 		static_cast<const StageArea&>(*this).FindRegionLayer(LayerId));
 }
 
+const TileSetDefinition* StageData::FindTileSet(const std::string& TileSetId) const {
+	for (const TileSetDefinition& TileSet : TileSets) {
+		if (TileSet.Id == TileSetId) return &TileSet;
+	}
+	return nullptr;
+}
+
+TileSetDefinition* StageData::FindTileSet(const std::string& TileSetId) {
+	return const_cast<TileSetDefinition*>(
+		static_cast<const StageData&>(*this).FindTileSet(TileSetId));
+}
+
 const StageArea* StageData::FindArea(const std::string& AreaId) const {
 	for (const StageArea& Area : Areas) {
 		if (Area.Id == AreaId) return &Area;
@@ -315,6 +342,32 @@ Result<bool> ValidateStageData(const StageData& Data) {
 		return Result<bool>::Failure("Start area id must not be empty");
 	}
 
+	std::unordered_set<std::string> TileSetIds;
+	for (const TileSetDefinition& TileSet : Data.TileSets) {
+		if (TileSet.Id.empty()) {
+			return Result<bool>::Failure("Tile set id must not be empty");
+		}
+		if (TileSet.ImageFile.empty()) {
+			return Result<bool>::Failure(
+				"Tile set image file must not be empty: " + TileSet.Id);
+		}
+		if (TileSet.TileWidth <= 0 || TileSet.TileHeight <= 0 ||
+			TileSet.Columns <= 0 || TileSet.Rows <= 0) {
+			return Result<bool>::Failure(
+				"Tile set dimensions must be positive: " + TileSet.Id);
+		}
+		if (TileSet.EmptyTileId < 0 ||
+			TileSet.EmptyTileId >= TileSet.TileCount()) {
+			return Result<bool>::Failure(
+				"Tile set empty tile id is outside image grid: " +
+				TileSet.Id);
+		}
+		if (!RegisterUnique(TileSetIds, TileSet.Id)) {
+			return Result<bool>::Failure(
+				"Duplicate tile set id: " + TileSet.Id);
+		}
+	}
+
 	std::unordered_set<std::string> AreaIds;
 	for (const StageArea& Area : Data.Areas) {
 		Result<bool> Basics = ValidateAreaBasics(Area);
@@ -324,7 +377,7 @@ Result<bool> ValidateStageData(const StageData& Data) {
 				"Duplicate area id: " + Area.Id);
 		}
 
-		Result<bool> Content = ValidateAreaContent(Area);
+		Result<bool> Content = ValidateAreaContent(Data, Area);
 		if (Content.IsFailure()) return Content;
 	}
 

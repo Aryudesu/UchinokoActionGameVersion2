@@ -1270,6 +1270,17 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(Data.Id == "native-test");
 	assert(Data.Mode == GameMode::Action);
 	assert(Data.StartAreaId == "main");
+	assert(Data.TileSets.size() == 1);
+	const TileSetDefinition* TileSet = Data.FindTileSet("native-test");
+	assert(TileSet != nullptr);
+	assert(TileSet->ImageFile.find("tiles.png") != std::string::npos);
+	assert(TileSet->TileWidth == 32);
+	assert(TileSet->TileHeight == 32);
+	assert(TileSet->Columns == 4);
+	assert(TileSet->Rows == 1);
+	assert(TileSet->TileCount() == 4);
+	assert(TileSet->EmptyTileId == 0);
+	assert(TileSet->Transparent);
 	assert(Data.Areas.size() == 1);
 
 	const StageArea* Area = Data.FindArea("main");
@@ -1292,12 +1303,15 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(Background->Role == TileLayerRole::Visual);
 	assert(Terrain->Role == TileLayerRole::Terrain);
 	assert(Foreground->Role == TileLayerRole::Visual);
+	assert(Background->TileSetId == "native-test");
+	assert(Terrain->TileSetId == "native-test");
+	assert(Foreground->TileSetId == "native-test");
 	assert(Background->Metadata.ZOrder == -10);
 	assert(Terrain->Metadata.ZOrder == 0);
 	assert(Foreground->Metadata.ZOrder == 20);
-	assert(*Background->Map.TryGet({0, 0}) == 10);
-	assert(*Terrain->Map.TryGet({2, 3}) == 1);
-	assert(*Foreground->Map.TryGet({7, 4}) == 20);
+	assert(*Background->Map.TryGet({0, 0}) == 1);
+	assert(*Terrain->Map.TryGet({2, 3}) == 2);
+	assert(*Foreground->Map.TryGet({7, 4}) == 3);
 
 	const ObjectLayer* Objects = Area->FindObjectLayer("objects");
 	assert(Objects != nullptr);
@@ -1344,6 +1358,30 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(Pipe.EnterDirection == StageDirection::Down);
 	assert(Pipe.ExitDirection == StageDirection::Up);
 	assert(NearlyEqual(Pipe.ExitPosition.X, 192.0f));
+}
+
+void TestNativeStageDataValidationRejectsUnknownTileSet() {
+	TileLayer Terrain;
+	Terrain.Metadata.Id = "terrain";
+	Terrain.Metadata.Name = "Terrain";
+	Terrain.Role = TileLayerRole::Terrain;
+	Terrain.TileSetId = "missing";
+	Terrain.Map = MakeMap({{1}});
+
+	StageArea Area;
+	Area.Id = "main";
+	Area.Width = 1;
+	Area.Height = 1;
+	Area.TileLayers = {Terrain};
+
+	StageData Data;
+	Data.Id = "unknown-tileset";
+	Data.StartAreaId = "main";
+	Data.Areas = {Area};
+
+	Result<bool> Validation = ValidateStageData(Data);
+	assert(Validation.IsFailure());
+	assert(Validation.Error().find("unknown tile set") != std::string::npos);
 }
 
 void TestNativeStageDataLoaderRejectsUnsupportedVersion() {
@@ -4372,6 +4410,7 @@ int main(int argc, char* argv[]) {
 		TestNativeStageDataValidationRejectsAmbiguousStructure();
 		TestNativeStageDataAllowsExternalTransitions();
 		TestNativeStageDataLoaderLoadsJsonAndCsv();
+		TestNativeStageDataValidationRejectsUnknownTileSet();
 		TestNativeStageDataLoaderRejectsUnsupportedVersion();
 		TestNativeStageDataLoaderRejectsNestedProperties();
 		std::cout << "Native stage data tests passed.\n";
@@ -4415,6 +4454,7 @@ int main(int argc, char* argv[]) {
 	TestSlopeGroundSnap();
 	TestLayeredMap();
 	TestNativeStageDataLoaderLoadsJsonAndCsv();
+	TestNativeStageDataValidationRejectsUnknownTileSet();
 	TestNativeStageDataLoaderRejectsUnsupportedVersion();
 	TestNativeStageDataLoaderRejectsNestedProperties();
 	TestStagePropertyValuesKeepTypes();
