@@ -39,6 +39,13 @@ struct CharacterInput {
 	bool JumpPressed = false;
 };
 
+struct CharacterTouchBounds {
+	float Left = 0.0f;
+	float Top = 0.0f;
+	float Right = 0.0f;
+	float Bottom = 0.0f;
+};
+
 enum class MovementMode {
 	Normal,
 	Climbing
@@ -61,8 +68,9 @@ public:
 	CharacterBody& Body() { return Body_; }
 	void Reposition(WorldPosition Position, bool ResetVelocity = true);
 	const std::vector<TileInteraction>& Interactions() const { return Interactions_; }
+	// TileTrigger::Touch は見た目32x32より狭い、中央16x32の判定を使う。
+	CharacterTouchBounds TouchBounds() const;
 	// そのフレームでTileTrigger::Touch判定に実際に使用したワールド座標。
-	// Sandbox等のデバッグ可視化用で、判定ロジック自体は変更しない。
 	const std::vector<WorldPosition>& TouchProbePoints() const { return TouchProbePoints_; }
 	MovementMode Mode() const { return Mode_; }
 	bool IsClimbing() const { return Mode_ == MovementMode::Climbing; }
