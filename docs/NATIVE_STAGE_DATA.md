@@ -28,6 +28,7 @@ TileLayerの描画元画像を定義する。
 - source image grid (columns / rows)
 - empty tile value
 - transparency
+- optional semantic terrain definitions (`TileDefinition`)
 
 画像handleそのものはStageDataへ持たせず、DxLib依存はrenderer/runtime側へ隔離する。
 
@@ -41,11 +42,25 @@ TileLayerの描画元画像を定義する。
 
 全TileLayerはAreaと同じgridサイズ/tileサイズを持つ。
 
-Native JSONでは各TileLayerが `TileSetId` を参照する。現在のSandbox描画ではCSV値をTileSet内の画像indexとして直接描画する。Terrainの意味ID→ImageIndex対応は、native gameplay runtime接続時にTileCatalogと統合する。
+Native JSONでは各TileLayerが `TileSetId` を参照する。
+
+Visual LayerのCSV値は画像index。
+
+Terrain LayerのCSV値は意味IDであり、TileSet内の `TerrainTiles` から、
+
+```text
+Terrain ID
+  ├ Collision / Movement → CharacterController
+  └ ImageIndex           → Renderer
+```
+
+へ分岐する。
+
+`TileSetDefinition::BuildTerrainCatalog()` により既存Foundationの `TileCatalog` を生成するため、native専用の衝突実装は作らない。
 
 ## ObjectLayer
 
-Enemy、Lift、MovingPlatform、Item等。
+Enemy、Lift、MovingPlatform、Item、PlayerSpawn等。
 
 ObjectSpawnはworld座標を持つため、
 
