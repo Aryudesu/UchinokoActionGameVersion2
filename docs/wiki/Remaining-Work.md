@@ -123,12 +123,13 @@ Terrain / Visual / Object / Eventを分ける。
 
 ## 6. ステージデータの未決事項
 
-- Object配置をCSV / INI / JSONのどれにするか
-- EventをObjectsと同じファイルへまとめるか
-- LiftのpathをObject内paramで持つか別定義にするか
-- Visualを必須グリッドにするか、override扱いにするか
-- 背景装飾レイヤをVisualと別にするか
-- submap移動先を整数IDにするかDefinition IDにするか
+PR #30でメモリ上の責務分離は確定。
+
+- native serializerをJSON / 独自テキスト / binary等のどれにするか
+- TileLayerを保存時にfull grid / sparse / chunkedのどれにするか
+- TypeIdごとのproperty schema
+- Lift pathをObject propertyで持つかPath/Region等を別概念にするか
+- editor固有のvisibility / lock / selection等をstage dataと分離するか
 - Legacy parserは原則offline converter / 開発ツール側へ置き、製品runtimeには残さない
 
 ---
@@ -141,7 +142,9 @@ Terrain / Visual / Object / Eventを分ける。
 
 ### Visual
 
-2次元グリッドまたはTerrainのImageIndexに対するoverride。
+PR #30ではVisual TileLayerを複数枚持ち、ZOrderで重ねる。
+
+保存形式側でfull grid / sparse等へ最適化する余地は残す。
 
 ### Enemy / Lift / Dynamic Object
 
