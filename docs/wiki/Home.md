@@ -91,6 +91,7 @@ Version2のFoundationには多くの機能が移植済みですが、**本編の
 
 - PR #28: Version1 ARYステージをLayeredMapへ取り込む互換ローダー
 - PR #29: このWiki内容の調査・移植履歴を保持する資料用Draft PR
+- PR #30: V2ネイティブ StageData / Layer / Object / Regionモデル
 
 
 ## 新しいスレッドから再開するとき
