@@ -239,6 +239,39 @@ GameMode ReadGameMode(const Json& Root) {
 		"stage.mode must be 'Action' or 'Sokoban'");
 }
 
+TileSetDefinition ReadTileSet(
+	const Json& Object,
+	const std::string& BaseDirectory,
+	const std::string& Context) {
+	TileSetDefinition TileSet;
+	TileSet.Id = RequireString(Object, "id", Context);
+	const std::string Source =
+		RequireString(Object, "source", Context);
+	TileSet.ImageFile = JoinPath(BaseDirectory, Source);
+
+	const auto TileSize = Object.find("tileSize");
+	if (TileSize != Object.end()) {
+		ReadIntegerPair(
+			*TileSize,
+			Context + ".tileSize",
+			TileSet.TileWidth,
+			TileSet.TileHeight);
+	}
+
+	const Json& Grid = RequireField(Object, "grid", Context);
+	ReadIntegerPair(
+		Grid,
+		Context + ".grid",
+		TileSet.Columns,
+		TileSet.Rows);
+
+	TileSet.EmptyTileId = OptionalInteger(
+		Object, "emptyTile", 0, Context);
+	TileSet.Transparent = OptionalBoolean(
+		Object, "transparent", true, Context);
+	return TileSet;
+}
+
 TileLayerRole ReadTileLayerRole(
 	const Json& Object,
 	const std::string& Context) {
@@ -301,6 +334,7 @@ TileLayer ReadTileLayer(
 	TileLayer Layer;
 	Layer.Metadata = ReadLayerMetadata(Object, Context);
 	Layer.Role = ReadTileLayerRole(Object, Context);
+	Layer.TileSetId = RequireString(Object, "tileSet", Context);
 
 	const std::string Source =
 		RequireString(Object, "source", Context);
@@ -565,6 +599,23 @@ StageData ReadStage(
 	Data.StartAreaId =
 		RequireString(Root, "startArea", "stage");
 	Data.Properties = ReadProperties(Root, "stage");
+
+	const auto TileSets = Root.find("tileSets");
+	if (TileSets != Root.end()) {
+		if (!TileSets->is_array()) {
+			throw std::runtime_error("stage.tileSets must be an array");
+		}
+		std::size_t TileSetIndex = 0;
+		for (const Json& TileSet : *TileSets) {
+			Data.TileSets.push_back(
+				ReadTileSet(
+					TileSet,
+					BaseDirectory,
+					"stage.tileSets[" +
+					std::to_string(TileSetIndex) + "]"));
+			++TileSetIndex;
+		}
+	}
 
 	const Json& Areas = RequireField(Root, "areas", "stage");
 	if (!Areas.is_array()) {
