@@ -96,8 +96,8 @@ void TestLegacyStageLoaderSeparatesLegacyLayers() {
 	assert(Stage.Enemies[0].LegacyCode == -2);
 	assert(Stage.Enemies[0].EnemyKind == 1);
 	assert(Stage.Enemies[0].Position == (TilePosition{3, 0}));
-	assert(NearlyEqual(Stage.Enemies[0].WorldPosition.X, 96.0f));
-	assert(NearlyEqual(Stage.Enemies[0].WorldPosition.Y, 0.0f));
+	assert(NearlyEqual(Stage.Enemies[0].World.X, 96.0f));
+	assert(NearlyEqual(Stage.Enemies[0].World.Y, 0.0f));
 	assert(Stage.Enemies[1].LegacyCode == -6);
 	assert(Stage.Enemies[1].EnemyKind == 5);
 	assert(Stage.Enemies[1].Position == (TilePosition{0, 2}));
