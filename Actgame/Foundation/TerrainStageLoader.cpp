@@ -227,6 +227,20 @@ Result<TileTrigger> ParseTileTrigger(const std::string& Text) {
 	return Result<TileTrigger>::Success(Found->second);
 }
 
+Result<TileTarget> ParseTileTarget(const std::string& Text) {
+	const std::string Name = Trim(Text);
+	if (Name.empty() || Name == "Player") {
+		return Result<TileTarget>::Success(TileTarget::Player);
+	}
+	if (Name == "Enemy") {
+		return Result<TileTarget>::Success(TileTarget::Enemy);
+	}
+	if (Name == "Both") {
+		return Result<TileTarget>::Success(TileTarget::Both);
+	}
+	return Result<TileTarget>::Failure("Unknown tile target: " + Name);
+}
+
 Result<TileAction> ParseTileAction(const std::string& Text) {
 	const std::string Name = Trim(Text);
 	const std::map<std::string, TileAction> Actions = {
@@ -242,7 +256,8 @@ Result<TileAction> ParseTileAction(const std::string& Text) {
 		{"SpawnItem", TileAction::SpawnItem},
 		{"IncrementCount", TileAction::IncrementCount},
 		{"ToggleSwitch", TileAction::ToggleSwitch},
-		{"Goal", TileAction::Goal}
+		{"Goal", TileAction::Goal},
+		{"HitBrick", TileAction::HitBrick}
 	};
 	const auto Found = Actions.find(Name);
 	if (Found == Actions.end()) {
@@ -261,7 +276,7 @@ Result<std::vector<TileRule>> ParseTileRules(const std::string& Text) {
 	const std::vector<std::string> RuleTexts = Split(Value, ';');
 	for (std::size_t Index = 0; Index < RuleTexts.size(); ++Index) {
 		const std::vector<std::string> Parts = Split(RuleTexts[Index], ':');
-		if (Parts.size() < 2 || Parts.size() > 5) {
+		if (Parts.size() < 2 || Parts.size() > 6) {
 			return Result<std::vector<TileRule>>::Failure(
 				"Invalid tile rule: " + RuleTexts[Index]);
 		}
@@ -320,6 +335,13 @@ Result<std::vector<TileRule>> ParseTileRules(const std::string& Text) {
 				return Result<std::vector<TileRule>>::Failure(ParsedCount.Error());
 			}
 			Rule.CountValue = ParsedCount.Value();
+		}
+		if (Parts.size() >= 6) {
+			Result<TileTarget> Target = ParseTileTarget(Parts[5]);
+			if (Target.IsFailure()) {
+				return Result<std::vector<TileRule>>::Failure(Target.Error());
+			}
+			Rule.Target = Target.Value();
 		}
 		Rules.push_back(Rule);
 	}

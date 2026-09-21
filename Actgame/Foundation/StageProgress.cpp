@@ -2,29 +2,24 @@
 
 namespace uchinoko {
 
-bool StageClearState::IsCleared(GoalKind Kind) const {
-	switch (Kind) {
-	case GoalKind::Normal:
-		return NormalCleared;
-	case GoalKind::Secret:
-		return SecretCleared;
+namespace {
+
+bool SatisfiesRequirement(
+	const StageClearState& State, ClearRequirement Requirement) {
+	switch (Requirement) {
+	case ClearRequirement::Normal:
+		return State.NormalCleared;
+	case ClearRequirement::Secret:
+		return State.SecretCleared;
+	case ClearRequirement::Either:
+		return State.NormalCleared || State.SecretCleared;
+	case ClearRequirement::Both:
+		return State.AllCleared();
 	}
 	return false;
 }
 
-bool StageClearState::Satisfies(ClearRequirement Requirement) const {
-	switch (Requirement) {
-	case ClearRequirement::Normal:
-		return NormalCleared;
-	case ClearRequirement::Secret:
-		return SecretCleared;
-	case ClearRequirement::Either:
-		return NormalCleared || SecretCleared;
-	case ClearRequirement::Both:
-		return NormalCleared && SecretCleared;
-	}
-	return false;
-}
+} // namespace
 
 void StageProgress::Reset() {
 	Stages_.clear();
@@ -37,18 +32,9 @@ bool StageProgress::MarkCleared(int StageId, GoalKind Kind) {
 	}
 
 	StageClearState& State = Stages_[static_cast<std::size_t>(StageId)];
-	bool* Flag = nullptr;
-	switch (Kind) {
-	case GoalKind::Normal:
-		Flag = &State.NormalCleared;
-		break;
-	case GoalKind::Secret:
-		Flag = &State.SecretCleared;
-		break;
-	}
+	if (State.IsCleared(Kind)) return false;
 
-	if (Flag == nullptr || *Flag) return false;
-	*Flag = true;
+	State.Record(Kind);
 	return true;
 }
 
@@ -70,24 +56,7 @@ bool StageProgress::IsCleared(int StageId, GoalKind Kind) const {
 bool StageProgress::Satisfies(
 	int StageId, ClearRequirement Requirement) const {
 	const StageClearState* State = TryGet(StageId);
-	return State != nullptr && State->Satisfies(Requirement);
-}
-
-bool TryParseGoalKind(int Value, GoalKind& Kind) {
-	switch (Value) {
-	case 0:
-		Kind = GoalKind::Normal;
-		return true;
-	case 1:
-		Kind = GoalKind::Secret;
-		return true;
-	default:
-		return false;
-	}
-}
-
-int GoalKindValue(GoalKind Kind) {
-	return static_cast<int>(Kind);
+	return State != nullptr && SatisfiesRequirement(*State, Requirement);
 }
 
 } // namespace uchinoko

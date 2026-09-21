@@ -1,14 +1,18 @@
 ﻿#include "../Actgame/Foundation/AssetPaths.h"
+#include "../Actgame/Foundation/BrickSystem.h"
 #include "../Actgame/Foundation/CharacterController.h"
 #include "../Actgame/Foundation/CharacterSafety.h"
 #include "../Actgame/Foundation/ConditionalTerrain.h"
+#include "../Actgame/Foundation/DamageReactionState.h"
 #include "../Actgame/Foundation/CanvasMasaoTerrain.h"
 #include "../Actgame/Foundation/ExtendedSlopeTerrain.h"
 #include "../Actgame/Foundation/GridDataLoader.h"
+#include "../Actgame/Foundation/GoalState.h"
+#include "../Actgame/Foundation/StageProgress.h"
 #include "../Actgame/Foundation/ItemSystem.h"
 #include "../Actgame/Foundation/LayeredMap.h"
 #include "../Actgame/Foundation/PipeTransport.h"
-#include "../Actgame/Foundation/StageProgress.h"
+#include "../Actgame/Foundation/PlayerResourceRules.h"
 #include "../Actgame/Foundation/StageDefinition.h"
 #include "../Actgame/Foundation/TerrainCollision.h"
 #include "../Actgame/Foundation/TerrainStageLoader.h"
@@ -20,6 +24,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstdlib>
 #include <iostream>
 
 using namespace uchinoko;
@@ -96,6 +101,646 @@ TileMap MakeMap(IntegerGrid Tiles) {
 	Result<TileMap> Created = TileMap::Create(Tiles);
 	assert(Created.IsSuccess());
 	return Created.Value();
+}
+
+void TestBrickDefinitionAndHitEffect() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/brick-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* Brick = Loaded.Value().Find(72);
+	assert(Brick != nullptr);
+	assert(Brick->Collision == CollisionShape::Solid);
+	assert(Brick->Rules.size() == 1);
+	assert(Brick->Rules[0].Trigger == TileTrigger::HitFromBelow);
+	assert(Brick->Rules[0].Action == TileAction::HitBrick);
+	assert(Brick->Rules[0].Value == BrickSystem::Version1RequiredHealth);
+	assert(!Brick->Rules[0].Once);
+
+	TileMap Map = MakeMap({{72}});
+	TileRuntimeMap Runtime(Map);
+	TileInteraction Hit;
+	Hit.Trigger = TileTrigger::HitFromBelow;
+	Hit.Position = {0, 0};
+	Hit.TileId = 72;
+
+	const TileBehaviorResult Result =
+		TileBehaviorSystem::Apply(Hit, Map, Loaded.Value(), Runtime);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::BrickHit);
+	assert(Result.Effects[0].Value == 5);
+	assert(Result.Effects[0].SourceTileId == 72);
+	assert(*Map.TryGet({0, 0}) == 72);
+}
+
+void TestBrickWithLowHealthBumpsButDoesNotBreak() {
+	TileMap Map = MakeMap({{72}});
+	BrickSystem Bricks;
+
+	TileEffect Hit;
+	Hit.Type = TileEffectType::BrickHit;
+	Hit.Position = {0, 0};
+	Hit.Value = 5;
+	Hit.SourceTileId = 72;
+
+	GameStateSnapshot State;
+	State.Health = 4;
+	Bricks.ConsumeTileEffects({Hit}, State);
+
+	const ActiveBrick* Active = Bricks.TryGet({0, 0});
+	assert(Active != nullptr);
+	assert(Active->Phase == BrickPhase::Bumping);
+
+	for (int Frame = 0; Frame < BrickSystem::Version1BumpFrames - 1; ++Frame) {
+		const std::vector<TileEffect> Effects =
+			Bricks.Update(Map, 32, 32, 1000.0f);
+		assert(Effects.empty());
+		assert(*Map.TryGet({0, 0}) == 72);
+		assert(Bricks.TryGet({0, 0}) != nullptr);
+	}
+
+	const std::vector<TileEffect> Last =
+		Bricks.Update(Map, 32, 32, 1000.0f);
+	assert(Last.empty());
+	assert(*Map.TryGet({0, 0}) == 72);
+	assert(Bricks.TryGet({0, 0}) == nullptr);
+	assert(Bricks.Fragments().empty());
+}
+
+void TestBrickWithFullHealthBreaksAfterVersion1Delay() {
+	TileMap Map = MakeMap({{72}});
+	BrickSystem Bricks;
+
+	TileEffect Hit;
+	Hit.Type = TileEffectType::BrickHit;
+	Hit.Position = {0, 0};
+	Hit.Value = 5;
+	Hit.SourceTileId = 72;
+
+	GameStateSnapshot State;
+	State.Health = 5;
+	Bricks.ConsumeTileEffects({Hit}, State);
+
+	const ActiveBrick* Active = Bricks.TryGet({0, 0});
+	assert(Active != nullptr);
+	assert(Active->Phase == BrickPhase::Breaking);
+
+	for (int Frame = 0; Frame < BrickSystem::Version1BreakFrames - 1; ++Frame) {
+		const std::vector<TileEffect> Effects =
+			Bricks.Update(Map, 32, 32, 1000.0f);
+		assert(Effects.empty());
+		assert(*Map.TryGet({0, 0}) == 72);
+		assert(Bricks.TryGet({0, 0}) != nullptr);
+	}
+
+	std::srand(1);
+	const std::vector<TileEffect> Effects =
+		Bricks.Update(Map, 32, 32, 1000.0f);
+
+	assert(*Map.TryGet({0, 0}) == 0);
+	assert(Bricks.TryGet({0, 0}) == nullptr);
+	assert(Effects.size() == 2);
+	assert(Effects[0].Type == TileEffectType::AddScore);
+	assert(Effects[0].Value == 10);
+	assert(Effects[1].Type == TileEffectType::TileBroken);
+	assert(Bricks.Fragments().size() == BrickSystem::Version1FragmentCount);
+
+	for (const BrickFragment& Fragment : Bricks.Fragments()) {
+		assert(Fragment.Position.X == 0.0f);
+		assert(Fragment.Position.Y == 0.0f);
+		assert(Fragment.Velocity.X >= -5.0f);
+		assert(Fragment.Velocity.X <= 5.0f);
+		assert(Fragment.Velocity.Y >= -14.0f);
+		assert(Fragment.Velocity.Y <= 0.0f);
+	}
+
+	const std::vector<BrickFragment> Before = Bricks.Fragments();
+	Bricks.Update(Map, 32, 32, 1000.0f);
+	assert(Bricks.Fragments().size() == Before.size());
+	for (std::size_t Index = 0; Index < Before.size(); ++Index) {
+		assert(NearlyEqual(
+			Bricks.Fragments()[Index].Velocity.Y,
+			std::min(10.0f, Before[Index].Velocity.Y + 0.5f)));
+		assert(NearlyEqual(
+			Bricks.Fragments()[Index].Position.X,
+			Before[Index].Position.X + Before[Index].Velocity.X));
+		assert(NearlyEqual(
+			Bricks.Fragments()[Index].Position.Y,
+			Before[Index].Position.Y +
+			std::min(10.0f, Before[Index].Velocity.Y + 0.5f)));
+	}
+}
+
+void TestBrickIgnoresRepeatedHitsWhileAnimating() {
+	TileMap Map = MakeMap({{72}});
+	BrickSystem Bricks;
+
+	TileEffect Hit;
+	Hit.Type = TileEffectType::BrickHit;
+	Hit.Position = {0, 0};
+	Hit.Value = 5;
+	Hit.SourceTileId = 72;
+
+	GameStateSnapshot Low;
+	Low.Health = 4;
+	Bricks.ConsumeTileEffects({Hit}, Low);
+	Bricks.Update(Map, 32, 32, 1000.0f);
+
+	GameStateSnapshot Full;
+	Full.Health = 5;
+	Bricks.ConsumeTileEffects({Hit}, Full);
+
+	const ActiveBrick* Active = Bricks.TryGet({0, 0});
+	assert(Active != nullptr);
+	assert(Active->Phase == BrickPhase::Bumping);
+}
+
+void TestHazardDefinitionsMatchVersion1Targets() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/hazard-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	struct ExpectedHazard {
+		int Id;
+		TileAction Action;
+		TileTarget Target;
+		int Value;
+	};
+	const ExpectedHazard Expected[] = {
+		{73, TileAction::Damage, TileTarget::Player, 1},
+		{74, TileAction::Damage, TileTarget::Enemy, 1},
+		{75, TileAction::Damage, TileTarget::Both, 1},
+		{76, TileAction::InstantDeath, TileTarget::Player, 0},
+		{77, TileAction::InstantDeath, TileTarget::Enemy, 0},
+		{78, TileAction::InstantDeath, TileTarget::Both, 0}
+	};
+
+	for (const ExpectedHazard& Hazard : Expected) {
+		const TileDefinition* Definition = Loaded.Value().Find(Hazard.Id);
+		assert(Definition != nullptr);
+		assert(Definition->Collision == CollisionShape::Solid);
+		assert(Definition->Rules.size() == 1);
+		assert(Definition->Rules[0].Trigger == TileTrigger::Touch);
+		assert(Definition->Rules[0].Action == Hazard.Action);
+		assert(Definition->Rules[0].Target == Hazard.Target);
+		assert(Definition->Rules[0].Value == Hazard.Value);
+		assert(!Definition->Rules[0].Once);
+	}
+}
+
+void TestHazardTargetsFilterPlayerAndEnemyActors() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/hazard-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	auto ApplyHazard = [&](int TileId, TileActor Actor) {
+		TileMap Map = MakeMap({{TileId}});
+		TileRuntimeMap Runtime(Map);
+		TileInteraction Interaction;
+		Interaction.Trigger = TileTrigger::Touch;
+		Interaction.Position = {0, 0};
+		Interaction.TileId = TileId;
+		Interaction.Actor = Actor;
+		return TileBehaviorSystem::Apply(
+			Interaction, Map, Loaded.Value(), Runtime);
+	};
+
+	TileBehaviorResult Result = ApplyHazard(73, TileActor::Player);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::Damage);
+	assert(Result.Effects[0].Actor == TileActor::Player);
+
+	Result = ApplyHazard(74, TileActor::Player);
+	assert(!Result.Handled);
+	assert(Result.Effects.empty());
+
+	Result = ApplyHazard(75, TileActor::Player);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::Damage);
+	assert(Result.Effects[0].Actor == TileActor::Player);
+
+	Result = ApplyHazard(76, TileActor::Player);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::InstantDeath);
+
+	Result = ApplyHazard(77, TileActor::Player);
+	assert(!Result.Handled);
+	assert(Result.Effects.empty());
+
+	Result = ApplyHazard(78, TileActor::Player);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::InstantDeath);
+
+	Result = ApplyHazard(73, TileActor::Enemy);
+	assert(!Result.Handled);
+	assert(Result.Effects.empty());
+
+	Result = ApplyHazard(74, TileActor::Enemy);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::Damage);
+	assert(Result.Effects[0].Actor == TileActor::Enemy);
+
+	Result = ApplyHazard(75, TileActor::Enemy);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::Damage);
+	assert(Result.Effects[0].Actor == TileActor::Enemy);
+
+	Result = ApplyHazard(76, TileActor::Enemy);
+	assert(!Result.Handled);
+	assert(Result.Effects.empty());
+
+	Result = ApplyHazard(77, TileActor::Enemy);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::InstantDeath);
+	assert(Result.Effects[0].Actor == TileActor::Enemy);
+
+	Result = ApplyHazard(78, TileActor::Enemy);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 1);
+	assert(Result.Effects[0].Type == TileEffectType::InstantDeath);
+	assert(Result.Effects[0].Actor == TileActor::Enemy);
+}
+
+void TestLegacyDamagingRuleStillTargetsPlayer() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/interaction-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* Damaging = Loaded.Value().Find(22);
+	assert(Damaging != nullptr);
+	assert(Damaging->Rules.size() == 1);
+	assert(Damaging->Rules[0].Action == TileAction::Damage);
+	assert(Damaging->Rules[0].Target == TileTarget::Player);
+}
+
+void TestCharacterExposesActualTouchProbePoints() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/hazard-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0}
+	});
+
+	CharacterBody Body;
+	Body.Position = {32.0f, 32.0f};
+	Body.Grounded = false;
+	CharacterController Player(Body);
+
+	CharacterInput Input;
+	Player.Step(Input, Map, Loaded.Value());
+
+	const std::vector<WorldPosition>& Probes = Player.TouchProbePoints();
+	assert(Probes.size() == 5);
+
+	const CharacterBody& Current = Player.Body();
+	const CharacterTouchBounds Bounds = Player.TouchBounds();
+	assert(NearlyEqual(Bounds.Left, Current.Position.X + 8.0f));
+	assert(NearlyEqual(Bounds.Right, Current.Position.X + 24.0f));
+	assert(NearlyEqual(Bounds.Top, Current.Position.Y));
+	assert(NearlyEqual(Bounds.Bottom, Current.Position.Y + 32.0f));
+
+	assert(NearlyEqual(Probes[0].X, Bounds.Left));
+	assert(NearlyEqual(Probes[0].Y, Bounds.Top));
+	assert(NearlyEqual(Probes[1].X, Bounds.Right));
+	assert(NearlyEqual(Probes[1].Y, Bounds.Top));
+	assert(NearlyEqual(Probes[2].X, Bounds.Left));
+	assert(NearlyEqual(Probes[2].Y, Bounds.Bottom));
+	assert(NearlyEqual(Probes[3].X, Bounds.Right));
+	assert(NearlyEqual(Probes[3].Y, Bounds.Bottom));
+	assert(NearlyEqual(Probes[4].X, Current.Position.X + Current.Width * 0.5f));
+	assert(NearlyEqual(Probes[4].Y, Current.Position.Y + Current.Height * 0.5f));
+}
+
+void TestDamageKnockbackMovesAwayFromHazardCenter() {
+	// 危険ブロック中心より左にいれば左へ逃がす。
+	assert(DamageReactionState::DirectionAwayFromSource(
+		95.0f, 112.0f, 1) == -1);
+
+	// 今回の問題ケース:
+	// 危険ブロック右側なら、右向きだったとしても右へ逃がす。
+	assert(DamageReactionState::DirectionAwayFromSource(
+		129.0f, 112.0f, -1) == 1);
+
+	// 真上/真下などX中心が一致した時だけfallbackを使う。
+	assert(DamageReactionState::DirectionAwayFromSource(
+		112.0f, 112.0f, -1) == -1);
+	assert(DamageReactionState::DirectionAwayFromSource(
+		112.0f, 112.0f, 1) == 1);
+}
+
+void TestDamageReactionMatchesVersion1SixteenFrames() {
+	DamageReactionState Damage;
+	assert(!Damage.Active());
+	assert(Damage.Begin(-1));
+	assert(Damage.Active());
+	assert(Damage.KnockbackDirection() == -1);
+	assert(!Damage.Begin(1));
+
+	for (int Frame = 1;
+		Frame < DamageReactionState::Version1DurationFrames; ++Frame) {
+		assert(Damage.AdvanceFrame() == -1.0f);
+		assert(Damage.Active());
+		assert(Damage.Frame() == Frame);
+	}
+
+	assert(Damage.AdvanceFrame() == 0.0f);
+	assert(!Damage.Active());
+	assert(Damage.Frame() == DamageReactionState::Version1DurationFrames);
+
+	assert(Damage.Begin(1));
+	assert(Damage.KnockbackDirection() == 1);
+	assert(Damage.AdvanceFrame() == 1.0f);
+
+	Damage.Reset();
+	assert(!Damage.Active());
+	assert(Damage.Frame() == 0);
+}
+
+void TestDirectCollectibleDefinitionsMatchVersion1() {
+	Result<TerrainStageData> Loaded =
+		TerrainStageLoader::Load("dat/stage/collectible-test/stage.ini");
+	assert(Loaded.IsSuccess());
+
+	const TileDefinition* Coin = Loaded.Value().Catalog.Find(79);
+	const TileDefinition* Healing = Loaded.Value().Catalog.Find(80);
+	const TileDefinition* OneUp = Loaded.Value().Catalog.Find(81);
+	assert(Coin != nullptr && Healing != nullptr && OneUp != nullptr);
+
+	assert(Coin->Collision == CollisionShape::None);
+	assert(Healing->Collision == CollisionShape::None);
+	assert(OneUp->Collision == CollisionShape::None);
+
+	assert(Coin->Rules.size() == 3);
+	assert(Coin->Rules[0].Trigger == TileTrigger::Touch);
+	assert(Coin->Rules[0].Action == TileAction::AddCoin);
+	assert(Coin->Rules[0].Value == 1);
+	assert(Coin->Rules[1].Action == TileAction::AddScore);
+	assert(Coin->Rules[1].Value == 100);
+	assert(Coin->Rules[2].Action == TileAction::ReplaceTile);
+	assert(Coin->Rules[2].Value == 0);
+
+	assert(Healing->Rules.size() == 3);
+	assert(Healing->Rules[0].Action == TileAction::AddHealth);
+	assert(Healing->Rules[0].Value == 1);
+	assert(Healing->Rules[1].Action == TileAction::AddScore);
+	assert(Healing->Rules[1].Value == 1000);
+	assert(Healing->Rules[2].Action == TileAction::ReplaceTile);
+	assert(Healing->Rules[2].Value == 0);
+
+	assert(OneUp->Rules.size() == 2);
+	assert(OneUp->Rules[0].Action == TileAction::AddLife);
+	assert(OneUp->Rules[0].Value == 1);
+	assert(OneUp->Rules[1].Action == TileAction::ReplaceTile);
+	assert(OneUp->Rules[1].Value == 0);
+}
+
+void TestDirectCollectiblesEmitVersion1RewardsAndDisappear() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/collectible-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	auto TouchCollectible = [&](int Id) {
+		TileMap Map = MakeMap({{Id}});
+		TileRuntimeMap Runtime(Map);
+		TileInteraction Touch;
+		Touch.Trigger = TileTrigger::Touch;
+		Touch.Position = {0, 0};
+		Touch.TileId = Id;
+		const TileBehaviorResult Result =
+			TileBehaviorSystem::Apply(Touch, Map, Loaded.Value(), Runtime);
+		assert(*Map.TryGet({0, 0}) == 0);
+		return Result.Effects;
+	};
+
+	std::vector<TileEffect> Effects = TouchCollectible(79);
+	assert(Effects.size() == 2);
+	assert(Effects[0].Type == TileEffectType::AddCoin);
+	assert(Effects[0].Value == 1);
+	assert(Effects[1].Type == TileEffectType::AddScore);
+	assert(Effects[1].Value == 100);
+
+	Effects = TouchCollectible(80);
+	assert(Effects.size() == 2);
+	assert(Effects[0].Type == TileEffectType::AddHealth);
+	assert(Effects[0].Value == 1);
+	assert(Effects[1].Type == TileEffectType::AddScore);
+	assert(Effects[1].Value == 1000);
+
+	Effects = TouchCollectible(81);
+	assert(Effects.size() == 1);
+	assert(Effects[0].Type == TileEffectType::AddLife);
+	assert(Effects[0].Value == 1);
+}
+
+void TestPlayerResourceRulesMatchVersion1Limits() {
+	int Health = 4;
+	PlayerResourceRules::AddHealth(1, Health);
+	assert(Health == 5);
+	PlayerResourceRules::AddHealth(1, Health);
+	assert(Health == PlayerResourceRules::MaxHealth);
+
+	int Lives = 998;
+	PlayerResourceRules::AddLife(1, Lives);
+	assert(Lives == 999);
+	PlayerResourceRules::AddLife(1, Lives);
+	assert(Lives == PlayerResourceRules::MaxLives);
+
+	int Coins = 98;
+	Lives = 3;
+	assert(!PlayerResourceRules::AddCoin(1, Coins, Lives));
+	assert(Coins == 99);
+	assert(Lives == 3);
+
+	assert(PlayerResourceRules::AddCoin(1, Coins, Lives));
+	assert(Coins == 0);
+	assert(Lives == 4);
+
+	// V1は残機999でも100コイン到達時にCoinを100減らす。
+	Coins = 99;
+	Lives = 999;
+	assert(PlayerResourceRules::AddCoin(1, Coins, Lives));
+	assert(Coins == 0);
+	assert(Lives == 999);
+}
+
+void TestGoalStageDefinitionsAndEffects() {
+	Result<TerrainStageData> Loaded =
+		TerrainStageLoader::Load("dat/stage/goal-test/stage.ini");
+	assert(Loaded.IsSuccess());
+	assert(Loaded.Value().Map.Width() == 16);
+	assert(Loaded.Value().Map.Height() == 9);
+	assert(NearlyEqual(Loaded.Value().PlayerSpawn.X, 96.0f));
+	assert(NearlyEqual(Loaded.Value().PlayerSpawn.Y, 160.0f));
+
+	const TileDefinition* Normal = Loaded.Value().Catalog.Find(70);
+	const TileDefinition* Secret = Loaded.Value().Catalog.Find(71);
+	assert(Normal != nullptr && Secret != nullptr);
+	assert(Normal->Rules.size() == 3);
+	assert(Secret->Rules.size() == 3);
+	assert(Normal->Rules[0].Action == TileAction::Goal);
+	assert(Normal->Rules[0].Value == static_cast<int>(GoalKind::Normal));
+	assert(Secret->Rules[0].Action == TileAction::Goal);
+	assert(Secret->Rules[0].Value == static_cast<int>(GoalKind::Secret));
+
+	TileMap NormalMap = MakeMap({{70}});
+	TileRuntimeMap NormalRuntime(NormalMap);
+	TileInteraction Touch;
+	Touch.Trigger = TileTrigger::Touch;
+	Touch.Position = {0, 0};
+	Touch.TileId = 70;
+	const TileBehaviorResult NormalResult =
+		TileBehaviorSystem::Apply(Touch, NormalMap, Loaded.Value().Catalog, NormalRuntime);
+	assert(NormalResult.Handled);
+	assert(NormalResult.Effects.size() == 2);
+	assert(NormalResult.Effects[0].Type == TileEffectType::Goal);
+	assert(NormalResult.Effects[0].Value == static_cast<int>(GoalKind::Normal));
+	assert(NormalResult.Effects[1].Type == TileEffectType::AddScore);
+	assert(NormalResult.Effects[1].Value == 1000);
+	assert(*NormalMap.TryGet({0, 0}) == 0);
+
+	TileMap SecretMap = MakeMap({{71}});
+	TileRuntimeMap SecretRuntime(SecretMap);
+	Touch.TileId = 71;
+	const TileBehaviorResult SecretResult =
+		TileBehaviorSystem::Apply(Touch, SecretMap, Loaded.Value().Catalog, SecretRuntime);
+	assert(SecretResult.Handled);
+	assert(SecretResult.Effects.size() == 2);
+	assert(SecretResult.Effects[0].Type == TileEffectType::Goal);
+	assert(SecretResult.Effects[0].Value == static_cast<int>(GoalKind::Secret));
+	assert(SecretResult.Effects[1].Type == TileEffectType::AddScore);
+	assert(SecretResult.Effects[1].Value == 1000);
+	assert(*SecretMap.TryGet({0, 0}) == 0);
+}
+
+void TestNormalAndSecretGoalProgressAreIndependent() {
+	StageClearState State;
+	assert(!State.NormalCleared);
+	assert(!State.SecretCleared);
+	assert(!State.AllCleared());
+
+	State.Record(GoalKind::Normal);
+	assert(State.NormalCleared);
+	assert(!State.SecretCleared);
+	assert(State.IsCleared(GoalKind::Normal));
+	assert(!State.IsCleared(GoalKind::Secret));
+	assert(!State.AllCleared());
+
+	State.Record(GoalKind::Secret);
+	assert(State.NormalCleared);
+	assert(State.SecretCleared);
+	assert(State.IsCleared(GoalKind::Secret));
+	assert(State.AllCleared());
+
+	GoalKind Parsed = GoalKind::Normal;
+	assert(TryGoalKindFromValue(0, Parsed));
+	assert(Parsed == GoalKind::Normal);
+	assert(TryGoalKindFromValue(1, Parsed));
+	assert(Parsed == GoalKind::Secret);
+	assert(!TryGoalKindFromValue(2, Parsed));
+}
+
+void TestStageCompletionEndsRunWithOneGoal() {
+	StageCompletionState Completion;
+	assert(!Completion.Cleared);
+
+	Completion.Complete(GoalKind::Normal);
+	assert(Completion.Cleared);
+	assert(Completion.Goal == GoalKind::Normal);
+
+	// ステージ終了後に別ゴールが届いても、今回の結果は上書きしない。
+	Completion.Complete(GoalKind::Secret);
+	assert(Completion.Goal == GoalKind::Normal);
+
+	Completion.Reset();
+	assert(!Completion.Cleared);
+
+	Completion.Complete(GoalKind::Secret);
+	assert(Completion.Cleared);
+	assert(Completion.Goal == GoalKind::Secret);
+}
+
+void TestStageProgressTracksClearStatePerStage() {
+	StageProgress Progress;
+	assert(!Progress.IsCleared(7, GoalKind::Normal));
+	assert(!Progress.IsCleared(7, GoalKind::Secret));
+	assert(!Progress.Satisfies(7, ClearRequirement::Either));
+	assert(!Progress.Satisfies(7, ClearRequirement::Both));
+
+	assert(Progress.MarkCleared(7, GoalKind::Normal));
+	assert(!Progress.MarkCleared(7, GoalKind::Normal));
+	assert(Progress.IsCleared(7, GoalKind::Normal));
+	assert(!Progress.IsCleared(7, GoalKind::Secret));
+	assert(Progress.Satisfies(7, ClearRequirement::Normal));
+	assert(!Progress.Satisfies(7, ClearRequirement::Secret));
+	assert(Progress.Satisfies(7, ClearRequirement::Either));
+	assert(!Progress.Satisfies(7, ClearRequirement::Both));
+
+	assert(Progress.MarkCleared(7, GoalKind::Secret));
+	assert(Progress.Satisfies(7, ClearRequirement::Both));
+
+	// 別ステージの進行は独立している。
+	assert(!Progress.IsCleared(8, GoalKind::Normal));
+	assert(!Progress.Satisfies(8, ClearRequirement::Either));
+	assert(!Progress.MarkCleared(-1, GoalKind::Normal));
+
+	Progress.Reset();
+	assert(!Progress.IsCleared(7, GoalKind::Normal));
+	assert(!Progress.IsCleared(7, GoalKind::Secret));
+}
+
+void TestStepWithoutInputStopsHorizontalAndSettlesVertically() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/goal-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 0, 0},
+		{1, 1, 1}
+	});
+
+	CharacterBody Body;
+	Body.Position = {32.0f, 32.0f};
+	Body.Velocity = {4.0f, -3.0f};
+	Body.Grounded = false;
+	CharacterController Player(Body);
+
+	const float StartX = Player.Body().Position.X;
+	const float StartY = Player.Body().Position.Y;
+
+	Player.StepWithoutInput(Map, Loaded.Value());
+
+	// 横入力は受け付けず、そのフレームからX座標を固定する。
+	assert(NearlyEqual(Player.Body().Position.X, StartX));
+	assert(NearlyEqual(Player.Body().Velocity.X, 0.0f));
+
+	// 縦速度は消さず、取得時の上向き慣性へ重力だけを加える。
+	assert(Player.Body().Position.Y < StartY);
+	assert(Player.Body().Velocity.Y < 0.0f);
+
+	for (int Frame = 0; Frame < 120 && !Player.Body().Grounded; ++Frame) {
+		Player.StepWithoutInput(Map, Loaded.Value());
+		assert(NearlyEqual(Player.Body().Position.X, StartX));
+	}
+
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.X, StartX));
+	assert(NearlyEqual(Player.Body().Position.Y, 96.0f));
+	assert(NearlyEqual(Player.Body().Velocity.Y, 0.0f));
 }
 
 void TestExternalPipeStage() {
@@ -264,128 +909,6 @@ void TestPipeTileDefinitionsAreSolid() {
 		const TileDefinition* Pipe = Loaded.Value().Find(Id);
 		assert(Pipe != nullptr);
 		assert(Pipe->Collision == CollisionShape::Solid);
-	}
-}
-
-void TestStageProgressSeparatesNormalAndSecret() {
-	StageProgress Progress;
-	assert(!Progress.IsCleared(7, GoalKind::Normal));
-	assert(!Progress.IsCleared(7, GoalKind::Secret));
-	assert(!Progress.Satisfies(7, ClearRequirement::Either));
-	assert(!Progress.Satisfies(7, ClearRequirement::Both));
-
-	assert(Progress.MarkCleared(7, GoalKind::Normal));
-	assert(!Progress.MarkCleared(7, GoalKind::Normal));
-	assert(Progress.IsCleared(7, GoalKind::Normal));
-	assert(!Progress.IsCleared(7, GoalKind::Secret));
-	assert(Progress.Satisfies(7, ClearRequirement::Normal));
-	assert(!Progress.Satisfies(7, ClearRequirement::Secret));
-	assert(Progress.Satisfies(7, ClearRequirement::Either));
-	assert(!Progress.Satisfies(7, ClearRequirement::Both));
-
-	assert(Progress.MarkCleared(7, GoalKind::Secret));
-	assert(Progress.IsCleared(7, GoalKind::Normal));
-	assert(Progress.IsCleared(7, GoalKind::Secret));
-	assert(Progress.Satisfies(7, ClearRequirement::Normal));
-	assert(Progress.Satisfies(7, ClearRequirement::Secret));
-	assert(Progress.Satisfies(7, ClearRequirement::Either));
-	assert(Progress.Satisfies(7, ClearRequirement::Both));
-
-	const StageClearState Other = Progress.GetOrDefault(8);
-	assert(!Other.NormalCleared);
-	assert(!Other.SecretCleared);
-	assert(!Progress.MarkCleared(-1, GoalKind::Normal));
-
-	Progress.Reset();
-	assert(!Progress.IsCleared(7, GoalKind::Normal));
-	assert(!Progress.IsCleared(7, GoalKind::Secret));
-}
-
-void TestGoalKindValueMapping() {
-	GoalKind Kind = GoalKind::Secret;
-	assert(TryParseGoalKind(0, Kind));
-	assert(Kind == GoalKind::Normal);
-	assert(GoalKindValue(Kind) == 0);
-
-	assert(TryParseGoalKind(1, Kind));
-	assert(Kind == GoalKind::Secret);
-	assert(GoalKindValue(Kind) == 1);
-
-	assert(!TryParseGoalKind(2, Kind));
-	assert(!TryParseGoalKind(-1, Kind));
-}
-
-void TestExternalGoalStage() {
-	Result<TerrainStageData> Loaded =
-		TerrainStageLoader::Load("dat/stage/goal-test/stage.ini");
-	assert(Loaded.IsSuccess());
-	assert(Loaded.Value().Map.Width() == 16);
-	assert(Loaded.Value().Map.Height() == 9);
-	assert(NearlyEqual(Loaded.Value().PlayerSpawn.X, 224.0f));
-	assert(NearlyEqual(Loaded.Value().PlayerSpawn.Y, 192.0f));
-
-	const TileDefinition* Normal = Loaded.Value().Catalog.Find(70);
-	const TileDefinition* Secret = Loaded.Value().Catalog.Find(71);
-	assert(Normal != nullptr && Secret != nullptr);
-	assert(Normal->Collision == CollisionShape::None);
-	assert(Secret->Collision == CollisionShape::None);
-
-	bool FoundNormalGoal = false;
-	bool FoundSecretGoal = false;
-	for (const TileRule& Rule : Normal->Rules) {
-		if (Rule.Action == TileAction::Goal) {
-			FoundNormalGoal = true;
-			assert(Rule.Trigger == TileTrigger::Touch);
-			assert(Rule.Value == GoalKindValue(GoalKind::Normal));
-			assert(Rule.Once);
-		}
-	}
-	for (const TileRule& Rule : Secret->Rules) {
-		if (Rule.Action == TileAction::Goal) {
-			FoundSecretGoal = true;
-			assert(Rule.Trigger == TileTrigger::Touch);
-			assert(Rule.Value == GoalKindValue(GoalKind::Secret));
-			assert(Rule.Once);
-		}
-	}
-	assert(FoundNormalGoal);
-	assert(FoundSecretGoal);
-}
-
-void TestGoalTilesProduceDistinctEffectsAndDisappear() {
-	Result<TileCatalog> Loaded =
-		TerrainStageLoader::LoadCatalog("dat/stage/goal-test/tiles.csv");
-	assert(Loaded.IsSuccess());
-
-	for (int TileId = 70; TileId <= 71; ++TileId) {
-		TileMap Map = MakeMap({{TileId}});
-		TileRuntimeMap Runtime(Map);
-
-		TileInteraction Interaction;
-		Interaction.Trigger = TileTrigger::Touch;
-		Interaction.Position = {0, 0};
-		Interaction.TileId = TileId;
-
-		TileBehaviorResult Result =
-			TileBehaviorSystem::Apply(Interaction, Map, Loaded.Value(), Runtime);
-		assert(Result.Handled);
-		assert(Result.Effects.size() == 2);
-
-		const int ExpectedGoalValue =
-			TileId == 70
-				? GoalKindValue(GoalKind::Normal)
-				: GoalKindValue(GoalKind::Secret);
-		assert(Result.Effects[0].Type == TileEffectType::Goal);
-		assert(Result.Effects[0].Value == ExpectedGoalValue);
-		assert(Result.Effects[1].Type == TileEffectType::AddScore);
-		assert(Result.Effects[1].Value == 1000);
-		assert(*Map.TryGet({0, 0}) == 0);
-		assert(Runtime.TryGet({0, 0})->Used);
-
-		TileBehaviorResult Again =
-			TileBehaviorSystem::Apply(Interaction, Map, Loaded.Value(), Runtime);
-		assert(!Again.Handled);
-		assert(Again.Effects.empty());
 	}
 }
 
@@ -1248,11 +1771,24 @@ void TestCharacterEmitsTouchForCollectible() {
 	Body.Position = {0.0f, 0.0f};
 	Body.Grounded = true;
 	CharacterController Player(Body);
-	Player.Step(1.0f, false, Map, Catalog);
 
+	// 見た目32pxの右端が近づいただけではTouchしない。
+	// 中央16pxの右端が次タイルへ入った時点で初めて反応する。
+	Player.Step(1.0f, false, Map, Catalog);
 	bool FoundTouch = false;
-	for (std::size_t Index = 0; Index < Player.Interactions().size(); ++Index) {
-		const TileInteraction& Interaction = Player.Interactions()[Index];
+	for (const TileInteraction& Interaction : Player.Interactions()) {
+		if (Interaction.Trigger == TileTrigger::Touch &&
+			Interaction.Position.Column == 1 && Interaction.Position.Row == 0 &&
+			Interaction.TileId == 20) {
+			FoundTouch = true;
+		}
+	}
+	assert(!FoundTouch);
+
+	Player.Step(1.0f, false, Map, Catalog);
+	Player.Step(1.0f, false, Map, Catalog);
+	FoundTouch = false;
+	for (const TileInteraction& Interaction : Player.Interactions()) {
 		if (Interaction.Trigger == TileTrigger::Touch &&
 			Interaction.Position.Column == 1 && Interaction.Position.Row == 0 &&
 			Interaction.TileId == 20) {
@@ -1267,6 +1803,43 @@ void TestCharacterEmitsTouchForCollectible() {
 	assert(Effects.size() == 1);
 	assert(Effects[0].Type == TileEffectType::AddCoin);
 	assert(*Map.TryGet({1, 0}) == 0);
+}
+
+void TestCentralTouchHitboxStillTouchesSolidHazardFromSide() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/hazard-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 73, 0},
+		{1, 1, 1}
+	});
+	CharacterBody Body;
+	Body.Position = {0.0f, 0.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	bool FoundDamageTouch = false;
+	for (int Frame = 0; Frame < 10 && !FoundDamageTouch; ++Frame) {
+		Player.Step(1.0f, false, Map, Loaded.Value());
+		for (const TileInteraction& Interaction : Player.Interactions()) {
+			if (Interaction.Trigger == TileTrigger::Touch &&
+				Interaction.Position.Column == 1 &&
+				Interaction.Position.Row == 0 &&
+				Interaction.TileId == 73) {
+				FoundDamageTouch = true;
+				break;
+			}
+		}
+	}
+
+	assert(FoundDamageTouch);
+	// Solid衝突は中央軸で止まり、見た目は半分ほどブロックへ重なる。
+	// その位置で中央16px Touch範囲も危険ブロックへ到達している。
+	assert(NearlyEqual(Player.Body().Position.X, 16.0f));
+	const CharacterTouchBounds Bounds = Player.TouchBounds();
+	assert(NearlyEqual(Bounds.Left, 24.0f));
+	assert(NearlyEqual(Bounds.Right, 40.0f));
 }
 
 void TestCharacterTouchIncludesSolidContact() {
@@ -3468,16 +4041,30 @@ int main() {
 	TestAssetPaths();
 	TestGridDataLoader();
 	TestExternalTerrainStage();
+	TestBrickDefinitionAndHitEffect();
+	TestBrickWithLowHealthBumpsButDoesNotBreak();
+	TestBrickWithFullHealthBreaksAfterVersion1Delay();
+	TestBrickIgnoresRepeatedHitsWhileAnimating();
+	TestHazardDefinitionsMatchVersion1Targets();
+	TestHazardTargetsFilterPlayerAndEnemyActors();
+	TestLegacyDamagingRuleStillTargetsPlayer();
+	TestCharacterExposesActualTouchProbePoints();
+	TestDamageKnockbackMovesAwayFromHazardCenter();
+	TestDamageReactionMatchesVersion1SixteenFrames();
+	TestDirectCollectibleDefinitionsMatchVersion1();
+	TestDirectCollectiblesEmitVersion1RewardsAndDisappear();
+	TestPlayerResourceRulesMatchVersion1Limits();
+	TestGoalStageDefinitionsAndEffects();
+	TestNormalAndSecretGoalProgressAreIndependent();
+	TestStageCompletionEndsRunWithOneGoal();
+	TestStageProgressTracksClearStatePerStage();
+	TestStepWithoutInputStopsHorizontalAndSettlesVertically();
 	TestExternalPipeStage();
 	TestPipeDirectionInputMatching();
 	TestPipeTransportRequiresDirectionAndAlignment();
 	TestSidePipeRequiresGrounded();
 	TestPipeTransportFadesBeforeEmergence();
 	TestPipeTileDefinitionsAreSolid();
-	TestStageProgressSeparatesNormalAndSecret();
-	TestGoalKindValueMapping();
-	TestExternalGoalStage();
-	TestGoalTilesProduceDistinctEffectsAndDisappear();
 	TestTileMapBounds();
 	TestGameModes();
 	TestTileCatalog();
@@ -3506,6 +4093,7 @@ int main() {
 	TestQuestionBlockSpawnsItemAndBecomesUsed();
 	TestHiddenItemBlockOnlyBlocksFromBelow();
 	TestCharacterEmitsTouchForCollectible();
+	TestCentralTouchHitboxStillTouchesSolidHazardFromSide();
 	TestCharacterTouchIncludesSolidContact();
 	TestCharacterEmitsHitFromBelowForBlock();
 	TestCanvasMasaoTerrainCodesAndCoordinates();

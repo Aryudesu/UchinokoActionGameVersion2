@@ -1,13 +1,15 @@
 #pragma once
 
 #include "Foundation/CharacterController.h"
+#include "Foundation/DamageReactionState.h"
+#include "Foundation/BrickSystem.h"
 #include "Foundation/TileInteraction.h"
 #include "Foundation/ItemSystem.h"
 #include "Foundation/PipeTransport.h"
 #include "Foundation/CharacterSafety.h"
 #include "Foundation/ConditionalTerrain.h"
 #include "Foundation/WorldState.h"
-#include "Foundation/StageProgress.h"
+#include "Foundation/GoalState.h"
 #include "Scene.h"
 
 #include <string>
@@ -30,19 +32,20 @@ private:
 	uchinoko::TileCatalog Catalog_;
 	uchinoko::TileRuntimeMap Runtime_;
 	uchinoko::ItemSystem Items_;
+	uchinoko::BrickSystem Bricks_;
 	uchinoko::WorldState World_;
 	std::vector<uchinoko::PipeLink> Pipes_;
 	uchinoko::PipeTransport Pipe_;
 	uchinoko::CharacterController Player_;
+	uchinoko::DamageReactionState DamageReaction_;
 	std::string LoadError_;
 	int Coins_ = 0;
 	int Score_ = 0;
 	int Health_ = 0;
 	int Lives_ = 0;
 	int Broken_ = 0;
+	int FacingDirection_ = 1;
+	uchinoko::StageClearState ClearState_;
+	uchinoko::StageCompletionState Completion_;
 	bool Dead_ = false;
-	static constexpr int SandboxStageId = 1;
-	uchinoko::StageProgress Progress_;
-	bool HasLastGoal_ = false;
-	uchinoko::GoalKind LastGoal_ = uchinoko::GoalKind::Normal;
 };

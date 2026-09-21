@@ -1,13 +1,10 @@
 #pragma once
 
+#include "GoalState.h"
+
 #include <vector>
 
 namespace uchinoko {
-
-enum class GoalKind {
-	Normal = 0,
-	Secret = 1
-};
 
 enum class ClearRequirement {
 	Normal,
@@ -16,14 +13,9 @@ enum class ClearRequirement {
 	Both
 };
 
-struct StageClearState {
-	bool NormalCleared = false;
-	bool SecretCleared = false;
-
-	bool IsCleared(GoalKind Kind) const;
-	bool Satisfies(ClearRequirement Requirement) const;
-};
-
+// ステージ単位の永続的なクリア履歴。
+// 1プレイ中の終了状態は StageCompletionState、
+// 通常/裏ゴールの意味と1ステージ分の状態は GoalState.h を正本とする。
 class StageProgress {
 public:
 	void Reset();
@@ -41,8 +33,5 @@ public:
 private:
 	std::vector<StageClearState> Stages_;
 };
-
-bool TryParseGoalKind(int Value, GoalKind& Kind);
-int GoalKindValue(GoalKind Kind);
 
 } // namespace uchinoko

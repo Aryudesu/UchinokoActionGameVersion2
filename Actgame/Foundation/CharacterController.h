@@ -39,6 +39,13 @@ struct CharacterInput {
 	bool JumpPressed = false;
 };
 
+struct CharacterTouchBounds {
+	float Left = 0.0f;
+	float Top = 0.0f;
+	float Right = 0.0f;
+	float Bottom = 0.0f;
+};
+
 enum class MovementMode {
 	Normal,
 	Climbing
@@ -55,10 +62,16 @@ public:
 	explicit CharacterController(CharacterBody Body, CharacterMotion Motion = CharacterMotion());
 	void Step(float HorizontalInput, bool JumpPressed, const TileMap& Map, const TileCatalog& Catalog);
 	void Step(const CharacterInput& Input, const TileMap& Map, const TileCatalog& Catalog);
+	// 入力を受け付けない演出中などに、現在の縦速度と重力だけで物理を継続する。
+	void StepWithoutInput(const TileMap& Map, const TileCatalog& Catalog);
 	const CharacterBody& Body() const { return Body_; }
 	CharacterBody& Body() { return Body_; }
 	void Reposition(WorldPosition Position, bool ResetVelocity = true);
 	const std::vector<TileInteraction>& Interactions() const { return Interactions_; }
+	// TileTrigger::Touch は見た目32x32より狭い、中央16x32の判定を使う。
+	CharacterTouchBounds TouchBounds() const;
+	// そのフレームでTileTrigger::Touch判定に実際に使用したワールド座標。
+	const std::vector<WorldPosition>& TouchProbePoints() const { return TouchProbePoints_; }
 	MovementMode Mode() const { return Mode_; }
 	bool IsClimbing() const { return Mode_ == MovementMode::Climbing; }
 	bool IsInWater() const { return InWater_; }
@@ -105,6 +118,7 @@ private:
 	int VelocityX10_ = 0;
 	int VelocityY10_ = 0;
 	std::vector<TileInteraction> Interactions_;
+	std::vector<WorldPosition> TouchProbePoints_;
 	MovementMode Mode_ = MovementMode::Normal;
 	bool InWater_ = false;
 	bool WaterExitBoostArmed_ = false;

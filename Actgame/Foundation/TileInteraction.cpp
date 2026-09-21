@@ -39,6 +39,7 @@ void AddEffect(
 	Effect.Position = Interaction.Position;
 	Effect.Value = Value;
 	Effect.SourceTileId = Interaction.TileId;
+	Effect.Actor = Interaction.Actor;
 	Result.Effects.push_back(Effect);
 }
 
@@ -65,6 +66,12 @@ bool MatchesCount(const TileRule& Rule, int Count) {
 	return false;
 }
 
+bool MatchesTarget(TileTarget Target, TileActor Actor) {
+	if (Target == TileTarget::Both) return true;
+	if (Target == TileTarget::Player) return Actor == TileActor::Player;
+	return Actor == TileActor::Enemy;
+}
+
 } // namespace
 
 TileBehaviorResult TileBehaviorSystem::Apply(
@@ -84,6 +91,7 @@ TileBehaviorResult TileBehaviorSystem::Apply(
 	for (std::size_t Index = 0; Index < Definition->Rules.size(); ++Index) {
 		const TileRule& Rule = Definition->Rules[Index];
 		if (Rule.Trigger != Interaction.Trigger) continue;
+		if (!MatchesTarget(Rule.Target, Interaction.Actor)) continue;
 		if (Rule.Once && State->ConsumedRules[Index]) continue;
 		if (!MatchesCount(Rule, State->Count)) continue;
 
@@ -132,6 +140,9 @@ TileBehaviorResult TileBehaviorSystem::Apply(
 			break;
 		case TileAction::Goal:
 			AddEffect(Result, TileEffectType::Goal, Interaction, Rule.Value);
+			break;
+		case TileAction::HitBrick:
+			AddEffect(Result, TileEffectType::BrickHit, Interaction, Rule.Value);
 			break;
 		}
 		if (Rule.Once) {
