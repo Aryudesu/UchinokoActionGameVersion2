@@ -69,6 +69,9 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Label="Vcpkg">
+    <VcpkgEnableManifest>true</VcpkgEnableManifest>
+  </PropertyGroup>
   <PropertyGroup>
     <LocalDebuggerWorkingDirectory>$(SolutionDir)</LocalDebuggerWorkingDirectory>
   </PropertyGroup>
@@ -144,6 +147,7 @@
     <ClCompile Include="Foundation\GridDataLoader.cpp" />
     <ClCompile Include="Foundation\ItemSystem.cpp" />
     <ClCompile Include="Foundation\LayeredMap.cpp" />
+    <ClCompile Include="Foundation\NativeStageDataLoader.cpp" />
     <ClCompile Include="Foundation\PipeTransport.cpp" />
     <ClCompile Include="Foundation\StageProgress.cpp" />
     <ClCompile Include="Foundation\StageDefinition.cpp" />
@@ -206,6 +210,7 @@
     <ClInclude Include="Foundation\GridDataLoader.h" />
     <ClInclude Include="Foundation\ItemSystem.h" />
     <ClInclude Include="Foundation\LayeredMap.h" />
+    <ClInclude Include="Foundation\NativeStageDataLoader.h" />
     <ClInclude Include="Foundation\PipeTransport.h" />
     <ClInclude Include="Foundation\GoalState.h" />
     <ClInclude Include="Foundation\StageProgress.h" />
@@ -283,6 +288,10 @@
     <None Include="..\dat\stage\collectible-test\stage.ini" />
     <None Include="..\dat\stage\collectible-test\terrain.csv" />
     <None Include="..\dat\stage\collectible-test\tiles.csv" />
+    <None Include="..\dat\stage\native-test\stage.json" />
+    <None Include="..\dat\stage\native-test\main\terrain.csv" />
+    <None Include="..\dat\stage\native-test\main\background.csv" />
+    <None Include="..\dat\stage\native-test\main\foreground.csv" />
 
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
