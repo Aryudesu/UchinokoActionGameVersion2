@@ -353,8 +353,19 @@ Version2
 - native serializer v1: JSON + CSV
 - JSON: Stage / Area / Layer定義 / Object / Region / Transition / Settings
 - CSV: TileLayerの整数grid
-- JSON parser: nlohmann/json (vcpkg)
+- JSON parser: nlohmann/json v3.12.0 single-headerを `third_party/` にvendor
 - `formatVersion = 1` を必須化
+
+### PR #32で追加
+
+- `TileSetDefinition`: image / tileSize / grid / emptyTile / transparency
+- TileLayer → TileSet ID参照
+- Tile/Object/RegionをZOrder横断で描画するNativeStageSandbox
+- Object / Region / Transitionのdebug visualization
+- 画像handleはStageDataへ持たせずDxLib側へ隔離
+
+現在のSandboxではCSVの非empty値をTileSetの画像indexとして直接描画する。
+Terrainの意味ID → `TileDefinition.ImageIndex` はnative gameplay接続前に別途設計する。
 
 ### 未決
 
