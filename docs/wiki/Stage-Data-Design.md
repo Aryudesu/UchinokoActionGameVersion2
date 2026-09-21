@@ -257,7 +257,7 @@ visual0.ary
 - Object TileMap
 - Event TileMap
 
-はLegacy V1データを4種類に分類する中間表現として非常に有用。
+はLegacy V1データを4種類に分類する**変換時の中間表現**として非常に有用。
 
 一方、V2ネイティブ形式では、
 
@@ -296,9 +296,11 @@ Version2
  Settings
 ```
 
-互換ローダーは既存資産救済のために必要。
+旧資産parser / converterは既存資産を必要に応じて救済するために利用する。
 
-ただし新規ステージまでLegacy形式で作り続ける必要はありません。
+**Version2 runtimeがLegacy形式を直接サポートする必要はない。**
+
+変換後は旧ステージも新規ステージもV2 native形式として扱う。
 
 ---
 
@@ -312,7 +314,7 @@ Version2
 - Objectはグリッドではなく配置リスト
 - Eventも独立
 - Pipe/Transitionは直接リンク
-- Legacy形式はimport対象
+- Legacy形式は変換入力。runtime互換対象にはしない
 
 ### 未決
 
