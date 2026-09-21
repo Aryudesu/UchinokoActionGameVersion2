@@ -334,7 +334,7 @@ TileLayer ReadTileLayer(
 	TileLayer Layer;
 	Layer.Metadata = ReadLayerMetadata(Object, Context);
 	Layer.Role = ReadTileLayerRole(Object, Context);
-	Layer.TileSetId = RequireString(Object, "tileSet", Context);
+	Layer.TileSetId = OptionalString(Object, "tileSet", "", Context);
 
 	const std::string Source =
 		RequireString(Object, "source", Context);
