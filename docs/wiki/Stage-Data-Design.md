@@ -1,8 +1,9 @@
 # Version2 ステージデータ設計案
 
-> このページは **提案中の設計** です。
+> このページはVersion2 native stage dataの設計記録です。
 >
-> 現在の `LayeredMap` / `TerrainStageLoader` の実装仕様そのものではありません。
+> PR #30で、保存形式に依存しないメモリ上の基本モデルをFoundationへ実装しました。
+> `LayeredMap` / `TerrainStageLoader` は既存の別系統として残っています。
 
 ---
 
@@ -23,7 +24,19 @@ Version1では `img*.ary` を分けることで見た目は独立しましたが
 
 ---
 
-## 2. 推奨する責務分離
+## 2. 採用した責務分離
+
+PR #30では次の型を追加。
+
+- `StageData`
+- `StageArea`
+- `TileLayer`
+- `ObjectLayer / ObjectSpawn`
+- `RegionLayer / StageRegion`
+- `StageTransition`
+- `StagePropertyValue`
+
+
 
 ```text
 StageData
@@ -92,11 +105,16 @@ visual0.ary
 - データ量が少ない
 - 「Tile ID→標準画像」が自然
 
-### 現時点の推奨
+### PR #30時点
 
-Legacy importでは完全Visual gridを保持。
+V2 nativeの `TileLayer` は複数枚持てる。
 
-V2ネイティブデータでは、editor都合を見ながらどちらか決める。
+- `Terrain` role: Areaごとに正本1枚
+- `Visual` role: 0枚以上
+
+Background / Decoration / Foreground等はVisual layerを複数枚作り、`ZOrder` で重ねる。
+
+「標準画像 + sparse override」への保存最適化はserializer/editor側で後から検討でき、メモリモデル自体は複数TileLayerを正規表現とする。
 
 ---
 
@@ -123,16 +141,18 @@ Lift,Horizontal,800,600,range=192,speed=2
 
 実際のformatは未決定。
 
-### 将来の型イメージ
+### 実装済みの形
 
 ```cpp
 struct ObjectSpawn {
-    ObjectKind Kind;
+    std::string Id;
     std::string TypeId;
     WorldPosition Position;
-    ObjectParameters Parameters;
+    StagePropertyMap Properties;
 };
 ```
+
+Object/Region/Transitionはstable IDを持ち、Area内で一意にする。
 
 ---
 
@@ -149,9 +169,14 @@ struct ObjectSpawn {
 - Spawn trigger
 - Stage transition
 
-これらもタイル1セルである必要はありません。
+これらもタイル1セルである必要はない。
 
-Point / Rectangle等のTrigger領域を持てる構造が望ましい。
+PR #30では `StageRegionGeometry` として、
+
+- Point
+- Rectangle
+
+を実装。
 
 ---
 
@@ -181,18 +206,25 @@ Exit
 
 を直接定義。
 
-### 将来案
+### PR #30実装
 
 ```cpp
 struct StageTransition {
-    WorldPosition EntryPosition;
-    PipeDirection EnterDirection;
+    std::string Id;
+    std::string TypeId;
+    StageRegionGeometry Entry;
 
-    StageAreaId Target;
+    std::string TargetStageId; // empty = same stage
+    std::string TargetAreaId;
+
     WorldPosition ExitPosition;
-    PipeDirection ExitDirection;
+    StageDirection EnterDirection;
+    StageDirection ExitDirection;
+    StagePropertyMap Properties;
 };
 ```
+
+同一Area、別Area、別Stageを同じモデルで表現できる。
 
 Targetが現在areaと同じなら現在の `PipeLink` と同じ。
 
@@ -306,7 +338,7 @@ Version2
 
 ## 12. 現時点の判断
 
-### 採用方向
+### PR #30で採用・実装
 
 - TerrainとVisualを分離
 - ObjectはTerrainから分離
@@ -318,8 +350,9 @@ Version2
 
 ### 未決
 
-- Object/Eventの実ファイル形式
-- Visual override方式
-- StageAreaIdの型
+- native serializerの形式(JSON / 独自テキスト / binary等)
+- TileLayerを保存時にfull gridにするか圧縮するか
+- TypeIdごとのproperty schema
 - Lift path表現
-- editorとの連携方式
+- editor project / undo-redo / clipboard等のeditor固有状態
+- runtimeがStageDataを読み込むbridge
