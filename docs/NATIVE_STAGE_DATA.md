@@ -15,7 +15,7 @@ StageData
       └ Transitions[]
 ```
 
-保存形式(JSON等)はこのモデルとは分離し、後から決める。
+保存形式はモデルとは分離する。最初のnative serializer形式としてJSON + CSVを採用し、仕様は `NATIVE_STAGE_FORMAT.md` に記録する。
 
 ## TileLayer
 
