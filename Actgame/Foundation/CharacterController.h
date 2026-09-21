@@ -61,6 +61,9 @@ public:
 	CharacterBody& Body() { return Body_; }
 	void Reposition(WorldPosition Position, bool ResetVelocity = true);
 	const std::vector<TileInteraction>& Interactions() const { return Interactions_; }
+	// そのフレームでTileTrigger::Touch判定に実際に使用したワールド座標。
+	// Sandbox等のデバッグ可視化用で、判定ロジック自体は変更しない。
+	const std::vector<WorldPosition>& TouchProbePoints() const { return TouchProbePoints_; }
 	MovementMode Mode() const { return Mode_; }
 	bool IsClimbing() const { return Mode_ == MovementMode::Climbing; }
 	bool IsInWater() const { return InWater_; }
@@ -107,6 +110,7 @@ private:
 	int VelocityX10_ = 0;
 	int VelocityY10_ = 0;
 	std::vector<TileInteraction> Interactions_;
+	std::vector<WorldPosition> TouchProbePoints_;
 	MovementMode Mode_ = MovementMode::Normal;
 	bool InWater_ = false;
 	bool WaterExitBoostArmed_ = false;
