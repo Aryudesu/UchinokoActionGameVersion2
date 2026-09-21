@@ -356,3 +356,76 @@ Version2
 - Lift path表現
 - editor project / undo-redo / clipboard等のeditor固有状態
 - runtimeがStageDataを読み込むbridge
+
+
+---
+
+## 13. 将来拡張: スクロール / パララックスTileLayer
+
+すべてのステージで必要ではないが、将来的に一部ステージで、
+
+- 遠景
+- 雲
+- 前景
+- 装飾
+
+等を通常のWorld scrollとは異なる速度で動かしたい可能性がある。
+
+この場合、`StageData` に専用の「スクロールレイヤー」を1個追加するのではなく、**任意のTileLayerへoptionalなスクロール特性を持たせる**方針を採る。
+
+概念例:
+
+```cpp
+struct LayerTransform {
+    WorldPosition Offset;
+    WorldPosition ScrollFactor { 1.0f, 1.0f };
+};
+```
+
+例:
+
+```text
+ScrollFactor = (1.0, 1.0)  通常World layer
+ScrollFactor = (0.5, 1.0)  横方向パララックス
+ScrollFactor = (0.0, 0.0)  Camera固定
+ScrollFactor = (1.2, 1.0)  手前側
+```
+
+PR #30ではまだ実装しない。
+
+### 地形そのものが動く場合
+
+Visual layerのパララックスと、Collisionを持つTerrain layer自体の移動は別問題。
+
+PR #30では現在、
+
+> AreaごとにTerrain TileLayerはちょうど1枚
+
+をvalidation条件としている。
+
+将来、**TileMap全体が独立移動し、そのTileMapへ当たり判定も付く**ステージを作る場合は、この制約を再検討する。
+
+ただし、
+
+- Lift
+- MovingPlatform
+- 小規模な動く足場
+
+は `ObjectSpawn` として表現した方が自然。
+
+そのため、
+
+```text
+見た目だけ独立スクロール
+    → TileLayer propertyで対応予定
+
+小規模な動く地形
+    → Object / MovingPlatformを優先
+
+大規模なTileMapそのものが動く
+    → Moving TileLayer等を将来検討
+```
+
+とする。
+
+この機能はoptionalであり、不要なStageへ追加設定を強制しない。
