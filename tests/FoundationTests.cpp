@@ -379,6 +379,42 @@ void TestLegacyDamagingRuleStillTargetsPlayer() {
 	assert(Damaging->Rules[0].Target == TileTarget::Player);
 }
 
+void TestCharacterExposesActualTouchProbePoints() {
+	Result<TileCatalog> Loaded =
+		TerrainStageLoader::LoadCatalog("dat/stage/hazard-test/tiles.csv");
+	assert(Loaded.IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0}
+	});
+
+	CharacterBody Body;
+	Body.Position = {32.0f, 32.0f};
+	Body.Grounded = false;
+	CharacterController Player(Body);
+
+	CharacterInput Input;
+	Player.Step(Input, Map, Loaded.Value());
+
+	const std::vector<WorldPosition>& Probes = Player.TouchProbePoints();
+	assert(Probes.size() == 5);
+
+	const CharacterBody& Current = Player.Body();
+	assert(NearlyEqual(Probes[0].X, Current.Position.X + 1.0f));
+	assert(NearlyEqual(Probes[0].Y, Current.Position.Y + 1.0f));
+	assert(NearlyEqual(Probes[1].X, Current.Position.X + Current.Width - 2.0f));
+	assert(NearlyEqual(Probes[1].Y, Current.Position.Y + 1.0f));
+	assert(NearlyEqual(Probes[2].X, Current.Position.X + 1.0f));
+	assert(NearlyEqual(Probes[2].Y, Current.Position.Y + Current.Height - 2.0f));
+	assert(NearlyEqual(Probes[3].X, Current.Position.X + Current.Width - 2.0f));
+	assert(NearlyEqual(Probes[3].Y, Current.Position.Y + Current.Height - 2.0f));
+	assert(NearlyEqual(Probes[4].X, Current.Position.X + Current.Width * 0.5f));
+	assert(NearlyEqual(Probes[4].Y, Current.Position.Y + Current.Height * 0.5f));
+}
+
 void TestDamageKnockbackMovesAwayFromHazardCenter() {
 	// 危険ブロック中心より左にいれば左へ逃がす。
 	assert(DamageReactionState::DirectionAwayFromSource(
@@ -3818,6 +3854,7 @@ int main() {
 	TestHazardDefinitionsMatchVersion1Targets();
 	TestHazardTargetsFilterPlayerAndEnemyActors();
 	TestLegacyDamagingRuleStillTargetsPlayer();
+	TestCharacterExposesActualTouchProbePoints();
 	TestDamageKnockbackMovesAwayFromHazardCenter();
 	TestDamageReactionMatchesVersion1SixteenFrames();
 	TestGoalStageDefinitionsAndEffects();
