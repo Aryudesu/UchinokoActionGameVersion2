@@ -144,6 +144,7 @@
     <ClCompile Include="Foundation\GridDataLoader.cpp" />
     <ClCompile Include="Foundation\ItemSystem.cpp" />
     <ClCompile Include="Foundation\LayeredMap.cpp" />
+    <ClCompile Include="Foundation\LegacyStageLoader.cpp" />
     <ClCompile Include="Foundation\PipeTransport.cpp" />
     <ClCompile Include="Foundation\StageProgress.cpp" />
     <ClCompile Include="Foundation\StageDefinition.cpp" />
@@ -205,6 +206,7 @@
     <ClInclude Include="Foundation\GridDataLoader.h" />
     <ClInclude Include="Foundation\ItemSystem.h" />
     <ClInclude Include="Foundation\LayeredMap.h" />
+    <ClInclude Include="Foundation\LegacyStageLoader.h" />
     <ClInclude Include="Foundation\PipeTransport.h" />
     <ClInclude Include="Foundation\GoalState.h" />
     <ClInclude Include="Foundation\StageProgress.h" />
