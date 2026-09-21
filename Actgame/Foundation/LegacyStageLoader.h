@@ -29,7 +29,7 @@ struct LegacyStageData {
 	std::vector<LegacyEnemySpawn> Enemies;
 
 	// 現行V1のBlockFactory/Player生成規則では直接解釈できない値。
-	// エディタ由来の301=Goal等を移行するときに情報を失わないよう保持する。
+	// 過去版由来とみられる301等の未解釈値も、情報を失わないよう保持する。
 	std::vector<LegacyMapMarker> UnresolvedMarkers;
 };
 
