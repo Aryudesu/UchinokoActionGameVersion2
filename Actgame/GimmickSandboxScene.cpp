@@ -32,7 +32,7 @@ GimmickSandboxScene::GimmickSandboxScene() {
 
 void GimmickSandboxScene::Reload() {
 	uchinoko::Result<uchinoko::TerrainStageData> Loaded =
-		uchinoko::TerrainStageLoader::Load("dat/stage/brick-test/stage.ini");
+		uchinoko::TerrainStageLoader::Load("dat/stage/hazard-test/stage.ini");
 	if (Loaded.IsFailure()) {
 		LoadError_ = Loaded.Error();
 		return;
@@ -42,6 +42,7 @@ void GimmickSandboxScene::Reload() {
 	Catalog_ = std::move(Loaded.Value().Catalog);
 	Pipes_ = std::move(Loaded.Value().Pipes);
 	Pipe_.Reset();
+	DamageReaction_.Reset();
 	Runtime_.Reset(Map_);
 	Items_.Reset();
 	Bricks_.Reset();
@@ -56,9 +57,10 @@ void GimmickSandboxScene::Reload() {
 
 	Coins_ = 0;
 	Score_ = 0;
-	Health_ = 4;
+	Health_ = 5;
 	Lives_ = 0;
 	Broken_ = 0;
+	FacingDirection_ = 1;
 	Completion_.Reset();
 	Dead_ = false;
 	SynchronizeConditionalTerrain();
@@ -84,8 +86,22 @@ void GimmickSandboxScene::ApplyEffectList(
 		case uchinoko::TileEffectType::TileBroken:
 			++Broken_;
 			break;
+		case uchinoko::TileEffectType::Damage:
+			if (Effects[Index].Actor == uchinoko::TileActor::Player &&
+				!Dead_ && DamageReaction_.Begin(-FacingDirection_)) {
+				// V1 Damaged(): 被ダメージ開始時に speed.y=0。
+				Player_.Reposition(Player_.Body().Position);
+				Health_ -= Effects[Index].Value;
+				if (Health_ <= 0) {
+					Health_ = 0;
+					Dead_ = true;
+				}
+			}
+			break;
 		case uchinoko::TileEffectType::InstantDeath:
-			Dead_ = true;
+			if (Effects[Index].Actor == uchinoko::TileActor::Player) {
+				Dead_ = true;
+			}
 			break;
 		case uchinoko::TileEffectType::Goal: {
 			uchinoko::GoalKind Kind;
@@ -187,9 +203,15 @@ void GimmickSandboxScene::update() {
 		return;
 	}
 
-	// brick-test: V1のBRICKHP=5の境界をその場で切り替える。
-	if (ReturnKey(KEY_INPUT_4) == 1) Health_ = 4;
-	if (ReturnKey(KEY_INPUT_5) == 1) Health_ = 5;
+	// V1 DamageMotion相当。被ダメージ中はユーザー入力を無視し、
+	// 1～15Fは3px/frameでノックバック、16F目は横0で通常へ戻る。
+	if (DamageReaction_.Active()) {
+		uchinoko::CharacterInput DamageInput;
+		DamageInput.Horizontal = DamageReaction_.AdvanceFrame();
+		Player_.Step(DamageInput, Map_, Catalog_);
+		ApplyEffects();
+		return;
+	}
 
 	uchinoko::CharacterInput Input;
 	if (ReturnKey(KEY_INPUT_LEFT) != 0) Input.Horizontal -= 1.0f;
@@ -197,6 +219,8 @@ void GimmickSandboxScene::update() {
 	if (ReturnKey(KEY_INPUT_UP) != 0) Input.Vertical -= 1.0f;
 	if (ReturnKey(KEY_INPUT_DOWN) != 0) Input.Vertical += 1.0f;
 	Input.JumpPressed = ReturnKey(KEY_INPUT_Z) == 1;
+	if (Input.Horizontal > 0.0f) FacingDirection_ = 1;
+	else if (Input.Horizontal < 0.0f) FacingDirection_ = -1;
 
 	// V1のMovingUpdate相当。土管移動中は通常物理・通常ギミック更新を止める。
 	if (Pipe_.IsActive()) {
