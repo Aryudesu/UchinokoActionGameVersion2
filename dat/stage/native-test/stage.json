@@ -32,7 +32,7 @@
           "role": "visual",
           "zOrder": -10,
           "source": "main/background.csv",
-          "tileSet": "mapobj"
+          "tileSet": "native-test"
         },
         {
           "id": "terrain",
@@ -40,7 +40,7 @@
           "role": "terrain",
           "zOrder": 0,
           "source": "main/terrain.csv",
-          "tileSet": "mapobj"
+          "tileSet": "native-test"
         },
         {
           "id": "foreground",
@@ -48,7 +48,7 @@
           "role": "visual",
           "zOrder": 20,
           "source": "main/foreground.csv",
-          "tileSet": "mapobj"
+          "tileSet": "native-test"
         }
       ],
       "objectLayers": [
@@ -141,15 +141,15 @@
   ],
   "tileSets": [
     {
-      "id": "mapobj",
-      "source": "../../img/mapobj.bmp",
+      "id": "native-test",
+      "source": "tiles.png",
       "tileSize": [
         32,
         32
       ],
       "grid": [
-        10,
-        22
+        4,
+        1
       ],
       "emptyTile": 0,
       "transparent": true
