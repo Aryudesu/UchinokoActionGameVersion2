@@ -2145,7 +2145,7 @@ void TestCentralTouchHitboxStillTouchesSolidHazardFromSide() {
 	CharacterController Player(Body);
 
 	bool FoundDamageTouch = false;
-	for (int Frame = 0; Frame < 10 && !FoundDamageTouch; ++Frame) {
+	for (int Frame = 0; Frame < 10; ++Frame) {
 		Player.Step(1.0f, false, Map, Loaded.Value());
 		for (const TileInteraction& Interaction : Player.Interactions()) {
 			if (Interaction.Trigger == TileTrigger::Touch &&
@@ -2159,8 +2159,9 @@ void TestCentralTouchHitboxStillTouchesSolidHazardFromSide() {
 	}
 
 	assert(FoundDamageTouch);
+	// Touch判定は中央16px幅なので、Solid壁へ衝突する数フレーム前から
+	// 危険ブロックへ届く。Touchを検出しても移動を続け、最終的な壁位置も確認する。
 	// Solid衝突は中央軸で止まり、見た目は半分ほどブロックへ重なる。
-	// その位置で中央16px Touch範囲も危険ブロックへ到達している。
 	assert(NearlyEqual(Player.Body().Position.X, 16.0f));
 	const CharacterTouchBounds Bounds = Player.TouchBounds();
 	assert(NearlyEqual(Bounds.Left, 24.0f));
