@@ -27,9 +27,9 @@ PR #28は現時点で未マージ。
 
 推奨順:
 
-1. PR #30のV2 native `StageData / ObjectSpawn / Region / Transition` をレビュー・マージ
-2. PR #31のJSON + CSV NativeStageDataLoaderをレビュー・マージ
-3. TileLayerをZOrder順に描画するnative renderer / sandboxを追加
+1. PR #32のTileSet参照 + NativeStageSandbox描画をレビュー・マージ
+2. Native Terrainの意味ID → TileDefinition / ImageIndex mappingを設計
+3. Native StageのTerrainをCharacterControllerへ接続
 4. TypeId/property schemaを設計
 5. PR #28を旧ARY parser / converter入力として整理
 6. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
@@ -125,7 +125,7 @@ Terrain / Visual / Object / Eventを分ける。
 
 ## 6. ステージデータの未決事項
 
-PR #30でメモリ上の責務分離は確定。
+PR #30/#31はdevへマージ済み。PR #32でTileSet参照とNativeStageSandbox描画を追加中。
 
 - JSON + CSVをauthoring/native v1として採用済み。将来binary/export formatを追加するか
 - TileLayer CSVを将来full grid / sparse / chunkedへ最適化するか
