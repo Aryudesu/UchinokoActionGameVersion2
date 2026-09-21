@@ -147,6 +147,7 @@
     <ClCompile Include="Foundation\PipeTransport.cpp" />
     <ClCompile Include="Foundation\StageProgress.cpp" />
     <ClCompile Include="Foundation\StageDefinition.cpp" />
+    <ClCompile Include="Foundation\StageData.cpp" />
     <ClCompile Include="Foundation\TerrainCollision.cpp" />
     <ClCompile Include="Foundation\TerrainStageLoader.cpp" />
     <ClCompile Include="Foundation\TileDefinition.cpp" />
@@ -210,6 +211,7 @@
     <ClInclude Include="Foundation\StageProgress.h" />
     <ClInclude Include="Foundation\Result.h" />
     <ClInclude Include="Foundation\StageDefinition.h" />
+    <ClInclude Include="Foundation\StageData.h" />
     <ClInclude Include="Foundation\TerrainCollision.h" />
     <ClInclude Include="Foundation\TerrainStageLoader.h" />
     <ClInclude Include="Foundation\TileDefinition.h" />
