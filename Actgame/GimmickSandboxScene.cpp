@@ -87,14 +87,25 @@ void GimmickSandboxScene::ApplyEffectList(
 			++Broken_;
 			break;
 		case uchinoko::TileEffectType::Damage:
-			if (Effects[Index].Actor == uchinoko::TileActor::Player &&
-				!Dead_ && DamageReaction_.Begin(-FacingDirection_)) {
-				// V1 Damaged(): 被ダメージ開始時に speed.y=0。
-				Player_.Reposition(Player_.Body().Position);
-				Health_ -= Effects[Index].Value;
-				if (Health_ <= 0) {
-					Health_ = 0;
-					Dead_ = true;
+			if (Effects[Index].Actor == uchinoko::TileActor::Player && !Dead_) {
+				const uchinoko::CharacterBody& Body = Player_.Body();
+				const float PlayerCenterX =
+					Body.Position.X + Body.Width * 0.5f;
+				const float HazardCenterX =
+					(static_cast<float>(Effects[Index].Position.Column) + 0.5f) *
+					static_cast<float>(Map_.TileWidth());
+				const int KnockbackDirection =
+					uchinoko::DamageReactionState::DirectionAwayFromSource(
+						PlayerCenterX, HazardCenterX, -FacingDirection_);
+
+				if (DamageReaction_.Begin(KnockbackDirection)) {
+					// V1 Damaged(): 被ダメージ開始時に speed.y=0。
+					Player_.Reposition(Player_.Body().Position);
+					Health_ -= Effects[Index].Value;
+					if (Health_ <= 0) {
+						Health_ = 0;
+						Dead_ = true;
+					}
 				}
 			}
 			break;
