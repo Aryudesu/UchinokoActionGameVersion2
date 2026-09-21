@@ -48,6 +48,19 @@ private:
 
 using StagePropertyMap = std::unordered_map<std::string, StagePropertyValue>;
 
+struct TileSetDefinition {
+	std::string Id;
+	std::string ImageFile;
+	int TileWidth = 32;
+	int TileHeight = 32;
+	int Columns = 0;
+	int Rows = 0;
+	int EmptyTileId = 0;
+	bool Transparent = true;
+
+	int TileCount() const { return Columns * Rows; }
+};
+
 struct LayerMetadata {
 	std::string Id;
 	std::string Name;
@@ -63,6 +76,7 @@ enum class TileLayerRole {
 struct TileLayer {
 	LayerMetadata Metadata;
 	TileLayerRole Role = TileLayerRole::Visual;
+	std::string TileSetId;
 	TileMap Map;
 };
 
@@ -161,8 +175,11 @@ struct StageData {
 	GameMode Mode = GameMode::Action;
 	std::string StartAreaId;
 	StagePropertyMap Properties;
+	std::vector<TileSetDefinition> TileSets;
 	std::vector<StageArea> Areas;
 
+	const TileSetDefinition* FindTileSet(const std::string& TileSetId) const;
+	TileSetDefinition* FindTileSet(const std::string& TileSetId);
 	const StageArea* FindArea(const std::string& AreaId) const;
 	StageArea* FindArea(const std::string& AreaId);
 };
