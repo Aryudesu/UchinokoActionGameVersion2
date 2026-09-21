@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "Foundation/CharacterController.h"
 #include "Foundation/StageData.h"
 #include "Scene.h"
 
@@ -25,6 +26,7 @@ private:
 	enum class DrawLayerKind {
 		Tile,
 		Object,
+		Player,
 		Region
 	};
 
@@ -38,7 +40,9 @@ private:
 	void Reload();
 	void DestroyTileSets();
 	bool LoadTileSets();
+	bool InitializeNativePlayer();
 	void DrawTileLayer(const uchinoko::TileLayer& Layer);
+	void DrawPlayer();
 	void DrawObjectLayer(const uchinoko::ObjectLayer& Layer);
 	void DrawRegionLayer(const uchinoko::RegionLayer& Layer);
 	void DrawTransitions();
@@ -49,6 +53,10 @@ private:
 
 	uchinoko::StageData Stage_;
 	const uchinoko::StageArea* Area_ = nullptr;
+	const uchinoko::TileLayer* TerrainLayer_ = nullptr;
+	uchinoko::TileCatalog TerrainCatalog_;
+	uchinoko::CharacterController Player_;
+	bool PlayerReady_ = false;
 	std::unordered_map<std::string, LoadedTileSet> TileSets_;
 	std::string LoadError_;
 	bool ShowDebug_ = true;

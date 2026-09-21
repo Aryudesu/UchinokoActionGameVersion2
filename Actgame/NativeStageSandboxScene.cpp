@@ -12,6 +12,7 @@
 namespace {
 constexpr int StageOffsetX = 64;
 constexpr int StageOffsetY = 120;
+constexpr int PlayerZOrder = 15;
 
 int ScreenX(float WorldX) {
 	return StageOffsetX + static_cast<int>(WorldX);
@@ -70,9 +71,69 @@ bool NativeStageSandboxScene::LoadTileSets() {
 	return true;
 }
 
+bool NativeStageSandboxScene::InitializeNativePlayer() {
+	TerrainLayer_ = Area_ == nullptr ? nullptr : Area_->TerrainLayer();
+	PlayerReady_ = false;
+	if (TerrainLayer_ == nullptr) {
+		LoadError_ = "Terrain layer not found";
+		return false;
+	}
+	if (TerrainLayer_->TileSetId.empty()) {
+		LoadError_ = "Terrain layer has no tileSet";
+		return false;
+	}
+
+	const uchinoko::TileSetDefinition* TileSet =
+		Stage_.FindTileSet(TerrainLayer_->TileSetId);
+	if (TileSet == nullptr) {
+		LoadError_ =
+			"Terrain TileSet not found: " + TerrainLayer_->TileSetId;
+		return false;
+	}
+	if (TileSet->TerrainTiles.empty()) {
+		LoadError_ =
+			"Terrain TileSet has no terrainTiles: " + TileSet->Id;
+		return false;
+	}
+
+	uchinoko::Result<uchinoko::TileCatalog> Catalog =
+		TileSet->BuildTerrainCatalog();
+	if (Catalog.IsFailure()) {
+		LoadError_ =
+			"Terrain catalog build failed: " + Catalog.Error();
+		return false;
+	}
+	TerrainCatalog_ = std::move(Catalog.Value());
+
+	const uchinoko::ObjectSpawn* Spawn = nullptr;
+	for (const uchinoko::ObjectLayer& Layer : Area_->ObjectLayers) {
+		for (const uchinoko::ObjectSpawn& Object : Layer.Objects) {
+			if (Object.TypeId != "PlayerSpawn") continue;
+			if (Spawn != nullptr) {
+				LoadError_ = "Multiple PlayerSpawn objects in start area";
+				return false;
+			}
+			Spawn = &Object;
+		}
+	}
+	if (Spawn == nullptr) {
+		LoadError_ = "PlayerSpawn object not found in start area";
+		return false;
+	}
+
+	uchinoko::CharacterBody Body;
+	Body.Position = Spawn->Position;
+	Body.Grounded = true;
+	Player_ = uchinoko::CharacterController(Body);
+	PlayerReady_ = true;
+	return true;
+}
+
 void NativeStageSandboxScene::Reload() {
 	DestroyTileSets();
 	Area_ = nullptr;
+	TerrainLayer_ = nullptr;
+	PlayerReady_ = false;
 	LoadError_.clear();
 
 	uchinoko::Result<uchinoko::StageData> Loaded =
@@ -90,7 +151,8 @@ void NativeStageSandboxScene::Reload() {
 		return;
 	}
 
-	LoadTileSets();
+	if (!LoadTileSets()) return;
+	InitializeNativePlayer();
 }
 
 void NativeStageSandboxScene::update() {
@@ -98,28 +160,73 @@ void NativeStageSandboxScene::update() {
 		SceneChanger::GetInstance().Change(MENU);
 		return;
 	}
-	if (ReturnKey(KEY_INPUT_R) == 1) Reload();
-	if (ReturnKey(KEY_INPUT_D) == 1) ShowDebug_ = !ShowDebug_;
+	if (ReturnKey(KEY_INPUT_R) == 1) {
+		Reload();
+		return;
+	}
+	if (ReturnKey(KEY_INPUT_D) == 1) {
+		ShowDebug_ = !ShowDebug_;
+	}
+	if (!LoadError_.empty() || !PlayerReady_ || TerrainLayer_ == nullptr) {
+		return;
+	}
+
+	uchinoko::CharacterInput Input;
+	if (ReturnKey(KEY_INPUT_LEFT) != 0) Input.Horizontal -= 1.0f;
+	if (ReturnKey(KEY_INPUT_RIGHT) != 0) Input.Horizontal += 1.0f;
+	if (ReturnKey(KEY_INPUT_UP) != 0) Input.Vertical -= 1.0f;
+	if (ReturnKey(KEY_INPUT_DOWN) != 0) Input.Vertical += 1.0f;
+	Input.JumpPressed = ReturnKey(KEY_INPUT_Z) == 1;
+
+	Player_.Step(Input, TerrainLayer_->Map, TerrainCatalog_);
 }
 
 void NativeStageSandboxScene::DrawTileLayer(
 	const uchinoko::TileLayer& Layer) {
 	const auto Found = TileSets_.find(Layer.TileSetId);
 	if (Found == TileSets_.end()) return;
-	const LoadedTileSet& TileSet = Found->second;
+	const LoadedTileSet& Loaded = Found->second;
+	const uchinoko::TileSetDefinition* DefinitionSet =
+		Stage_.FindTileSet(Layer.TileSetId);
+	if (DefinitionSet == nullptr) return;
 
 	for (int Row = 0; Row < Layer.Map.Height(); ++Row) {
 		for (int Column = 0; Column < Layer.Map.Width(); ++Column) {
 			const int* TileId = Layer.Map.TryGet({Column, Row});
-			if (TileId == nullptr || *TileId == TileSet.EmptyTileId) continue;
+			if (TileId == nullptr) continue;
+
+			int ImageIndex = *TileId;
+			if (Layer.Role == uchinoko::TileLayerRole::Terrain) {
+				const uchinoko::TileDefinition* Definition =
+					DefinitionSet->FindTerrainTile(*TileId);
+				if (Definition == nullptr) {
+					const int Left =
+						StageOffsetX + Column * Layer.Map.TileWidth();
+					const int Top =
+						StageOffsetY + Row * Layer.Map.TileHeight();
+					DrawBox(
+						Left, Top,
+						Left + Layer.Map.TileWidth(),
+						Top + Layer.Map.TileHeight(),
+						GetColor(255, 60, 220), FALSE);
+					DrawFormatString(
+						Left + 3, Top + 8,
+						GetColor(255, 255, 255),
+						"T%d", *TileId);
+					continue;
+				}
+				ImageIndex = Definition->ImageIndex;
+			}
+
+			if (ImageIndex == Loaded.EmptyTileId) continue;
 
 			const int Left =
 				StageOffsetX + Column * Layer.Map.TileWidth();
 			const int Top =
 				StageOffsetY + Row * Layer.Map.TileHeight();
 
-			if (*TileId < 0 ||
-				static_cast<std::size_t>(*TileId) >= TileSet.Handles.size()) {
+			if (ImageIndex < 0 ||
+				static_cast<std::size_t>(ImageIndex) >= Loaded.Handles.size()) {
 				DrawBox(
 					Left, Top,
 					Left + Layer.Map.TileWidth(),
@@ -128,15 +235,15 @@ void NativeStageSandboxScene::DrawTileLayer(
 				DrawFormatString(
 					Left + 3, Top + 8,
 					GetColor(255, 255, 255),
-					"%d", *TileId);
+					"%d", ImageIndex);
 				continue;
 			}
 
 			DrawGraph(
 				Left,
 				Top,
-				TileSet.Handles[static_cast<std::size_t>(*TileId)],
-				TileSet.Transparent ? TRUE : FALSE);
+				Loaded.Handles[static_cast<std::size_t>(ImageIndex)],
+				Loaded.Transparent ? TRUE : FALSE);
 		}
 	}
 
@@ -151,11 +258,57 @@ void NativeStageSandboxScene::DrawTileLayer(
 	}
 }
 
+void NativeStageSandboxScene::DrawPlayer() {
+	if (!PlayerReady_) return;
+
+	const uchinoko::CharacterBody& Body = Player_.Body();
+	const int Left = ScreenX(Body.Position.X);
+	const int Top = ScreenY(Body.Position.Y);
+	const int Right = ScreenX(Body.Position.X + Body.Width);
+	const int Bottom = ScreenY(Body.Position.Y + Body.Height);
+
+	DrawBox(
+		Left, Top, Right, Bottom,
+		GetColor(245, 215, 70), TRUE);
+	DrawBox(
+		Left, Top, Right, Bottom,
+		GetColor(255, 255, 150), FALSE);
+
+	if (ShowDebug_) {
+		const uchinoko::CharacterTouchBounds Touch = Player_.TouchBounds();
+		DrawBox(
+			ScreenX(Touch.Left),
+			ScreenY(Touch.Top),
+			ScreenX(Touch.Right),
+			ScreenY(Touch.Bottom),
+			GetColor(80, 230, 255), FALSE);
+		DrawFormatString(
+			Left, Top - 20,
+			GetColor(255, 255, 255),
+			"P(%.0f,%.0f)%s",
+			Body.Position.X,
+			Body.Position.Y,
+			Body.Grounded ? " G" : "");
+	}
+}
+
 void NativeStageSandboxScene::DrawObjectLayer(
 	const uchinoko::ObjectLayer& Layer) {
 	for (const uchinoko::ObjectSpawn& Object : Layer.Objects) {
 		const int X = ScreenX(Object.Position.X);
 		const int Y = ScreenY(Object.Position.Y);
+
+		if (Object.TypeId == "PlayerSpawn") {
+			if (ShowDebug_) {
+				DrawCircle(X + 16, Y + 16, 5, GetColor(120, 255, 120), FALSE);
+				DrawLine(X + 8, Y + 16, X + 24, Y + 16,
+					GetColor(120, 255, 120), 1);
+				DrawLine(X + 16, Y + 8, X + 16, Y + 24,
+					GetColor(120, 255, 120), 1);
+				DrawString(X, Y + 34, "PlayerSpawn", GetColor(150, 255, 150));
+			}
+			continue;
+		}
 
 		if (Object.TypeId == "WalkingEnemy") {
 			DrawBox(
@@ -266,6 +419,13 @@ void NativeStageSandboxScene::draw() {
 			DrawLayerKind::Object,
 			Index});
 	}
+	if (PlayerReady_) {
+		DrawOrder.push_back({
+			PlayerZOrder,
+			Order++,
+			DrawLayerKind::Player,
+			0});
+	}
 	for (std::size_t Index = 0; Index < Area_->RegionLayers.size(); ++Index) {
 		if (!Area_->RegionLayers[Index].Metadata.Visible) continue;
 		DrawOrder.push_back({
@@ -293,6 +453,9 @@ void NativeStageSandboxScene::draw() {
 		case DrawLayerKind::Object:
 			DrawObjectLayer(Area_->ObjectLayers[Entry.Index]);
 			break;
+		case DrawLayerKind::Player:
+			DrawPlayer();
+			break;
 		case DrawLayerKind::Region:
 			DrawRegionLayer(Area_->RegionLayers[Entry.Index]);
 			break;
@@ -302,7 +465,7 @@ void NativeStageSandboxScene::draw() {
 
 	DrawString(
 		16, 16,
-		"Native Stage test: JSON + CSV + TileSet / R reload / D debug / Esc",
+		"Native Stage: LEFT/RIGHT, Z jump / R reload / D debug / Esc",
 		GetColor(255, 255, 255));
 	DrawFormatString(
 		16, 42,
@@ -314,6 +477,6 @@ void NativeStageSandboxScene::draw() {
 		Area_->Height);
 	DrawString(
 		16, 68,
-		"Red=Enemy  Blue=Lift  Cyan=Region  Yellow=Transition",
+		"Yellow=Player  Red=Enemy  Blue=Lift  Cyan=Region  YellowLine=Transition",
 		GetColor(230, 235, 255));
 }

@@ -70,6 +70,24 @@ bool StagePropertyValue::TryGetVector2(WorldPosition& Value) const {
 	return true;
 }
 
+const TileDefinition* TileSetDefinition::FindTerrainTile(int Id) const {
+	for (const TileDefinition& Definition : TerrainTiles) {
+		if (Definition.Id == Id) return &Definition;
+	}
+	return nullptr;
+}
+
+Result<TileCatalog> TileSetDefinition::BuildTerrainCatalog() const {
+	TileCatalog Catalog;
+	for (const TileDefinition& Definition : TerrainTiles) {
+		Result<bool> Registered = Catalog.Register(Definition);
+		if (Registered.IsFailure()) {
+			return Result<TileCatalog>::Failure(Registered.Error());
+		}
+	}
+	return Result<TileCatalog>::Success(std::move(Catalog));
+}
+
 StageRegionGeometry StageRegionGeometry::Point(WorldPosition Position) {
 	StageRegionGeometry Result;
 	Result.Shape = StageRegionShape::Point;
@@ -194,6 +212,22 @@ Result<bool> ValidateAreaContent(const StageData& Data, const StageArea& Area) {
 				return Result<bool>::Failure(
 					"Tile set tile size does not match area: " +
 					Layer.TileSetId);
+			}
+
+			if (Layer.Role == TileLayerRole::Terrain &&
+				!TileSet->TerrainTiles.empty()) {
+				for (int Row = 0; Row < Layer.Map.Height(); ++Row) {
+					for (int Column = 0; Column < Layer.Map.Width(); ++Column) {
+						const int* Id = Layer.Map.TryGet({Column, Row});
+						if (Id == nullptr || TileSet->FindTerrainTile(*Id) != nullptr) {
+							continue;
+						}
+						return Result<bool>::Failure(
+							"Terrain layer contains undefined tile id " +
+							std::to_string(*Id) + ": " +
+							Layer.Metadata.Id);
+					}
+				}
 			}
 		}
 
@@ -361,6 +395,21 @@ Result<bool> ValidateStageData(const StageData& Data) {
 			return Result<bool>::Failure(
 				"Tile set empty tile id is outside image grid: " +
 				TileSet.Id);
+		}
+		Result<TileCatalog> TerrainCatalog = TileSet.BuildTerrainCatalog();
+		if (TerrainCatalog.IsFailure()) {
+			return Result<bool>::Failure(
+				"Invalid terrain tile definition in tile set " +
+				TileSet.Id + ": " + TerrainCatalog.Error());
+		}
+		for (const TileDefinition& Definition : TileSet.TerrainTiles) {
+			if (Definition.ImageIndex < 0 ||
+				Definition.ImageIndex >= TileSet.TileCount()) {
+				return Result<bool>::Failure(
+					"Terrain tile image index is outside tile set grid: " +
+					TileSet.Id + " tile " +
+					std::to_string(Definition.Id));
+			}
 		}
 		if (!RegisterUnique(TileSetIds, TileSet.Id)) {
 			return Result<bool>::Failure(

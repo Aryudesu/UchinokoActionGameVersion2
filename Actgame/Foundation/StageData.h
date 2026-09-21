@@ -3,6 +3,7 @@
 #include "Coordinates.h"
 #include "Result.h"
 #include "StageDefinition.h"
+#include "TileDefinition.h"
 #include "TileMap.h"
 
 #include <string>
@@ -57,8 +58,11 @@ struct TileSetDefinition {
 	int Rows = 0;
 	int EmptyTileId = 0;
 	bool Transparent = true;
+	std::vector<TileDefinition> TerrainTiles;
 
 	int TileCount() const { return Columns * Rows; }
+	const TileDefinition* FindTerrainTile(int Id) const;
+	Result<TileCatalog> BuildTerrainCatalog() const;
 };
 
 struct LayerMetadata {
