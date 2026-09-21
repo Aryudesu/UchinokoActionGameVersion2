@@ -403,14 +403,20 @@ void TestCharacterExposesActualTouchProbePoints() {
 	assert(Probes.size() == 5);
 
 	const CharacterBody& Current = Player.Body();
-	assert(NearlyEqual(Probes[0].X, Current.Position.X + 1.0f));
-	assert(NearlyEqual(Probes[0].Y, Current.Position.Y + 1.0f));
-	assert(NearlyEqual(Probes[1].X, Current.Position.X + Current.Width - 2.0f));
-	assert(NearlyEqual(Probes[1].Y, Current.Position.Y + 1.0f));
-	assert(NearlyEqual(Probes[2].X, Current.Position.X + 1.0f));
-	assert(NearlyEqual(Probes[2].Y, Current.Position.Y + Current.Height - 2.0f));
-	assert(NearlyEqual(Probes[3].X, Current.Position.X + Current.Width - 2.0f));
-	assert(NearlyEqual(Probes[3].Y, Current.Position.Y + Current.Height - 2.0f));
+	const CharacterTouchBounds Bounds = Player.TouchBounds();
+	assert(NearlyEqual(Bounds.Left, Current.Position.X + 8.0f));
+	assert(NearlyEqual(Bounds.Right, Current.Position.X + 24.0f));
+	assert(NearlyEqual(Bounds.Top, Current.Position.Y));
+	assert(NearlyEqual(Bounds.Bottom, Current.Position.Y + 32.0f));
+
+	assert(NearlyEqual(Probes[0].X, Bounds.Left));
+	assert(NearlyEqual(Probes[0].Y, Bounds.Top));
+	assert(NearlyEqual(Probes[1].X, Bounds.Right));
+	assert(NearlyEqual(Probes[1].Y, Bounds.Top));
+	assert(NearlyEqual(Probes[2].X, Bounds.Left));
+	assert(NearlyEqual(Probes[2].Y, Bounds.Bottom));
+	assert(NearlyEqual(Probes[3].X, Bounds.Right));
+	assert(NearlyEqual(Probes[3].Y, Bounds.Bottom));
 	assert(NearlyEqual(Probes[4].X, Current.Position.X + Current.Width * 0.5f));
 	assert(NearlyEqual(Probes[4].Y, Current.Position.Y + Current.Height * 0.5f));
 }
@@ -1627,11 +1633,24 @@ void TestCharacterEmitsTouchForCollectible() {
 	Body.Position = {0.0f, 0.0f};
 	Body.Grounded = true;
 	CharacterController Player(Body);
-	Player.Step(1.0f, false, Map, Catalog);
 
+	// 見た目32pxの右端が近づいただけではTouchしない。
+	// 中央16pxの右端が次タイルへ入った時点で初めて反応する。
+	Player.Step(1.0f, false, Map, Catalog);
 	bool FoundTouch = false;
-	for (std::size_t Index = 0; Index < Player.Interactions().size(); ++Index) {
-		const TileInteraction& Interaction = Player.Interactions()[Index];
+	for (const TileInteraction& Interaction : Player.Interactions()) {
+		if (Interaction.Trigger == TileTrigger::Touch &&
+			Interaction.Position.Column == 1 && Interaction.Position.Row == 0 &&
+			Interaction.TileId == 20) {
+			FoundTouch = true;
+		}
+	}
+	assert(!FoundTouch);
+
+	Player.Step(1.0f, false, Map, Catalog);
+	Player.Step(1.0f, false, Map, Catalog);
+	FoundTouch = false;
+	for (const TileInteraction& Interaction : Player.Interactions()) {
 		if (Interaction.Trigger == TileTrigger::Touch &&
 			Interaction.Position.Column == 1 && Interaction.Position.Row == 0 &&
 			Interaction.TileId == 20) {
