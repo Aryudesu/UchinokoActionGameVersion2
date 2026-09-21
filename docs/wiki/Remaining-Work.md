@@ -6,9 +6,11 @@
 
 ## 1. 進行中
 
-### PR #28 — Version1 ARY互換ローダー
+### PR #28 — Version1 ARY移行parser
 
-Version1の `map*.ary / img*.ary` をFoundation `LayeredMap` へ取り込む互換層。
+Version1の `map*.ary / img*.ary` を解析してFoundation `LayeredMap` へ分解する移行用parser。
+
+最終runtimeで旧ARYを直接読み続けるための互換層にはしない。
 
 目的:
 
@@ -25,20 +27,21 @@ PR #28は現時点で未マージ。
 
 推奨順:
 
-1. PR #28の安定化・マージ
-2. Version1 `Data{detail}.inf` loader
-3. V1 Block ID 0..45 → Version2 TileCatalog mapping
-4. `Action::LoadMapData` からFoundation経路を作る
-5. Foundation Effect → Player/GameData/SE adapter
-6. PlayerをCharacterControllerへ段階移行
-7. ObjectSpawn型を新設
-8. Legacy Enemy `-2..-6` → ObjectSpawn
-9. Pipe / stage transitionを本編へ接続
-10. Goal / StageProgress → GameData / Save / WorldMap
-11. Lift / moving platform
-12. Enemy runtime
-13. Boss / Event
-14. 旧Map / Block runtime撤去
+1. V2 native `StageData` / `ObjectSpawn` / `Event` / `Transition` の形を先に確定
+2. PR #28を旧ARY parser / converter入力として整理
+3. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
+4. V1 Block ID 0..45 → V2 native Tile定義への変換mapping
+5. 旧Stage 5をV2 native形式へ実際に変換するfixtureを作る
+6. `Action` をV2 native StageDataから動かす
+7. Foundation Effect → Player/GameData/SE adapter
+8. PlayerをCharacterControllerへ段階移行
+9. Legacy Enemy `-2..-6` → ObjectSpawn変換
+10. Pipe / stage transitionを本編へ接続
+11. Goal / StageProgress → GameData / Save / WorldMap
+12. Lift / moving platform
+13. Enemy runtime
+14. Boss / Event
+15. 旧Map / Block runtime撤去
 
 ---
 
@@ -125,7 +128,7 @@ Terrain / Visual / Object / Eventを分ける。
 - Visualを必須グリッドにするか、override扱いにするか
 - 背景装飾レイヤをVisualと別にするか
 - submap移動先を整数IDにするかDefinition IDにするか
-- Legacy loaderを最終製品にも残すか、offline converterへ移すか
+- Legacy parserは原則offline converter / 開発ツール側へ置き、製品runtimeには残さない
 
 ---
 
@@ -153,9 +156,11 @@ Terrain / Visual / Object / Eventを分ける。
 
 ### Legacy
 
-V1形式はcompatibility/import層。
+V1形式は**移行入力**。
 
-新規V2ステージをV1制約へ合わせない。
+旧形式を直接runtimeで使い続ける後方互換は不要。
+
+新規V2ステージも、変換済み旧ステージも最終的には同じV2 native形式を使う。
 
 ---
 
