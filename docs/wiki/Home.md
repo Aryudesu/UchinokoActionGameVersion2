@@ -14,6 +14,7 @@
 - [互換性の不変条件](Compatibility-Invariants.md)
 - [Stage 5 実データ対応例](Reference-Stage5.md)
 - [設計判断ログ](Architecture-Decisions.md)
+- [移植PR履歴](Migration-PR-History.md)
 
 ## 仕様を読むときの優先順位
 
