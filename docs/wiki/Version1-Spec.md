@@ -261,6 +261,19 @@ WorldMap上の位置もSaveされます。
 
 ---
 
+### 実データの詳細
+
+`wmblock.ary / wmlay.ary / event/*.ary` の実データ仕様は [Version1 WorldMapデータ仕様](Version1-WorldMap-Data.md) を参照。
+
+特に、
+
+- `999` = 初期位置 + intro auto event
+- `501` = event scriptによるSave point
+- `-502` = one-shot auto dialogue
+- `-5/-6/-8/-9` = BeatLevel連動のlocked route
+
+が実データとコードで確認済み。
+
 ## 8. Version1の課題
 
 Version2移植時に問題になる主な点:
