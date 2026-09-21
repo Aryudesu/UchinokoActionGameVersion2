@@ -112,6 +112,36 @@ void TestLegacyStageLoaderSeparatesLegacyLayers() {
 	assert(*Event.TryGet({1, 2}) == 321);
 }
 
+void TestLegacyStageLoaderKeepsHspEraCodesInactive() {
+	IntegerGrid Legacy = {
+		{100, 110, 301, 321, 325, -79}
+	};
+	IntegerGrid Visual = {
+		{1, 2, 3, 4, 5, 6}
+	};
+
+	Result<LegacyStageData> Loaded =
+		LegacyStageLoader::Build(Legacy, Visual);
+	assert(Loaded.IsSuccess());
+
+	const LegacyStageData& Stage = Loaded.Value();
+	const TileMap& Terrain = Stage.Layers.Layer(MapLayerKind::Terrain);
+	const TileMap& Event = Stage.Layers.Layer(MapLayerKind::Event);
+
+	for (int Column = 0; Column < 6; ++Column) {
+		assert(*Terrain.TryGet({Column, 0}) == 0);
+	}
+	assert(!Stage.HasPlayerSpawn);
+	assert(Stage.Enemies.empty());
+
+	const int Expected[] = {100, 110, 301, 321, 325, -79};
+	assert(Stage.UnresolvedMarkers.size() == 6);
+	for (int Column = 0; Column < 6; ++Column) {
+		assert(*Event.TryGet({Column, 0}) == Expected[Column]);
+		assert(Stage.UnresolvedMarkers[Column].Code == Expected[Column]);
+	}
+}
+
 void TestLegacyStageLoaderRejectsMismatchedVisualMap() {
 	IntegerGrid Legacy = {
 		{0, 1},
@@ -4159,6 +4189,7 @@ int main() {
 	TestPipeTransportFadesBeforeEmergence();
 	TestPipeTileDefinitionsAreSolid();
 	TestLegacyStageLoaderSeparatesLegacyLayers();
+	TestLegacyStageLoaderKeepsHspEraCodesInactive();
 	TestLegacyStageLoaderRejectsMismatchedVisualMap();
 	TestLegacyStageLoaderUsesLastPlayerSpawnLikeVersion1();
 	TestTileMapBounds();
