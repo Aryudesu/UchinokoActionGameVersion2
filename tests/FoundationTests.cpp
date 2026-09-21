@@ -11,6 +11,7 @@
 #include "../Actgame/Foundation/StageProgress.h"
 #include "../Actgame/Foundation/ItemSystem.h"
 #include "../Actgame/Foundation/LayeredMap.h"
+#include "../Actgame/Foundation/LegacyStageLoader.h"
 #include "../Actgame/Foundation/PipeTransport.h"
 #include "../Actgame/Foundation/PlayerResourceRules.h"
 #include "../Actgame/Foundation/StageDefinition.h"
@@ -31,6 +32,8 @@ using namespace uchinoko;
 
 namespace {
 
+bool NearlyEqual(float Left, float Right);
+
 void TestAssetPaths() {
 	AssetPaths Paths("dat/");
 	assert(Paths.Image("player.bmp") == "dat/img/player.bmp");
@@ -49,6 +52,126 @@ void TestGridDataLoader() {
 	assert(Broken.IsFailure());
 	assert(GridDataLoader::Parse("1,x\n").IsFailure());
 	assert(GridDataLoader::Parse("\xEF\xBB\xBF" "7,8\n").IsSuccess());
+}
+
+
+void TestLegacyStageLoaderSeparatesLegacyLayers() {
+	IntegerGrid Legacy = {
+		{0, 1, -1, -2, 301},
+		{24, -79, 45, 50, 110},
+		{-6, 321, 0, 0, 0}
+	};
+	IntegerGrid Visual = {
+		{0, 3, 4, 5, 6},
+		{7, 8, 9, 10, 11},
+		{12, 13, 14, 15, 16}
+	};
+
+	Result<LegacyStageData> Loaded =
+		LegacyStageLoader::Build(Legacy, Visual);
+	assert(Loaded.IsSuccess());
+
+	const LegacyStageData& Stage = Loaded.Value();
+	assert(Stage.Layers.Width() == 5);
+	assert(Stage.Layers.Height() == 3);
+	assert(Stage.HasPlayerSpawn);
+	assert(NearlyEqual(Stage.PlayerSpawn.X, 64.0f));
+	assert(NearlyEqual(Stage.PlayerSpawn.Y, 0.0f));
+
+	const TileMap& Terrain = Stage.Layers.Layer(MapLayerKind::Terrain);
+	const TileMap& VisualLayer = Stage.Layers.Layer(MapLayerKind::Visual);
+	const TileMap& Object = Stage.Layers.Layer(MapLayerKind::Object);
+	const TileMap& Event = Stage.Layers.Layer(MapLayerKind::Event);
+
+	assert(*Terrain.TryGet({1, 0}) == 1);
+	assert(*Terrain.TryGet({0, 1}) == 24);
+	assert(*Terrain.TryGet({2, 1}) == 45);
+	assert(*Terrain.TryGet({4, 0}) == 0);
+	assert(*Terrain.TryGet({1, 1}) == 0);
+	assert(*Terrain.TryGet({3, 1}) == 0);
+
+	assert(*VisualLayer.TryGet({4, 2}) == 16);
+
+	assert(Stage.Enemies.size() == 2);
+	assert(Stage.Enemies[0].LegacyCode == -2);
+	assert(Stage.Enemies[0].EnemyKind == 1);
+	assert(Stage.Enemies[0].Position == (TilePosition{3, 0}));
+	assert(NearlyEqual(Stage.Enemies[0].World.X, 96.0f));
+	assert(NearlyEqual(Stage.Enemies[0].World.Y, 0.0f));
+	assert(Stage.Enemies[1].LegacyCode == -6);
+	assert(Stage.Enemies[1].EnemyKind == 5);
+	assert(Stage.Enemies[1].Position == (TilePosition{0, 2}));
+	assert(*Object.TryGet({3, 0}) == 1);
+	assert(*Object.TryGet({0, 2}) == 5);
+
+	assert(Stage.UnresolvedMarkers.size() == 5);
+	assert(*Event.TryGet({4, 0}) == 301);
+	assert(*Event.TryGet({1, 1}) == -79);
+	assert(*Event.TryGet({3, 1}) == 50);
+	assert(*Event.TryGet({4, 1}) == 110);
+	assert(*Event.TryGet({1, 2}) == 321);
+}
+
+void TestLegacyStageLoaderKeepsHspEraCodesInactive() {
+	IntegerGrid Legacy = {
+		{100, 110, 301, 321, 325, -79}
+	};
+	IntegerGrid Visual = {
+		{1, 2, 3, 4, 5, 6}
+	};
+
+	Result<LegacyStageData> Loaded =
+		LegacyStageLoader::Build(Legacy, Visual);
+	assert(Loaded.IsSuccess());
+
+	const LegacyStageData& Stage = Loaded.Value();
+	const TileMap& Terrain = Stage.Layers.Layer(MapLayerKind::Terrain);
+	const TileMap& Event = Stage.Layers.Layer(MapLayerKind::Event);
+
+	for (int Column = 0; Column < 6; ++Column) {
+		assert(*Terrain.TryGet({Column, 0}) == 0);
+	}
+	assert(!Stage.HasPlayerSpawn);
+	assert(Stage.Enemies.empty());
+
+	const int Expected[] = {100, 110, 301, 321, 325, -79};
+	assert(Stage.UnresolvedMarkers.size() == 6);
+	for (int Column = 0; Column < 6; ++Column) {
+		assert(*Event.TryGet({Column, 0}) == Expected[Column]);
+		assert(Stage.UnresolvedMarkers[Column].Code == Expected[Column]);
+	}
+}
+
+void TestLegacyStageLoaderRejectsMismatchedVisualMap() {
+	IntegerGrid Legacy = {
+		{0, 1},
+		{0, 1}
+	};
+	IntegerGrid Visual = {
+		{0, 1, 2}
+	};
+
+	Result<LegacyStageData> Loaded =
+		LegacyStageLoader::Build(Legacy, Visual);
+	assert(Loaded.IsFailure());
+}
+
+void TestLegacyStageLoaderUsesLastPlayerSpawnLikeVersion1() {
+	IntegerGrid Legacy = {
+		{-1, 0},
+		{0, -1}
+	};
+	IntegerGrid Visual = {
+		{0, 0},
+		{0, 0}
+	};
+
+	Result<LegacyStageData> Loaded =
+		LegacyStageLoader::Build(Legacy, Visual, 16, 24);
+	assert(Loaded.IsSuccess());
+	assert(Loaded.Value().HasPlayerSpawn);
+	assert(NearlyEqual(Loaded.Value().PlayerSpawn.X, 16.0f));
+	assert(NearlyEqual(Loaded.Value().PlayerSpawn.Y, 24.0f));
 }
 
 void TestTileMapBounds() {
@@ -4065,6 +4188,10 @@ int main() {
 	TestSidePipeRequiresGrounded();
 	TestPipeTransportFadesBeforeEmergence();
 	TestPipeTileDefinitionsAreSolid();
+	TestLegacyStageLoaderSeparatesLegacyLayers();
+	TestLegacyStageLoaderKeepsHspEraCodesInactive();
+	TestLegacyStageLoaderRejectsMismatchedVisualMap();
+	TestLegacyStageLoaderUsesLastPlayerSpawnLikeVersion1();
 	TestTileMapBounds();
 	TestGameModes();
 	TestTileCatalog();
