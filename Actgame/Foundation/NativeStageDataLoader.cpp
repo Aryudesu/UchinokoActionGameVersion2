@@ -279,6 +279,89 @@ MovementRegion ReadMovementRegion(
 		Context + "." + Name + " has unknown movement region: " + Value);
 }
 
+TileTrigger ReadTileTrigger(
+	const Json& Object,
+	const char* Name,
+	const std::string& Context) {
+	const std::string Value = RequireString(Object, Name, Context);
+	if (Value == "touch") return TileTrigger::Touch;
+	if (Value == "hitFromBelow") return TileTrigger::HitFromBelow;
+	if (Value == "standOn") return TileTrigger::StandOn;
+	if (Value == "pushFromLeft") return TileTrigger::PushFromLeft;
+	if (Value == "pushFromRight") return TileTrigger::PushFromRight;
+	throw std::runtime_error(
+		Context + "." + Name + " has unknown tile trigger: " + Value);
+}
+
+TileAction ReadTileAction(
+	const Json& Object,
+	const char* Name,
+	const std::string& Context) {
+	const std::string Value = RequireString(Object, Name, Context);
+	if (Value == "none") return TileAction::None;
+	if (Value == "replaceTile") return TileAction::ReplaceTile;
+	if (Value == "breakTile") return TileAction::BreakTile;
+	if (Value == "addCoin") return TileAction::AddCoin;
+	if (Value == "addHealth") return TileAction::AddHealth;
+	if (Value == "addLife") return TileAction::AddLife;
+	if (Value == "addScore") return TileAction::AddScore;
+	if (Value == "damage") return TileAction::Damage;
+	if (Value == "instantDeath") return TileAction::InstantDeath;
+	if (Value == "spawnItem") return TileAction::SpawnItem;
+	if (Value == "incrementCount") return TileAction::IncrementCount;
+	if (Value == "toggleSwitch") return TileAction::ToggleSwitch;
+	if (Value == "goal") return TileAction::Goal;
+	if (Value == "hitBrick") return TileAction::HitBrick;
+	throw std::runtime_error(
+		Context + "." + Name + " has unknown tile action: " + Value);
+}
+
+TileCountCondition ReadTileCountCondition(
+	const Json& Object,
+	const char* Name,
+	const std::string& Context) {
+	const std::string Value =
+		OptionalString(Object, Name, "any", Context);
+	if (Value == "any") return TileCountCondition::Any;
+	if (Value == "lessThan") return TileCountCondition::LessThan;
+	if (Value == "lessEqual") return TileCountCondition::LessEqual;
+	if (Value == "equal") return TileCountCondition::Equal;
+	if (Value == "greaterEqual") return TileCountCondition::GreaterEqual;
+	if (Value == "greaterThan") return TileCountCondition::GreaterThan;
+	throw std::runtime_error(
+		Context + "." + Name +
+		" has unknown tile count condition: " + Value);
+}
+
+TileTarget ReadTileTarget(
+	const Json& Object,
+	const char* Name,
+	const std::string& Context) {
+	const std::string Value =
+		OptionalString(Object, Name, "player", Context);
+	if (Value == "player") return TileTarget::Player;
+	if (Value == "enemy") return TileTarget::Enemy;
+	if (Value == "both") return TileTarget::Both;
+	throw std::runtime_error(
+		Context + "." + Name + " has unknown tile target: " + Value);
+}
+
+TileRule ReadTileRule(
+	const Json& Object,
+	const std::string& Context) {
+	TileRule Rule;
+	Rule.Trigger = ReadTileTrigger(Object, "trigger", Context);
+	Rule.Action = ReadTileAction(Object, "action", Context);
+	Rule.Value = OptionalInteger(Object, "value", 0, Context);
+	Rule.Once = OptionalBoolean(Object, "once", false, Context);
+	Rule.CountCondition = ReadTileCountCondition(
+		Object, "countCondition", Context);
+	Rule.CountValue = OptionalInteger(
+		Object, "countValue", 0, Context);
+	Rule.Target = ReadTileTarget(Object, "target", Context);
+	return Rule;
+}
+
 TileDefinition ReadTerrainTileDefinition(
 	const Json& Object,
 	const std::string& Context) {
@@ -290,6 +373,23 @@ TileDefinition ReadTerrainTileDefinition(
 		Object, "collision", Context);
 	Definition.Movement = ReadMovementRegion(
 		Object, "movement", Context);
+
+	const auto Rules = Object.find("rules");
+	if (Rules != Object.end()) {
+		if (!Rules->is_array()) {
+			throw std::runtime_error(
+				Context + ".rules must be an array");
+		}
+		std::size_t RuleIndex = 0;
+		for (const Json& Rule : *Rules) {
+			Definition.Rules.push_back(
+				ReadTileRule(
+					Rule,
+					Context + ".rules[" +
+					std::to_string(RuleIndex) + "]"));
+			++RuleIndex;
+		}
+	}
 	return Definition;
 }
 
