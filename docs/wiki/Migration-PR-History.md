@@ -33,7 +33,8 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #30 | V2ネイティブStageData / Layer / Object / Regionモデル | merged |
 | #31 | Native StageData JSON + CSV Loader | merged |
 | #32 | Native StageData TileSet参照 + Sandbox描画 | merged |
-| #33 | Native Terrain → TileDefinition / CharacterController | open |
+| #33 | Native Terrain → TileDefinition / CharacterController | merged |
+| #34 | Native Terrain TileRule JSON + TileBehaviorSystem接続 | open |
 
 ## 読み方
 
@@ -69,8 +70,11 @@ Native JSON + CSV data / runtime loading
 #32
 TileSet / native rendering
 
-#33-
-Native terrain semantics / gameplay bridge
+#33
+Native terrain semantics / CharacterController
+
+#34-
+Native TileRule / TileBehavior / gameplay adapters
 ```
 
 という流れです。
