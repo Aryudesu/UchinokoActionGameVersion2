@@ -614,9 +614,19 @@ void NativeStageSandboxScene::DrawGeometry(
 void NativeStageSandboxScene::DrawRegionLayer(
 	const uchinoko::RegionLayer& Layer) {
 	for (const uchinoko::StageRegion& Region : Layer.Regions) {
+		unsigned int Color = GetColor(80, 240, 210);
+		if (Region.TypeId == "Goal") {
+			uchinoko::GoalKind Kind;
+			if (TryRegionGoalKind(Region, Kind) &&
+				Kind == uchinoko::GoalKind::Secret) {
+				Color = GetColor(220, 120, 255);
+			} else {
+				Color = GetColor(100, 255, 150);
+			}
+		}
 		DrawGeometry(
 			Region.Geometry,
-			GetColor(80, 240, 210),
+			Color,
 			Region.TypeId.c_str());
 	}
 }
@@ -629,6 +639,18 @@ void NativeStageSandboxScene::DrawTransitions() {
 			Transition.Entry,
 			Color,
 			Transition.TypeId.c_str());
+
+		if (ShowDebug_) {
+			DrawFormatString(
+				ScreenX(Transition.Entry.Position.X) + 4,
+				ScreenY(Transition.Entry.Position.Y) + 20,
+				Color,
+				"-> %s%s%s",
+				Transition.TargetStageId.empty()
+					? "" : Transition.TargetStageId.c_str(),
+				Transition.TargetStageId.empty() ? "" : "/",
+				Transition.TargetAreaId.c_str());
+		}
 
 		if (Transition.TargetStageId.empty() &&
 			Transition.TargetAreaId == Area_->Id) {
@@ -740,4 +762,32 @@ void NativeStageSandboxScene::draw() {
 		"Coins:%d  HP:%d  Lives:%d  Score:%d%s",
 		Coins_, Health_, Lives_, Score_,
 		Dead_ ? "  DEAD (R: reload)" : "");
+
+	if (Completion_.Cleared) {
+		DrawFormatString(
+			16, 116,
+			GetColor(120, 255, 160),
+			"GOAL CLEAR: %s  (R: reload)",
+			Completion_.Goal == uchinoko::GoalKind::Secret
+				? "Secret" : "Normal");
+	} else if (Pipe_.IsActive()) {
+		DrawFormatString(
+			16, 116,
+			GetColor(255, 220, 100),
+			"Transition:%s -> %s",
+			ActiveTransitionId_.c_str(),
+			ActiveTransitionTargetAreaId_.c_str());
+	} else {
+		DrawString(
+			16, 116,
+			"Pipe: stand on marker + direction key / Goal: enter green region",
+			GetColor(210, 220, 255));
+	}
+
+	const int FadeAlpha = Pipe_.FadeAlpha();
+	if (FadeAlpha > 0) {
+		SetDrawBlendMode(DX_BLENDMODE_ALPHA, FadeAlpha);
+		DrawBox(0, 0, WINDOWX, WINDOWY, GetColor(0, 0, 0), TRUE);
+		SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+	}
 }
