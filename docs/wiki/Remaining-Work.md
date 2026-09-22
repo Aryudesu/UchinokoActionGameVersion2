@@ -27,7 +27,7 @@ PR #28は現時点で未マージ。
 
 推奨順:
 
-1. PR #35のNative Goal Region + Area間Pipe Transitionをレビュー・マージ
+1. PR #36のNative Goal判定16x32化をレビュー・マージ
 2. Native SpawnItem / Brick / WorldState adapterを段階接続
 3. ObjectSpawn TypeId/property schemaを設計
 4. external Stage transition / Stage loader責務を設計
@@ -125,7 +125,7 @@ Terrain / Visual / Object / Eventを分ける。
 
 ## 6. ステージデータの未決事項
 
-PR #30〜#34はdevへマージ済み。PR #35でGoal Regionとsame-Stage cross-Area Pipe TransitionをSandboxへ接続中。
+PR #30〜#35はdevへマージ済み。PR #36でGoal判定のPlayer側hitboxを中央16x32へ統一中。
 
 - JSON + CSVをauthoring/native v1として採用済み。将来binary/export formatを追加するか
 - TileLayer CSVを将来full grid / sparse / chunkedへ最適化するか
