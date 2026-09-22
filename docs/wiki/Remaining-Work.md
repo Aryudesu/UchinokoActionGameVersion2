@@ -27,10 +27,10 @@ PR #28は現時点で未マージ。
 
 推奨順:
 
-1. PR #34のNative TileRule JSON + TileBehaviorSystem接続をレビュー・マージ
+1. PR #35のNative Goal Region + Area間Pipe Transitionをレビュー・マージ
 2. Native SpawnItem / Brick / WorldState adapterを段階接続
 3. ObjectSpawn TypeId/property schemaを設計
-4. Region / Transition runtimeを接続
+4. external Stage transition / Stage loader責務を設計
 5. PR #28を旧ARY parser / converter入力として整理
 6. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
 7. V1 Block ID 0..45 → V2 native Tile定義への変換mapping
@@ -125,7 +125,7 @@ Terrain / Visual / Object / Eventを分ける。
 
 ## 6. ステージデータの未決事項
 
-PR #30〜#33はdevへマージ済み。PR #34でNative TileRuleをJSONとTileBehaviorSystemへ接続中。
+PR #30〜#34はdevへマージ済み。PR #35でGoal Regionとsame-Stage cross-Area Pipe TransitionをSandboxへ接続中。
 
 - JSON + CSVをauthoring/native v1として採用済み。将来binary/export formatを追加するか
 - TileLayer CSVを将来full grid / sparse / chunkedへ最適化するか
