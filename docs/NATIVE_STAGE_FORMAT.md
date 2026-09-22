@@ -50,7 +50,7 @@ dat/stage/native-test/
       "id": "native-test",
       "source": "tiles.png",
       "tileSize": [32, 32],
-      "grid": [4, 1],
+      "grid": [5, 1],
       "emptyTile": 0,
       "transparent": true,
       "terrainTiles": [
@@ -97,7 +97,7 @@ Default: `Action`.
   "id": "native-test",
   "source": "tiles.png",
   "tileSize": [32, 32],
-  "grid": [4, 1],
+  "grid": [5, 1],
   "emptyTile": 0,
   "transparent": true
 }
@@ -170,7 +170,7 @@ Native terrain definitions may contain the same `TileRule` data already consumed
 ```json
 {
   "id": 4,
-  "imageIndex": 3,
+  "imageIndex": 4,
   "collision": "none",
   "rules": [
     {
@@ -323,12 +323,13 @@ CSV contains only integer tile values.
 
 The existing `GridDataLoader` is reused.
 
-The committed `native-test/tiles.png` is a self-contained four-tile fixture:
+The committed `native-test/tiles.png` is a self-contained five-tile fixture:
 
 - 0: transparent/empty
 - 1: background
 - 2: terrain block
 - 3: foreground overlay
+- 4: dedicated coin image
 
 Visual-layer CSV values are direct divided-image indices.
 
