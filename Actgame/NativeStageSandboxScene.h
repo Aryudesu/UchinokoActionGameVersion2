@@ -1,6 +1,8 @@
 ﻿#pragma once
 
 #include "Foundation/CharacterController.h"
+#include "Foundation/GoalState.h"
+#include "Foundation/PipeTransport.h"
 #include "Foundation/StageData.h"
 #include "Scene.h"
 
@@ -40,8 +42,12 @@ private:
 	void Reload();
 	void DestroyTileSets();
 	bool LoadTileSets();
+	bool ActivateArea(const std::string& AreaId);
 	bool InitializeNativePlayer();
 	void ApplyTerrainEffects();
+	void CheckGoalRegions();
+	bool TryBeginTransition(const uchinoko::CharacterInput& Input);
+	void UpdateTransition();
 	void DrawTileLayer(const uchinoko::TileLayer& Layer);
 	void DrawPlayer();
 	void DrawObjectLayer(const uchinoko::ObjectLayer& Layer);
@@ -58,6 +64,11 @@ private:
 	uchinoko::TileCatalog TerrainCatalog_;
 	uchinoko::TileRuntimeMap TerrainRuntime_;
 	uchinoko::CharacterController Player_;
+	uchinoko::PipeTransport Pipe_;
+	uchinoko::StageCompletionState Completion_;
+	uchinoko::StageClearState ClearState_;
+	std::string ActiveTransitionId_;
+	std::string ActiveTransitionTargetAreaId_;
 	bool PlayerReady_ = false;
 	int Coins_ = 0;
 	int Score_ = 0;
