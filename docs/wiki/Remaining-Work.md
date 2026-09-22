@@ -27,8 +27,8 @@ PR #28は現時点で未マージ。
 
 推奨順:
 
-1. PR #33のNative Terrain semantics + CharacterController接続をレビュー・マージ
-2. Native TileRule schema（Coin / Damage / Goal / SpawnItem等）を設計
+1. PR #34のNative TileRule JSON + TileBehaviorSystem接続をレビュー・マージ
+2. Native SpawnItem / Brick / WorldState adapterを段階接続
 3. ObjectSpawn TypeId/property schemaを設計
 4. Region / Transition runtimeを接続
 5. PR #28を旧ARY parser / converter入力として整理
@@ -125,7 +125,7 @@ Terrain / Visual / Object / Eventを分ける。
 
 ## 6. ステージデータの未決事項
 
-PR #30/#31はdevへマージ済み。PR #32でTileSet参照とNativeStageSandbox描画を追加中。
+PR #30〜#33はdevへマージ済み。PR #34でNative TileRuleをJSONとTileBehaviorSystemへ接続中。
 
 - JSON + CSVをauthoring/native v1として採用済み。将来binary/export formatを追加するか
 - TileLayer CSVを将来full grid / sparse / chunkedへ最適化するか
