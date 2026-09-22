@@ -35,7 +35,8 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #32 | Native StageData TileSet参照 + Sandbox描画 | merged |
 | #33 | Native Terrain → TileDefinition / CharacterController | merged |
 | #34 | Native Terrain TileRule JSON + TileBehaviorSystem接続 | merged |
-| #35 | Native Goal Region + Area間Pipe Transition runtime | open |
+| #35 | Native Goal Region + Area間Pipe Transition runtime | merged |
+| #36 | Native Goal判定を主人公中央16x32へ統一 | open |
 
 ## 読み方
 
@@ -77,8 +78,11 @@ Native terrain semantics / CharacterController
 #34
 Native TileRule / TileBehavior
 
-#35-
+#35
 Native Goal Region / Area transition / gameplay flow
+
+#36-
+Goal hitbox / gameplay contact tuning
 ```
 
 という流れです。
