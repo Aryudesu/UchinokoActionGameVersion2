@@ -41,6 +41,7 @@ private:
 	void DestroyTileSets();
 	bool LoadTileSets();
 	bool InitializeNativePlayer();
+	void ApplyTerrainEffects();
 	void DrawTileLayer(const uchinoko::TileLayer& Layer);
 	void DrawPlayer();
 	void DrawObjectLayer(const uchinoko::ObjectLayer& Layer);
@@ -52,11 +53,17 @@ private:
 		const char* Label);
 
 	uchinoko::StageData Stage_;
-	const uchinoko::StageArea* Area_ = nullptr;
-	const uchinoko::TileLayer* TerrainLayer_ = nullptr;
+	uchinoko::StageArea* Area_ = nullptr;
+	uchinoko::TileLayer* TerrainLayer_ = nullptr;
 	uchinoko::TileCatalog TerrainCatalog_;
+	uchinoko::TileRuntimeMap TerrainRuntime_;
 	uchinoko::CharacterController Player_;
 	bool PlayerReady_ = false;
+	int Coins_ = 0;
+	int Score_ = 0;
+	int Health_ = 4;
+	int Lives_ = 3;
+	bool Dead_ = false;
 	std::unordered_map<std::string, LoadedTileSet> TileSets_;
 	std::string LoadError_;
 	bool ShowDebug_ = true;
