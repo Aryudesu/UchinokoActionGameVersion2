@@ -34,7 +34,8 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #31 | Native StageData JSON + CSV Loader | merged |
 | #32 | Native StageData TileSet参照 + Sandbox描画 | merged |
 | #33 | Native Terrain → TileDefinition / CharacterController | merged |
-| #34 | Native Terrain TileRule JSON + TileBehaviorSystem接続 | open |
+| #34 | Native Terrain TileRule JSON + TileBehaviorSystem接続 | merged |
+| #35 | Native Goal Region + Area間Pipe Transition runtime | open |
 
 ## 読み方
 
@@ -73,8 +74,11 @@ TileSet / native rendering
 #33
 Native terrain semantics / CharacterController
 
-#34-
-Native TileRule / TileBehavior / gameplay adapters
+#34
+Native TileRule / TileBehavior
+
+#35-
+Native Goal Region / Area transition / gameplay flow
 ```
 
 という流れです。
