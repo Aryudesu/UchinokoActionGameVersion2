@@ -419,6 +419,19 @@ Result<bool> ValidateStageData(const StageData& Data) {
 					TileSet.Id + " tile " +
 					std::to_string(Definition.Id));
 			}
+			for (const TileRule& Rule : Definition.Rules) {
+				if (Rule.Action != TileAction::ReplaceTile &&
+					Rule.Action != TileAction::BreakTile) {
+					continue;
+				}
+				if (TileSet.FindTerrainTile(Rule.Value) == nullptr) {
+					return Result<bool>::Failure(
+						"Terrain tile rule references undefined replacement id " +
+						std::to_string(Rule.Value) + ": " +
+						TileSet.Id + " tile " +
+						std::to_string(Definition.Id));
+				}
+			}
 		}
 		if (!RegisterUnique(TileSetIds, TileSet.Id)) {
 			return Result<bool>::Failure(
