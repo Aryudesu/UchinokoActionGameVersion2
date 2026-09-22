@@ -1278,9 +1278,9 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(TileSet->ImageFile.find("tiles.png") != std::string::npos);
 	assert(TileSet->TileWidth == 32);
 	assert(TileSet->TileHeight == 32);
-	assert(TileSet->Columns == 4);
+	assert(TileSet->Columns == 5);
 	assert(TileSet->Rows == 1);
-	assert(TileSet->TileCount() == 4);
+	assert(TileSet->TileCount() == 5);
 	assert(TileSet->EmptyTileId == 0);
 	assert(TileSet->Transparent);
 	assert(TileSet->TerrainTiles.size() == 3);
@@ -1295,7 +1295,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(SolidTerrain->Collision == CollisionShape::Solid);
 	assert(SolidTerrain->ImageIndex == 2);
 	assert(CoinTerrain->Collision == CollisionShape::None);
-	assert(CoinTerrain->ImageIndex == 3);
+	assert(CoinTerrain->ImageIndex == 4);
 	assert(CoinTerrain->Rules.size() == 3);
 	assert(CoinTerrain->Rules[0].Trigger == TileTrigger::Touch);
 	assert(CoinTerrain->Rules[0].Action == TileAction::AddCoin);
