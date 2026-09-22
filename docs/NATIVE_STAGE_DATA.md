@@ -79,6 +79,21 @@ Goal、Checkpoint、Camera/BGM trigger、Scene event等。
 
 PointまたはRectangleで表現する。
 
+### Goal Region runtime
+
+`TypeId = "Goal"` のRegionは、CharacterBodyの矩形がRegion geometryへ実際に重なった時に発火する。
+
+```text
+StageRegionGeometry
+      ↓ overlap
+Goal Region
+      ↓ goalKind = normal / secret
+StageCompletionState
+StageClearState
+```
+
+境界に触れただけでは発火せず、半開矩形として内部へ入った時に成立する。
+
 ## StageTransition
 
 入口領域と移動先を直接持つ。
@@ -90,6 +105,23 @@ PointまたはRectangleで表現する。
 を同じモデルで表現する。
 
 HSPのmov/coo/infやV1のStageMovingをruntimeへ持ち込まない。
+
+### Pipe Transition runtime
+
+`TypeId = "Pipe"` のStageTransitionは、NativeStageSandboxでは既存Foundation `PipeTransport` へ変換する。
+
+```text
+StageTransition
+  Entry + EnterDirection
+          ↓
+      PipeTransport
+          ↓ fade out
+   TargetAreaへ切替
+          ↓
+  ExitPosition + ExitDirection
+```
+
+同一Stage内のArea移動では完全暗転時にTerrain/Layer/Regionの参照をTargetAreaへ切り替える。外部Stage遷移はStageロード責務が必要なため、このSandboxではまだ実行しない。
 
 ## Stable IDs
 

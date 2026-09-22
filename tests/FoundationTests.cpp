@@ -1079,6 +1079,29 @@ void TestStagePropertyValuesKeepTypes() {
 	assert(NearlyEqual(VectorValue.Y, 34.0f));
 }
 
+void TestStageRegionGeometryIntersection() {
+	const StageRegionGeometry Rectangle =
+		StageRegionGeometry::Rectangle({100.0f, 50.0f}, 32.0f, 64.0f);
+	assert(Rectangle.IntersectsRectangle(
+		{90.0f, 60.0f}, {20.0f, 20.0f}));
+	assert(Rectangle.IntersectsRectangle(
+		{100.0f, 50.0f}, {32.0f, 64.0f}));
+	// 半開矩形なので右端/下端で触れるだけでは発火しない。
+	assert(!Rectangle.IntersectsRectangle(
+		{132.0f, 60.0f}, {16.0f, 16.0f}));
+	assert(!Rectangle.IntersectsRectangle(
+		{110.0f, 114.0f}, {16.0f, 16.0f}));
+
+	const StageRegionGeometry Point =
+		StageRegionGeometry::Point({128.0f, 96.0f});
+	assert(Point.IntersectsRectangle(
+		{120.0f, 88.0f}, {16.0f, 16.0f}));
+	assert(!Point.IntersectsRectangle(
+		{128.0f, 96.0f}, {0.0f, 32.0f}));
+	assert(!Point.IntersectsRectangle(
+		{112.0f, 96.0f}, {16.0f, 16.0f}));
+}
+
 void TestNativeStageDataSupportsOverlappingContent() {
 	TileLayer Terrain;
 	Terrain.Metadata.Id = "terrain";
@@ -1309,7 +1332,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
 	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
-	assert(Data.Areas.size() == 1);
+	assert(Data.Areas.size() == 2);
 
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
@@ -1384,21 +1407,44 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NearlyEqual(PathDelta.X, 192.0f));
 	assert(NearlyEqual(PathDelta.Y, 0.0f));
 
-	const RegionLayer* Events = Area->FindRegionLayer("events");
-	assert(Events != nullptr);
-	assert(Events->Regions.size() == 1);
-	assert(Events->Regions[0].Geometry.Shape == StageRegionShape::Rectangle);
-	assert(NearlyEqual(Events->Regions[0].Geometry.Position.X, 192.0f));
-	assert(NearlyEqual(Events->Regions[0].Geometry.Size.Y, 64.0f));
+	assert(Area->RegionLayers.empty());
 
 	assert(Area->Transitions.size() == 1);
 	const StageTransition& Pipe = Area->Transitions[0];
-	assert(Pipe.Id == "pipe-1");
+	assert(Pipe.Id == "pipe-main-sub");
 	assert(Pipe.TargetStageId.empty());
-	assert(Pipe.TargetAreaId == "main");
+	assert(Pipe.TargetAreaId == "sub");
+	assert(Pipe.Entry.Shape == StageRegionShape::Point);
+	assert(NearlyEqual(Pipe.Entry.Position.X, 128.0f));
+	assert(NearlyEqual(Pipe.Entry.Position.Y, 128.0f));
 	assert(Pipe.EnterDirection == StageDirection::Down);
 	assert(Pipe.ExitDirection == StageDirection::Up);
-	assert(NearlyEqual(Pipe.ExitPosition.X, 192.0f));
+	assert(NearlyEqual(Pipe.ExitPosition.X, 32.0f));
+	assert(NearlyEqual(Pipe.ExitPosition.Y, 128.0f));
+
+	const StageArea* Sub = Data.FindArea("sub");
+	assert(Sub != nullptr);
+	assert(Sub->Width == 8);
+	assert(Sub->Height == 6);
+	assert(Sub->TerrainLayer() != nullptr);
+	assert(*Sub->TerrainLayer()->Map.TryGet({0, 5}) == 2);
+	assert(Sub->ObjectLayers.empty());
+	assert(Sub->Transitions.empty());
+
+	const RegionLayer* Events = Sub->FindRegionLayer("events");
+	assert(Events != nullptr);
+	assert(Events->Regions.size() == 1);
+	const StageRegion& Goal = Events->Regions[0];
+	assert(Goal.Id == "goal-sub");
+	assert(Goal.TypeId == "Goal");
+	assert(Goal.Geometry.Shape == StageRegionShape::Rectangle);
+	assert(NearlyEqual(Goal.Geometry.Position.X, 192.0f));
+	assert(NearlyEqual(Goal.Geometry.Position.Y, 128.0f));
+	assert(NearlyEqual(Goal.Geometry.Size.X, 32.0f));
+	assert(NearlyEqual(Goal.Geometry.Size.Y, 32.0f));
+	std::string GoalKind;
+	assert(Goal.Properties.at("goalKind").TryGetString(GoalKind));
+	assert(GoalKind == "normal");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -4611,6 +4657,7 @@ void TestExternalStageSpawnStaysOnFloor() {
 int main(int argc, char* argv[]) {
 	if (argc >= 2 && std::string(argv[1]) == "--native-stage-loader") {
 		TestStagePropertyValuesKeepTypes();
+		TestStageRegionGeometryIntersection();
 		TestNativeStageDataSupportsOverlappingContent();
 		TestNativeStageDataValidationRejectsAmbiguousStructure();
 		TestNativeStageDataAllowsExternalTransitions();
@@ -4671,6 +4718,7 @@ int main(int argc, char* argv[]) {
 	TestNativeStageDataLoaderRejectsUnsupportedVersion();
 	TestNativeStageDataLoaderRejectsNestedProperties();
 	TestStagePropertyValuesKeepTypes();
+	TestStageRegionGeometryIntersection();
 	TestNativeStageDataSupportsOverlappingContent();
 	TestNativeStageDataValidationRejectsAmbiguousStructure();
 	TestNativeStageDataAllowsExternalTransitions();

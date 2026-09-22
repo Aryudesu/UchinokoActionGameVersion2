@@ -98,6 +98,72 @@
           ]
         }
       ],
+      "regionLayers": [],
+      "transitions": [
+        {
+          "id": "pipe-main-sub",
+          "type": "Pipe",
+          "entry": {
+            "shape": "point",
+            "position": [
+              128,
+              128
+            ]
+          },
+          "targetArea": "sub",
+          "exitPosition": [
+            32,
+            128
+          ],
+          "enterDirection": "down",
+          "exitDirection": "up"
+        }
+      ]
+    },
+    {
+      "id": "sub",
+      "size": [
+        8,
+        6
+      ],
+      "tileSize": [
+        32,
+        32
+      ],
+      "settings": {
+        "timeLimitSeconds": 0,
+        "bgm": "test-sub-bgm",
+        "background": "test-sub-sky",
+        "properties": {
+          "cameraMode": "follow"
+        }
+      },
+      "tileLayers": [
+        {
+          "id": "background",
+          "name": "Background",
+          "role": "visual",
+          "zOrder": -10,
+          "source": "sub/background.csv",
+          "tileSet": "native-test"
+        },
+        {
+          "id": "terrain",
+          "name": "Terrain",
+          "role": "terrain",
+          "zOrder": 0,
+          "source": "sub/terrain.csv",
+          "tileSet": "native-test"
+        },
+        {
+          "id": "foreground",
+          "name": "Foreground",
+          "role": "visual",
+          "zOrder": 20,
+          "source": "sub/foreground.csv",
+          "tileSet": "native-test"
+        }
+      ],
       "regionLayers": [
         {
           "id": "events",
@@ -105,17 +171,17 @@
           "zOrder": 30,
           "regions": [
             {
-              "id": "goal-1",
+              "id": "goal-sub",
               "type": "Goal",
               "geometry": {
                 "shape": "rectangle",
                 "position": [
                   192,
-                  64
+                  128
                 ],
                 "size": [
                   32,
-                  64
+                  32
                 ]
               },
               "properties": {
@@ -125,26 +191,7 @@
           ]
         }
       ],
-      "transitions": [
-        {
-          "id": "pipe-1",
-          "type": "Pipe",
-          "entry": {
-            "shape": "point",
-            "position": [
-              64,
-              96
-            ]
-          },
-          "targetArea": "main",
-          "exitPosition": [
-            192,
-            96
-          ],
-          "enterDirection": "down",
-          "exitDirection": "up"
-        }
-      ]
+      "transitions": []
     }
   ],
   "tileSets": [

@@ -111,6 +111,12 @@ struct StageRegionGeometry {
 		WorldPosition Position,
 		float Width,
 		float Height);
+
+	// Rectangleは半開矩形として重なりを判定する。
+	// Pointは対象矩形の内部に入った時だけtrueとし、境界接触だけでは発火しない。
+	bool IntersectsRectangle(
+		WorldPosition RectanglePosition,
+		WorldPosition RectangleSize) const;
 };
 
 struct StageRegion {

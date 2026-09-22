@@ -116,6 +116,33 @@ StageRegionGeometry StageRegionGeometry::Rectangle(
 	return Result;
 }
 
+bool StageRegionGeometry::IntersectsRectangle(
+	WorldPosition RectanglePosition,
+	WorldPosition RectangleSize) const {
+	if (RectangleSize.X <= 0.0f || RectangleSize.Y <= 0.0f) return false;
+
+	const float RectangleLeft = RectanglePosition.X;
+	const float RectangleTop = RectanglePosition.Y;
+	const float RectangleRight = RectanglePosition.X + RectangleSize.X;
+	const float RectangleBottom = RectanglePosition.Y + RectangleSize.Y;
+
+	if (Shape == StageRegionShape::Point) {
+		return Position.X >= RectangleLeft &&
+			Position.X < RectangleRight &&
+			Position.Y >= RectangleTop &&
+			Position.Y < RectangleBottom;
+	}
+
+	const float RegionLeft = Position.X;
+	const float RegionTop = Position.Y;
+	const float RegionRight = Position.X + Size.X;
+	const float RegionBottom = Position.Y + Size.Y;
+	return RegionLeft < RectangleRight &&
+		RegionRight > RectangleLeft &&
+		RegionTop < RectangleBottom &&
+		RegionBottom > RectangleTop;
+}
+
 namespace {
 
 bool RegisterUnique(
