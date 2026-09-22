@@ -51,12 +51,15 @@ Terrain LayerのCSV値は意味IDであり、TileSet内の `TerrainTiles` から
 ```text
 Terrain ID
   ├ Collision / Movement → CharacterController
+  ├ Rules                → TileBehaviorSystem
   └ ImageIndex           → Renderer
 ```
 
 へ分岐する。
 
-`TileSetDefinition::BuildTerrainCatalog()` により既存Foundationの `TileCatalog` を生成するため、native専用の衝突実装は作らない。
+`TileSetDefinition::BuildTerrainCatalog()` により既存Foundationの `TileCatalog` を生成するため、native専用の衝突・ギミック実装は作らない。
+
+Native JSONの `terrainTiles[].rules` は既存 `TileRule` へそのまま変換する。CharacterControllerが生成した `TileInteraction` を `TileBehaviorSystem` に渡すことで、ReplaceTile / Coin / Damage等の既存Foundation behaviorを再利用する。
 
 ## ObjectLayer
 
@@ -135,6 +138,7 @@ Lift
 - TileSet IDが一意で、画像・分割サイズが妥当
 - TileLayerが指定したTileSetが存在
 - TileSetとAreaのtile sizeが一致
+- ReplaceTile / BreakTileの移行先terrain IDが同一TileSet内に存在
 - AreaごとにTerrain layerがちょうど1枚
 - TileLayerのgrid/tile sizeがAreaと一致
 - Layer IDがArea内で一意

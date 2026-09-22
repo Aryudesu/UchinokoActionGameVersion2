@@ -47,9 +47,18 @@ bool StagePropertyValue::TryGetInteger(int& Value) const {
 }
 
 bool StagePropertyValue::TryGetFloat(float& Value) const {
-	if (Type_ != StagePropertyType::Float) return false;
-	Value = FloatValue_;
-	return true;
+	if (Type_ == StagePropertyType::Float) {
+		Value = FloatValue_;
+		return true;
+	}
+	// JSON serializers may normalize a lexical value such as 2.0 to 2.
+	// Integer -> float is a safe widening conversion for semantic numeric
+	// properties such as speed and range.
+	if (Type_ == StagePropertyType::Integer) {
+		Value = static_cast<float>(IntegerValue_);
+		return true;
+	}
+	return false;
 }
 
 bool StagePropertyValue::TryGetBoolean(bool& Value) const {
@@ -409,6 +418,19 @@ Result<bool> ValidateStageData(const StageData& Data) {
 					"Terrain tile image index is outside tile set grid: " +
 					TileSet.Id + " tile " +
 					std::to_string(Definition.Id));
+			}
+			for (const TileRule& Rule : Definition.Rules) {
+				if (Rule.Action != TileAction::ReplaceTile &&
+					Rule.Action != TileAction::BreakTile) {
+					continue;
+				}
+				if (TileSet.FindTerrainTile(Rule.Value) == nullptr) {
+					return Result<bool>::Failure(
+						"Terrain tile rule references undefined replacement id " +
+						std::to_string(Rule.Value) + ": " +
+						TileSet.Id + " tile " +
+						std::to_string(Definition.Id));
+				}
 			}
 		}
 		if (!RegisterUnique(TileSetIds, TileSet.Id)) {
