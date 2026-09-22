@@ -113,15 +113,19 @@ bool NativeStageSandboxScene::LoadTileSets() {
 	return true;
 }
 
-bool NativeStageSandboxScene::InitializeNativePlayer() {
+bool NativeStageSandboxScene::ActivateArea(const std::string& AreaId) {
+	Area_ = Stage_.FindArea(AreaId);
 	TerrainLayer_ = Area_ == nullptr ? nullptr : Area_->TerrainLayer();
-	PlayerReady_ = false;
+	if (Area_ == nullptr) {
+		LoadError_ = "Area not found: " + AreaId;
+		return false;
+	}
 	if (TerrainLayer_ == nullptr) {
-		LoadError_ = "Terrain layer not found";
+		LoadError_ = "Terrain layer not found in area: " + AreaId;
 		return false;
 	}
 	if (TerrainLayer_->TileSetId.empty()) {
-		LoadError_ = "Terrain layer has no tileSet";
+		LoadError_ = "Terrain layer has no tileSet: " + AreaId;
 		return false;
 	}
 
@@ -147,6 +151,15 @@ bool NativeStageSandboxScene::InitializeNativePlayer() {
 	}
 	TerrainCatalog_ = std::move(Catalog.Value());
 	TerrainRuntime_.Reset(TerrainLayer_->Map);
+	return true;
+}
+
+bool NativeStageSandboxScene::InitializeNativePlayer() {
+	PlayerReady_ = false;
+	if (Area_ == nullptr) {
+		LoadError_ = "Start area is not active";
+		return false;
+	}
 
 	const uchinoko::ObjectSpawn* Spawn = nullptr;
 	for (const uchinoko::ObjectLayer& Layer : Area_->ObjectLayers) {
