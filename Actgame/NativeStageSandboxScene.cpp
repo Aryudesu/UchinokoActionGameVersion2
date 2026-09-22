@@ -754,7 +754,7 @@ void NativeStageSandboxScene::draw() {
 		Area_->Height);
 	DrawString(
 		16, 68,
-		"Yellow=Player  Red=Enemy  Blue=Lift  Cyan=Region  YellowLine=Transition",
+		"Yellow=Player  Red=Enemy  Blue=Lift  Green=Goal  Yellow=Transition",
 		GetColor(230, 235, 255));
 	DrawFormatString(
 		16, 92,
