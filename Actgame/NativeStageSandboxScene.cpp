@@ -3,6 +3,7 @@
 #include "Conf.h"
 #include "DxLib.h"
 #include "Foundation/NativeStageDataLoader.h"
+#include "Foundation/PlayerResourceRules.h"
 #include "InputKey.h"
 #include "SceneChanger.h"
 
@@ -104,6 +105,7 @@ bool NativeStageSandboxScene::InitializeNativePlayer() {
 		return false;
 	}
 	TerrainCatalog_ = std::move(Catalog.Value());
+	TerrainRuntime_.Reset(TerrainLayer_->Map);
 
 	const uchinoko::ObjectSpawn* Spawn = nullptr;
 	for (const uchinoko::ObjectLayer& Layer : Area_->ObjectLayers) {
@@ -129,11 +131,65 @@ bool NativeStageSandboxScene::InitializeNativePlayer() {
 	return true;
 }
 
+void NativeStageSandboxScene::ApplyTerrainEffects() {
+	if (TerrainLayer_ == nullptr) return;
+
+	const std::vector<uchinoko::TileEffect> Effects =
+		uchinoko::TileBehaviorSystem::ApplyAll(
+			Player_.Interactions(),
+			TerrainLayer_->Map,
+			TerrainCatalog_,
+			TerrainRuntime_);
+
+	for (const uchinoko::TileEffect& Effect : Effects) {
+		switch (Effect.Type) {
+		case uchinoko::TileEffectType::AddCoin:
+			uchinoko::PlayerResourceRules::AddCoin(
+				Effect.Value, Coins_, Lives_);
+			break;
+		case uchinoko::TileEffectType::AddHealth:
+			uchinoko::PlayerResourceRules::AddHealth(
+				Effect.Value, Health_);
+			break;
+		case uchinoko::TileEffectType::AddLife:
+			uchinoko::PlayerResourceRules::AddLife(
+				Effect.Value, Lives_);
+			break;
+		case uchinoko::TileEffectType::AddScore:
+			Score_ += Effect.Value;
+			break;
+		case uchinoko::TileEffectType::Damage:
+			if (Effect.Actor == uchinoko::TileActor::Player) {
+				Health_ -= Effect.Value;
+				if (Health_ <= 0) {
+					Health_ = 0;
+					Dead_ = true;
+				}
+			}
+			break;
+		case uchinoko::TileEffectType::InstantDeath:
+			if (Effect.Actor == uchinoko::TileActor::Player) {
+				Dead_ = true;
+			}
+			break;
+		default:
+			// SpawnItem / switch / brick / goal adapters are connected
+			// separately. TileBehaviorSystem itself is already shared.
+			break;
+		}
+	}
+}
+
 void NativeStageSandboxScene::Reload() {
 	DestroyTileSets();
 	Area_ = nullptr;
 	TerrainLayer_ = nullptr;
 	PlayerReady_ = false;
+	Coins_ = 0;
+	Score_ = 0;
+	Health_ = 4;
+	Lives_ = 3;
+	Dead_ = false;
 	LoadError_.clear();
 
 	uchinoko::Result<uchinoko::StageData> Loaded =
@@ -167,7 +223,8 @@ void NativeStageSandboxScene::update() {
 	if (ReturnKey(KEY_INPUT_D) == 1) {
 		ShowDebug_ = !ShowDebug_;
 	}
-	if (!LoadError_.empty() || !PlayerReady_ || TerrainLayer_ == nullptr) {
+	if (!LoadError_.empty() || !PlayerReady_ || TerrainLayer_ == nullptr ||
+		Dead_) {
 		return;
 	}
 
@@ -179,6 +236,7 @@ void NativeStageSandboxScene::update() {
 	Input.JumpPressed = ReturnKey(KEY_INPUT_Z) == 1;
 
 	Player_.Step(Input, TerrainLayer_->Map, TerrainCatalog_);
+	ApplyTerrainEffects();
 }
 
 void NativeStageSandboxScene::DrawTileLayer(
@@ -244,6 +302,46 @@ void NativeStageSandboxScene::DrawTileLayer(
 				Top,
 				Loaded.Handles[static_cast<std::size_t>(ImageIndex)],
 				Loaded.Transparent ? TRUE : FALSE);
+
+			if (ShowDebug_ &&
+				Layer.Role == uchinoko::TileLayerRole::Terrain) {
+				const uchinoko::TileDefinition* Definition =
+					DefinitionSet->FindTerrainTile(*TileId);
+				if (Definition != nullptr) {
+					for (const uchinoko::TileRule& Rule : Definition->Rules) {
+						const char* Label = nullptr;
+						unsigned int Color = GetColor(255, 255, 255);
+						switch (Rule.Action) {
+						case uchinoko::TileAction::AddCoin:
+							Label = "C";
+							Color = GetColor(255, 225, 80);
+							break;
+						case uchinoko::TileAction::Damage:
+							Label = "D";
+							Color = GetColor(255, 100, 80);
+							break;
+						case uchinoko::TileAction::InstantDeath:
+							Label = "K";
+							Color = GetColor(255, 70, 100);
+							break;
+						case uchinoko::TileAction::SpawnItem:
+							Label = "?";
+							Color = GetColor(255, 210, 100);
+							break;
+						case uchinoko::TileAction::Goal:
+							Label = "G";
+							Color = GetColor(100, 255, 170);
+							break;
+						default:
+							break;
+						}
+						if (Label != nullptr) {
+							DrawString(Left + 10, Top + 7, Label, Color);
+							break;
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -479,4 +577,10 @@ void NativeStageSandboxScene::draw() {
 		16, 68,
 		"Yellow=Player  Red=Enemy  Blue=Lift  Cyan=Region  YellowLine=Transition",
 		GetColor(230, 235, 255));
+	DrawFormatString(
+		16, 92,
+		Dead_ ? GetColor(255, 100, 100) : GetColor(255, 245, 180),
+		"Coins:%d  HP:%d  Lives:%d  Score:%d%s",
+		Coins_, Health_, Lives_, Score_,
+		Dead_ ? "  DEAD (R: reload)" : "");
 }
