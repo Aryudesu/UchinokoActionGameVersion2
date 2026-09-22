@@ -94,6 +94,10 @@ StageClearState
 
 境界に触れただけでは発火せず、半開矩形として内部へ入った時に成立する。
 
+Playerとの判定には見た目32x32の全身矩形ではなく、`CharacterController::TouchBounds()` の中央16x32を使う。これにより、見た目の端がGoalへ少し触れただけではクリアにならない。
+
+`native-test` のGoal Regionは32x32。Region自体のサイズは固定せず、将来の大きいGoal/Triggerも同じ仕組みで表現できる。
+
 ## StageTransition
 
 入口領域と移動先を直接持つ。
