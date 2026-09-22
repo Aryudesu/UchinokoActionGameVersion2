@@ -75,7 +75,7 @@
               "properties": {
                 "direction": "left",
                 "variant": 1,
-                "speed": 2.0,
+                "speed": 2,
                 "aggressive": false
               }
             },
@@ -87,8 +87,8 @@
                 96
               ],
               "properties": {
-                "range": 192.0,
-                "speed": 2.0,
+                "range": 192,
+                "speed": 2,
                 "pathDelta": [
                   192,
                   0
@@ -173,6 +173,32 @@
           "imageIndex": 2,
           "collision": "solid",
           "movement": "none"
+        },
+        {
+          "id": 4,
+          "imageIndex": 3,
+          "collision": "none",
+          "movement": "none",
+          "rules": [
+            {
+              "trigger": "touch",
+              "action": "addCoin",
+              "value": 1,
+              "target": "player"
+            },
+            {
+              "trigger": "touch",
+              "action": "addScore",
+              "value": 100,
+              "target": "player"
+            },
+            {
+              "trigger": "touch",
+              "action": "replaceTile",
+              "value": 0,
+              "target": "player"
+            }
+          ]
         }
       ]
     }
