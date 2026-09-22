@@ -234,11 +234,104 @@ void NativeStageSandboxScene::ApplyTerrainEffects() {
 	}
 }
 
+void NativeStageSandboxScene::CheckGoalRegions() {
+	if (Area_ == nullptr || Completion_.Cleared) return;
+
+	const uchinoko::CharacterBody& Body = Player_.Body();
+	const uchinoko::WorldPosition BodySize = {Body.Width, Body.Height};
+
+	for (const uchinoko::RegionLayer& Layer : Area_->RegionLayers) {
+		for (const uchinoko::StageRegion& Region : Layer.Regions) {
+			if (Region.TypeId != "Goal") continue;
+			if (!Region.Geometry.IntersectsRectangle(
+				Body.Position, BodySize)) {
+				continue;
+			}
+
+			uchinoko::GoalKind Kind;
+			if (!TryRegionGoalKind(Region, Kind)) {
+				LoadError_ =
+					"Goal region has invalid goalKind: " + Region.Id;
+				return;
+			}
+
+			ClearState_.Record(Kind);
+			Completion_.Complete(Kind);
+			return;
+		}
+	}
+}
+
+bool NativeStageSandboxScene::TryBeginTransition(
+	const uchinoko::CharacterInput& Input) {
+	if (Area_ == nullptr || Pipe_.IsActive()) return false;
+
+	for (const uchinoko::StageTransition& Transition : Area_->Transitions) {
+		if (Transition.TypeId != "Pipe") continue;
+		if (!Transition.TargetStageId.empty()) continue;
+		if (Transition.Entry.Shape != uchinoko::StageRegionShape::Point) continue;
+
+		uchinoko::PipeDirection EnterDirection;
+		uchinoko::PipeDirection ExitDirection;
+		if (!TryPipeDirection(
+				Transition.EnterDirection, EnterDirection) ||
+			!TryPipeDirection(
+				Transition.ExitDirection, ExitDirection)) {
+			continue;
+		}
+
+		uchinoko::PipeLink Link;
+		Link.EntryPosition = Transition.Entry.Position;
+		Link.EnterDirection = EnterDirection;
+		Link.ExitPosition = Transition.ExitPosition;
+		Link.ExitDirection = ExitDirection;
+
+		const std::vector<uchinoko::PipeLink> Links = {Link};
+		if (!Pipe_.TryBegin(Input, Player_, Links)) continue;
+
+		ActiveTransitionId_ = Transition.Id;
+		ActiveTransitionTargetAreaId_ = Transition.TargetAreaId;
+		return true;
+	}
+	return false;
+}
+
+void NativeStageSandboxScene::UpdateTransition() {
+	if (!Pipe_.IsActive()) return;
+
+	const uchinoko::PipeTransportPhase Before = Pipe_.Phase();
+	Pipe_.Update(Player_);
+
+	// PipeTransportが完全暗転時にExitPosition内部へ移した直後、
+	// 描画対象/当たり判定をTargetAreaへ切り替える。
+	if (Before == uchinoko::PipeTransportPhase::FadeOut &&
+		Pipe_.Phase() == uchinoko::PipeTransportPhase::FadeIn &&
+		Area_ != nullptr &&
+		ActiveTransitionTargetAreaId_ != Area_->Id) {
+		if (!ActivateArea(ActiveTransitionTargetAreaId_)) {
+			Pipe_.Reset();
+			ActiveTransitionId_.clear();
+			ActiveTransitionTargetAreaId_.clear();
+			return;
+		}
+	}
+
+	if (!Pipe_.IsActive()) {
+		ActiveTransitionId_.clear();
+		ActiveTransitionTargetAreaId_.clear();
+	}
+}
+
 void NativeStageSandboxScene::Reload() {
 	DestroyTileSets();
 	Area_ = nullptr;
 	TerrainLayer_ = nullptr;
 	PlayerReady_ = false;
+	Pipe_.Reset();
+	Completion_.Reset();
+	ClearState_ = uchinoko::StageClearState();
+	ActiveTransitionId_.clear();
+	ActiveTransitionTargetAreaId_.clear();
 	Coins_ = 0;
 	Score_ = 0;
 	Health_ = 4;
@@ -255,13 +348,9 @@ void NativeStageSandboxScene::Reload() {
 	}
 
 	Stage_ = std::move(Loaded.Value());
-	Area_ = Stage_.FindArea(Stage_.StartAreaId);
-	if (Area_ == nullptr) {
-		LoadError_ = "Start area not found: " + Stage_.StartAreaId;
-		return;
-	}
 
 	if (!LoadTileSets()) return;
+	if (!ActivateArea(Stage_.StartAreaId)) return;
 	InitializeNativePlayer();
 }
 
@@ -282,6 +371,16 @@ void NativeStageSandboxScene::update() {
 		return;
 	}
 
+	if (Pipe_.IsActive()) {
+		UpdateTransition();
+		return;
+	}
+
+	if (Completion_.Cleared) {
+		Player_.StepWithoutInput(TerrainLayer_->Map, TerrainCatalog_);
+		return;
+	}
+
 	uchinoko::CharacterInput Input;
 	if (ReturnKey(KEY_INPUT_LEFT) != 0) Input.Horizontal -= 1.0f;
 	if (ReturnKey(KEY_INPUT_RIGHT) != 0) Input.Horizontal += 1.0f;
@@ -289,8 +388,12 @@ void NativeStageSandboxScene::update() {
 	if (ReturnKey(KEY_INPUT_DOWN) != 0) Input.Vertical += 1.0f;
 	Input.JumpPressed = ReturnKey(KEY_INPUT_Z) == 1;
 
+	if (TryBeginTransition(Input)) return;
+
 	Player_.Step(Input, TerrainLayer_->Map, TerrainCatalog_);
 	ApplyTerrainEffects();
+	if (Dead_) return;
+	CheckGoalRegions();
 }
 
 void NativeStageSandboxScene::DrawTileLayer(
