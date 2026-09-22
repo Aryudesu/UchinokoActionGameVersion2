@@ -408,6 +408,20 @@ The current NativeStageSandbox requires exactly one PlayerSpawn in the start Are
 }
 ```
 
+The current native runtime recognizes `type: "Goal"`.
+
+A Goal region requires a string property:
+
+```json
+"properties": {
+  "goalKind": "normal"
+}
+```
+
+Supported values are `normal` and `secret`.
+
+The goal fires when the player's body rectangle actually overlaps the Region. Merely touching the Region boundary does not count.
+
 Geometry:
 
 ### Point
@@ -449,6 +463,10 @@ Geometry:
 Optional `targetStage` selects another StageData.
 
 When `targetStage` is omitted or empty, `targetArea` must exist in the current StageData.
+
+For `type: "Pipe"`, the NativeStageSandbox bridges `enterDirection / exitDirection` to the existing Foundation `PipeTransport`. For an in-stage cross-Area transition, the active Area is switched at full fade-out and the player then emerges at `exitPosition` in the target Area.
+
+External `targetStage` transitions remain valid data, but loading another StageData is not yet connected to the Sandbox runtime.
 
 Directions:
 
