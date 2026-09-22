@@ -1061,7 +1061,9 @@ void TestStagePropertyValuesKeepTypes() {
 
 	assert(Integer.TryGetInteger(IntValue));
 	assert(IntValue == 7);
-	assert(!Integer.TryGetFloat(FloatValue));
+	// JSON serializerが2.0を2へ正規化してもsemantic floatとして読める。
+	assert(Integer.TryGetFloat(FloatValue));
+	assert(NearlyEqual(FloatValue, 7.0f));
 
 	assert(Float.TryGetFloat(FloatValue));
 	assert(NearlyEqual(FloatValue, 2.5f));
@@ -1281,15 +1283,28 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(TileSet->TileCount() == 4);
 	assert(TileSet->EmptyTileId == 0);
 	assert(TileSet->Transparent);
-	assert(TileSet->TerrainTiles.size() == 2);
+	assert(TileSet->TerrainTiles.size() == 3);
 	const TileDefinition* EmptyTerrain = TileSet->FindTerrainTile(0);
 	const TileDefinition* SolidTerrain = TileSet->FindTerrainTile(2);
+	const TileDefinition* CoinTerrain = TileSet->FindTerrainTile(4);
 	assert(EmptyTerrain != nullptr);
 	assert(SolidTerrain != nullptr);
+	assert(CoinTerrain != nullptr);
 	assert(EmptyTerrain->Collision == CollisionShape::None);
 	assert(EmptyTerrain->ImageIndex == 0);
 	assert(SolidTerrain->Collision == CollisionShape::Solid);
 	assert(SolidTerrain->ImageIndex == 2);
+	assert(CoinTerrain->Collision == CollisionShape::None);
+	assert(CoinTerrain->ImageIndex == 3);
+	assert(CoinTerrain->Rules.size() == 3);
+	assert(CoinTerrain->Rules[0].Trigger == TileTrigger::Touch);
+	assert(CoinTerrain->Rules[0].Action == TileAction::AddCoin);
+	assert(CoinTerrain->Rules[0].Value == 1);
+	assert(CoinTerrain->Rules[0].Target == TileTarget::Player);
+	assert(CoinTerrain->Rules[1].Action == TileAction::AddScore);
+	assert(CoinTerrain->Rules[1].Value == 100);
+	assert(CoinTerrain->Rules[2].Action == TileAction::ReplaceTile);
+	assert(CoinTerrain->Rules[2].Value == 0);
 	Result<TileCatalog> NativeCatalog = TileSet->BuildTerrainCatalog();
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
@@ -1324,6 +1339,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(Foreground->Metadata.ZOrder == 20);
 	assert(*Background->Map.TryGet({0, 0}) == 1);
 	assert(*Terrain->Map.TryGet({2, 3}) == 2);
+	assert(*Terrain->Map.TryGet({2, 4}) == 4);
 	assert(*Foreground->Map.TryGet({7, 4}) == 3);
 
 	const ObjectLayer* Objects = Area->FindObjectLayer("objects");
@@ -1429,6 +1445,89 @@ void TestNativeStageCharacterControllerUsesTerrainSemantics() {
 	Player.Step(0.0f, true, Terrain->Map, Catalog.Value());
 	assert(Player.Body().Position.Y < 128.0f);
 	assert(!Player.Body().Grounded);
+}
+
+void TestNativeStageTileRulesApplyFromJson() {
+	Result<StageData> Loaded =
+		NativeStageDataLoader::Load("dat/stage/native-test/stage.json");
+	assert(Loaded.IsSuccess());
+
+	StageData Data = std::move(Loaded.Value());
+	StageArea* Area = Data.FindArea(Data.StartAreaId);
+	assert(Area != nullptr);
+	TileLayer* Terrain = Area->TerrainLayer();
+	assert(Terrain != nullptr);
+	const TileSetDefinition* TileSet = Data.FindTileSet(Terrain->TileSetId);
+	assert(TileSet != nullptr);
+
+	Result<TileCatalog> Catalog = TileSet->BuildTerrainCatalog();
+	assert(Catalog.IsSuccess());
+
+	TileRuntimeMap Runtime(Terrain->Map);
+	TileInteraction Touch;
+	Touch.Trigger = TileTrigger::Touch;
+	Touch.Position = {2, 4};
+	Touch.TileId = 4;
+	Touch.Actor = TileActor::Player;
+
+	const TileBehaviorResult Result =
+		TileBehaviorSystem::Apply(
+			Touch, Terrain->Map, Catalog.Value(), Runtime);
+	assert(Result.Handled);
+	assert(Result.Effects.size() == 2);
+	assert(Result.Effects[0].Type == TileEffectType::AddCoin);
+	assert(Result.Effects[0].Value == 1);
+	assert(Result.Effects[1].Type == TileEffectType::AddScore);
+	assert(Result.Effects[1].Value == 100);
+	assert(*Terrain->Map.TryGet({2, 4}) == 0);
+}
+
+void TestNativeStageDataValidationRejectsUndefinedRuleReplacement() {
+	TileSetDefinition TileSet;
+	TileSet.Id = "rules";
+	TileSet.ImageFile = "dummy.png";
+	TileSet.Columns = 1;
+	TileSet.Rows = 1;
+
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.ImageIndex = 0;
+	TileSet.TerrainTiles.push_back(Empty);
+
+	TileDefinition Replacer;
+	Replacer.Id = 1;
+	Replacer.ImageIndex = 0;
+	TileRule Rule;
+	Rule.Trigger = TileTrigger::Touch;
+	Rule.Action = TileAction::ReplaceTile;
+	Rule.Value = 99;
+	Replacer.Rules.push_back(Rule);
+	TileSet.TerrainTiles.push_back(Replacer);
+
+	TileLayer Terrain;
+	Terrain.Metadata.Id = "terrain";
+	Terrain.Metadata.Name = "Terrain";
+	Terrain.Role = TileLayerRole::Terrain;
+	Terrain.TileSetId = "rules";
+	Terrain.Map = MakeMap({{0}});
+
+	StageArea Area;
+	Area.Id = "main";
+	Area.Width = 1;
+	Area.Height = 1;
+	Area.TileLayers = {Terrain};
+
+	StageData Data;
+	Data.Id = "bad-rule-target";
+	Data.StartAreaId = "main";
+	Data.TileSets = {TileSet};
+	Data.Areas = {Area};
+
+	Result<bool> Validation = ValidateStageData(Data);
+	assert(Validation.IsFailure());
+	assert(
+		Validation.Error().find("undefined replacement id 99") !=
+		std::string::npos);
 }
 
 void TestNativeStageDataValidationRejectsUndefinedTerrainTile() {
@@ -4517,6 +4616,8 @@ int main(int argc, char* argv[]) {
 		TestNativeStageDataAllowsExternalTransitions();
 		TestNativeStageDataLoaderLoadsJsonAndCsv();
 		TestNativeStageCharacterControllerUsesTerrainSemantics();
+		TestNativeStageTileRulesApplyFromJson();
+		TestNativeStageDataValidationRejectsUndefinedRuleReplacement();
 		TestNativeStageDataValidationRejectsUndefinedTerrainTile();
 		TestNativeStageDataValidationRejectsUnknownTileSet();
 		TestNativeStageDataLoaderRejectsUnsupportedVersion();
@@ -4563,6 +4664,8 @@ int main(int argc, char* argv[]) {
 	TestLayeredMap();
 	TestNativeStageDataLoaderLoadsJsonAndCsv();
 	TestNativeStageCharacterControllerUsesTerrainSemantics();
+	TestNativeStageTileRulesApplyFromJson();
+	TestNativeStageDataValidationRejectsUndefinedRuleReplacement();
 	TestNativeStageDataValidationRejectsUndefinedTerrainTile();
 	TestNativeStageDataValidationRejectsUnknownTileSet();
 	TestNativeStageDataLoaderRejectsUnsupportedVersion();
