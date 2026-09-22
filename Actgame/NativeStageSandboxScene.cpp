@@ -22,6 +22,47 @@ int ScreenX(float WorldX) {
 int ScreenY(float WorldY) {
 	return StageOffsetY + static_cast<int>(WorldY);
 }
+
+bool TryPipeDirection(
+	uchinoko::StageDirection Direction,
+	uchinoko::PipeDirection& Result) {
+	switch (Direction) {
+	case uchinoko::StageDirection::Down:
+		Result = uchinoko::PipeDirection::Down;
+		return true;
+	case uchinoko::StageDirection::Up:
+		Result = uchinoko::PipeDirection::Up;
+		return true;
+	case uchinoko::StageDirection::Right:
+		Result = uchinoko::PipeDirection::Right;
+		return true;
+	case uchinoko::StageDirection::Left:
+		Result = uchinoko::PipeDirection::Left;
+		return true;
+	case uchinoko::StageDirection::None:
+		return false;
+	}
+	return false;
+}
+
+bool TryRegionGoalKind(
+	const uchinoko::StageRegion& Region,
+	uchinoko::GoalKind& Kind) {
+	const auto Found = Region.Properties.find("goalKind");
+	if (Found == Region.Properties.end()) return false;
+
+	std::string Value;
+	if (!Found->second.TryGetString(Value)) return false;
+	if (Value == "normal") {
+		Kind = uchinoko::GoalKind::Normal;
+		return true;
+	}
+	if (Value == "secret") {
+		Kind = uchinoko::GoalKind::Secret;
+		return true;
+	}
+	return false;
+}
 }
 
 NativeStageSandboxScene::NativeStageSandboxScene() {
