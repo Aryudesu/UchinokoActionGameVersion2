@@ -47,9 +47,18 @@ bool StagePropertyValue::TryGetInteger(int& Value) const {
 }
 
 bool StagePropertyValue::TryGetFloat(float& Value) const {
-	if (Type_ != StagePropertyType::Float) return false;
-	Value = FloatValue_;
-	return true;
+	if (Type_ == StagePropertyType::Float) {
+		Value = FloatValue_;
+		return true;
+	}
+	// JSON serializers may normalize a lexical value such as 2.0 to 2.
+	// Integer -> float is a safe widening conversion for semantic numeric
+	// properties such as speed and range.
+	if (Type_ == StagePropertyType::Integer) {
+		Value = static_cast<float>(IntegerValue_);
+		return true;
+	}
+	return false;
 }
 
 bool StagePropertyValue::TryGetBoolean(bool& Value) const {
