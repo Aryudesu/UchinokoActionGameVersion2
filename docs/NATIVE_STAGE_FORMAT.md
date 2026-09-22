@@ -163,7 +163,91 @@ Supported `movement` values:
 
 The TileSet builds the existing Foundation `TileCatalog`, so CharacterController consumes native terrain through the same collision implementation already used by the Foundation sandboxes.
 
-Tile interaction rules (coin/damage/goal/item/etc.) are intentionally not part of this first native terrain schema yet.
+### rules
+
+Native terrain definitions may contain the same `TileRule` data already consumed by Foundation's `TileBehaviorSystem`.
+
+```json
+{
+  "id": 4,
+  "imageIndex": 3,
+  "collision": "none",
+  "rules": [
+    {
+      "trigger": "touch",
+      "action": "addCoin",
+      "value": 1,
+      "target": "player"
+    },
+    {
+      "trigger": "touch",
+      "action": "addScore",
+      "value": 100,
+      "target": "player"
+    },
+    {
+      "trigger": "touch",
+      "action": "replaceTile",
+      "value": 0,
+      "target": "player"
+    }
+  ]
+}
+```
+
+Rule fields:
+
+- `trigger`: required
+- `action`: required
+- `value`: optional integer, default `0`
+- `once`: optional boolean, default `false`
+- `countCondition`: optional, default `any`
+- `countValue`: optional integer, default `0`
+- `target`: optional, default `player`
+
+Supported `trigger` values:
+
+- `touch`
+- `hitFromBelow`
+- `standOn`
+- `pushFromLeft`
+- `pushFromRight`
+
+Supported `action` values:
+
+- `none`
+- `replaceTile`
+- `breakTile`
+- `addCoin`
+- `addHealth`
+- `addLife`
+- `addScore`
+- `damage`
+- `instantDeath`
+- `spawnItem`
+- `incrementCount`
+- `toggleSwitch`
+- `goal`
+- `hitBrick`
+
+Supported `countCondition` values:
+
+- `any`
+- `lessThan`
+- `lessEqual`
+- `equal`
+- `greaterEqual`
+- `greaterThan`
+
+Supported `target` values:
+
+- `player`
+- `enemy`
+- `both`
+
+`replaceTile` and `breakTile` values must reference another semantic terrain ID defined in the same TileSet.
+
+The loader only deserializes rules; behavior remains centralized in the existing Foundation `TileBehaviorSystem`.
 
 ## Area
 
@@ -254,12 +338,14 @@ Do not put object/event data into TileLayer CSV.
 
 ### Number types in properties
 
-`properties` intentionally preserves JSON number types.
+`properties` preserves the JSON-derived stored type where possible.
 
 - `2` -> Integer
-- `2.0` -> Float
+- `2.0` -> Float when the parser receives it as a floating JSON number
 
-This matters because `StagePropertyValue::TryGetInteger()` and `TryGetFloat()` are strict. Authoring/export tools must therefore preserve a decimal literal when a property is defined as Float.
+However, JSON serializers may legally normalize `2.0` to `2`. Semantic float properties must therefore not depend on the textual decimal point.
+
+`StagePropertyValue::TryGetFloat()` accepts both stored Float and Integer values, widening Integer to float. `TryGetInteger()` remains strict, and `Type()` continues to report the stored JSON-derived type.
 
 ## ObjectLayer
 
