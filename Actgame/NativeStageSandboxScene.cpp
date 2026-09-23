@@ -597,6 +597,7 @@ void NativeStageSandboxScene::update() {
 			TerrainCatalog_);
 		ApplyTerrainEffects();
 		if (Dead_) return;
+		Objects_.Update(TerrainLayer_->Map, TerrainCatalog_);
 		ApplyObjectContacts();
 		if (Dead_) return;
 		CheckGoalRegions();
@@ -617,6 +618,7 @@ void NativeStageSandboxScene::update() {
 	Player_.Step(Input, TerrainLayer_->Map, TerrainCatalog_);
 	ApplyTerrainEffects();
 	if (Dead_) return;
+	Objects_.Update(TerrainLayer_->Map, TerrainCatalog_);
 	ApplyObjectContacts();
 	if (Dead_) return;
 	CheckGoalRegions();
@@ -932,16 +934,36 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					? GetColor(255, 255, 255)
 					: GetColor(255, 90, 220),
 				FALSE);
-			DrawFormatString(
-				X, Y + 34,
-				Touching
-					? GetColor(255, 255, 255)
-					: GetColor(255, 200, 240),
-				"%s %.0fx%.0f%s",
-				Object->Id.c_str(),
-				Bounds.Size.X,
-				Bounds.Size.Y,
-				Touching ? " CONTACT" : "");
+			if (Object->TypeId == "WalkingEnemy") {
+				DrawFormatString(
+					X, Y + 34,
+					Touching
+						? GetColor(255, 255, 255)
+						: GetColor(255, 200, 240),
+					"%s V%d %s %.0fpx%s",
+					Object->Id.c_str(),
+					Object->Variant,
+					Object->Direction < 0 ? "<" : ">",
+					Object->MoveSpeed,
+					Touching ? " CONTACT" : "");
+				DrawFormatString(
+					X, Y + 50,
+					GetColor(210, 220, 255),
+					"vy=%.1f%s",
+					Object->Velocity.Y,
+					Object->Grounded ? " G" : "");
+			} else {
+				DrawFormatString(
+					X, Y + 34,
+					Touching
+						? GetColor(255, 255, 255)
+						: GetColor(255, 200, 240),
+					"%s %.0fx%.0f%s",
+					Object->Id.c_str(),
+					Bounds.Size.X,
+					Bounds.Size.Y,
+					Touching ? " CONTACT" : "");
+			}
 		}
 	}
 }
