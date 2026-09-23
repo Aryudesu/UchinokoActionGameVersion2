@@ -224,6 +224,33 @@ contact event
 
 Goal Regionについても同じ方針で、PR #36ではPlayer側判定を中央16x32へ統一した。
 
+### PR #38: ObjectRuntime / HitBounds実装
+
+上記方針を `NativeObjectRuntime` として実装開始。
+
+```text
+ObjectSpawn
+  ↓ Area activation
+NativeObjectRuntime
+  ├ Position
+  ├ HitboxOffset
+  ├ HitboxSize
+  ├ ContactDamage
+  └ Active
+```
+
+Player側は `CharacterController::TouchBounds()` の中央16x32、Object側はTypeId別HitBoundsを使う。
+
+現在の既定値:
+
+- WalkingEnemy: V1 WalkingEnemy1のgap.x=8 / gap.y=1を基準に16x31
+- HorizontalLift: 44x10
+- その他: 32x32 debug default
+
+Object propertyの `hitboxOffset` / `hitboxSize` / `contactDamage` でoverride可能。
+
+この段階では接触基盤まで。Enemy AI、踏みつけ、DamageReaction、LiftのStand判定は別PRで接続する。
+
 ---
 
 ## 6. Events
