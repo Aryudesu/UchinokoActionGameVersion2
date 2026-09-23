@@ -460,6 +460,8 @@ void NativeStageSandboxScene::Reload() {
 	Area_ = nullptr;
 	TerrainLayer_ = nullptr;
 	PlayerReady_ = false;
+	Items_.Reset();
+	Bricks_.Reset();
 	Pipe_.Reset();
 	Completion_.Reset();
 	ClearState_ = uchinoko::StageClearState();
@@ -469,6 +471,8 @@ void NativeStageSandboxScene::Reload() {
 	Score_ = 0;
 	Health_ = 4;
 	Lives_ = 3;
+	Broken_ = 0;
+	LadderTileId_ = -1;
 	Dead_ = false;
 	LoadError_.clear();
 
@@ -481,6 +485,9 @@ void NativeStageSandboxScene::Reload() {
 	}
 
 	Stage_ = std::move(Loaded.Value());
+
+	// V1由来のON/OFFはON開始。必要チャネル数はNative定義から導出する。
+	World_.Reset(RequiredSwitchCount(), true);
 
 	if (!LoadTileSets()) return;
 	if (!ActivateArea(Stage_.StartAreaId)) return;
