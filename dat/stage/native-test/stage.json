@@ -246,6 +246,72 @@
               "target": "player"
             }
           ]
+        },
+        {
+          "id": 5,
+          "imageIndex": 2,
+          "collision": "solid",
+          "movement": "none",
+          "rules": [
+            {
+              "trigger": "hitFromBelow",
+              "action": "spawnItem",
+              "value": 2,
+              "target": "player"
+            },
+            {
+              "trigger": "hitFromBelow",
+              "action": "replaceTile",
+              "value": 2,
+              "target": "player"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "imageIndex": 2,
+          "collision": "solid",
+          "movement": "none",
+          "rules": [
+            {
+              "trigger": "hitFromBelow",
+              "action": "hitBrick",
+              "value": 5,
+              "target": "player"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "imageIndex": 2,
+          "collision": "solid",
+          "movement": "none",
+          "rules": [
+            {
+              "trigger": "hitFromBelow",
+              "action": "toggleSwitch",
+              "value": 0,
+              "target": "player"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "imageIndex": 2,
+          "collision": "solid",
+          "movement": "none",
+          "switchChannel": 0,
+          "switchOnTileId": 9,
+          "switchOffTileId": 10
+        },
+        {
+          "id": 10,
+          "imageIndex": 0,
+          "collision": "none",
+          "movement": "none",
+          "switchChannel": 0,
+          "switchOnTileId": 9,
+          "switchOffTileId": 10
         }
       ]
     }

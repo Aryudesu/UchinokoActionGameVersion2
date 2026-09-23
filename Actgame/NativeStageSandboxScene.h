@@ -1,9 +1,12 @@
 ﻿#pragma once
 
+#include "Foundation/BrickSystem.h"
 #include "Foundation/CharacterController.h"
 #include "Foundation/GoalState.h"
+#include "Foundation/ItemSystem.h"
 #include "Foundation/PipeTransport.h"
 #include "Foundation/StageData.h"
+#include "Foundation/WorldState.h"
 #include "Scene.h"
 
 #include <string>
@@ -28,6 +31,7 @@ private:
 	enum class DrawLayerKind {
 		Tile,
 		Object,
+		RuntimeEffects,
 		Player,
 		Region
 	};
@@ -44,11 +48,15 @@ private:
 	bool LoadTileSets();
 	bool ActivateArea(const std::string& AreaId);
 	bool InitializeNativePlayer();
+	int RequiredSwitchCount() const;
+	uchinoko::GameStateSnapshot MakeGameStateSnapshot() const;
+	void ApplyEffectList(const std::vector<uchinoko::TileEffect>& Effects);
 	void ApplyTerrainEffects();
 	void CheckGoalRegions();
 	bool TryBeginTransition(const uchinoko::CharacterInput& Input);
 	void UpdateTransition();
 	void DrawTileLayer(const uchinoko::TileLayer& Layer);
+	void DrawRuntimeEffects();
 	void DrawPlayer();
 	void DrawObjectLayer(const uchinoko::ObjectLayer& Layer);
 	void DrawRegionLayer(const uchinoko::RegionLayer& Layer);
@@ -64,6 +72,9 @@ private:
 	uchinoko::TileCatalog TerrainCatalog_;
 	uchinoko::TileRuntimeMap TerrainRuntime_;
 	uchinoko::CharacterController Player_;
+	uchinoko::ItemSystem Items_;
+	uchinoko::BrickSystem Bricks_;
+	uchinoko::WorldState World_;
 	uchinoko::PipeTransport Pipe_;
 	uchinoko::StageCompletionState Completion_;
 	uchinoko::StageClearState ClearState_;
@@ -74,6 +85,8 @@ private:
 	int Score_ = 0;
 	int Health_ = 4;
 	int Lives_ = 3;
+	int Broken_ = 0;
+	int LadderTileId_ = -1;
 	bool Dead_ = false;
 	std::unordered_map<std::string, LoadedTileSet> TileSets_;
 	std::string LoadError_;

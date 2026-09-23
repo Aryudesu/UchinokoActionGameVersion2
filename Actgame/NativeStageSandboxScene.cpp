@@ -2,6 +2,7 @@
 
 #include "Conf.h"
 #include "DxLib.h"
+#include "Foundation/CharacterSafety.h"
 #include "Foundation/NativeStageDataLoader.h"
 #include "Foundation/PlayerResourceRules.h"
 #include "InputKey.h"
@@ -150,6 +151,20 @@ bool NativeStageSandboxScene::ActivateArea(const std::string& AreaId) {
 		return false;
 	}
 	TerrainCatalog_ = std::move(Catalog.Value());
+
+	Items_.Reset();
+	Bricks_.Reset();
+	LadderTileId_ = -1;
+	for (const uchinoko::TileDefinition& Definition : TileSet->TerrainTiles) {
+		if (Definition.Movement == uchinoko::MovementRegion::Ladder) {
+			LadderTileId_ = Definition.Id;
+			break;
+		}
+	}
+
+	// Switch状態はStage内Area移動で保持する。
+	// 新しいAreaのTerrainへ現在値を反映してからruntime stateを作る。
+	World_.Synchronize(TerrainLayer_->Map, TerrainCatalog_);
 	TerrainRuntime_.Reset(TerrainLayer_->Map);
 	return true;
 }
@@ -185,16 +200,36 @@ bool NativeStageSandboxScene::InitializeNativePlayer() {
 	return true;
 }
 
-void NativeStageSandboxScene::ApplyTerrainEffects() {
-	if (TerrainLayer_ == nullptr) return;
+int NativeStageSandboxScene::RequiredSwitchCount() const {
+	int Count = 0;
+	for (const uchinoko::TileSetDefinition& TileSet : Stage_.TileSets) {
+		for (const uchinoko::TileDefinition& Definition : TileSet.TerrainTiles) {
+			if (Definition.SwitchChannel >= 0) {
+				Count = (std::max)(Count, Definition.SwitchChannel + 1);
+			}
+			for (const uchinoko::TileRule& Rule : Definition.Rules) {
+				if (Rule.Action == uchinoko::TileAction::ToggleSwitch &&
+					Rule.Value >= 0) {
+					Count = (std::max)(Count, Rule.Value + 1);
+				}
+			}
+		}
+	}
+	return Count;
+}
 
-	const std::vector<uchinoko::TileEffect> Effects =
-		uchinoko::TileBehaviorSystem::ApplyAll(
-			Player_.Interactions(),
-			TerrainLayer_->Map,
-			TerrainCatalog_,
-			TerrainRuntime_);
+uchinoko::GameStateSnapshot
+NativeStageSandboxScene::MakeGameStateSnapshot() const {
+	uchinoko::GameStateSnapshot State;
+	State.Coins = Coins_;
+	State.Health = Health_;
+	State.Lives = Lives_;
+	State.Score = Score_;
+	return State;
+}
 
+void NativeStageSandboxScene::ApplyEffectList(
+	const std::vector<uchinoko::TileEffect>& Effects) {
 	for (const uchinoko::TileEffect& Effect : Effects) {
 		switch (Effect.Type) {
 		case uchinoko::TileEffectType::AddCoin:
@@ -212,6 +247,9 @@ void NativeStageSandboxScene::ApplyTerrainEffects() {
 		case uchinoko::TileEffectType::AddScore:
 			Score_ += Effect.Value;
 			break;
+		case uchinoko::TileEffectType::TileBroken:
+			++Broken_;
+			break;
 		case uchinoko::TileEffectType::Damage:
 			if (Effect.Actor == uchinoko::TileActor::Player) {
 				Health_ -= Effect.Value;
@@ -226,12 +264,89 @@ void NativeStageSandboxScene::ApplyTerrainEffects() {
 				Dead_ = true;
 			}
 			break;
+		case uchinoko::TileEffectType::Goal: {
+			uchinoko::GoalKind Kind;
+			if (!Completion_.Cleared &&
+				uchinoko::TryGoalKindFromValue(Effect.Value, Kind)) {
+				ClearState_.Record(Kind);
+				Completion_.Complete(Kind);
+			}
+			break;
+		}
 		default:
-			// SpawnItem / switch / brick / goal adapters are connected
-			// separately. TileBehaviorSystem itself is already shared.
+			// SpawnItem / ToggleSwitch / BrickHitは専用systemが消費する。
 			break;
 		}
 	}
+}
+
+void NativeStageSandboxScene::ApplyTerrainEffects() {
+	if (TerrainLayer_ == nullptr || Area_ == nullptr) return;
+
+	const std::vector<uchinoko::TileEffect> TileEffects =
+		uchinoko::TileBehaviorSystem::ApplyAll(
+			Player_.Interactions(),
+			TerrainLayer_->Map,
+			TerrainCatalog_,
+			TerrainRuntime_);
+
+	Items_.ConsumeTileEffects(
+		TileEffects,
+		TerrainLayer_->Map.TileWidth(),
+		TerrainLayer_->Map.TileHeight());
+	Bricks_.ConsumeTileEffects(
+		TileEffects,
+		MakeGameStateSnapshot());
+	ApplyEffectList(TileEffects);
+	if (Dead_ || Completion_.Cleared) return;
+
+	const std::vector<uchinoko::TileEffect> BrickEffects =
+		Bricks_.Update(
+			TerrainLayer_->Map,
+			TerrainLayer_->Map.TileWidth(),
+			TerrainLayer_->Map.TileHeight(),
+			static_cast<float>(
+				Area_->Height * Area_->TileHeight + Area_->TileHeight * 3));
+	ApplyEffectList(BrickEffects);
+	if (Dead_) return;
+
+	const uchinoko::WorldStateUpdate WorldUpdate =
+		World_.ApplyEffects(
+			TileEffects,
+			TerrainLayer_->Map,
+			TerrainCatalog_);
+	const uchinoko::CharacterSafetyResult WorldSafety =
+		uchinoko::CharacterSafety::ResolveActivatedSolids(
+			Player_,
+			TerrainLayer_->Map,
+			TerrainCatalog_,
+			WorldUpdate.ActivatedSolidTiles);
+	ApplyEffectList(WorldSafety.Effects);
+	if (Dead_) return;
+
+	const uchinoko::WorldStateUpdate TimedUpdate =
+		World_.AdvanceFrame(
+			TerrainLayer_->Map,
+			TerrainCatalog_);
+	const uchinoko::CharacterSafetyResult TimedSafety =
+		uchinoko::CharacterSafety::ResolveActivatedSolids(
+			Player_,
+			TerrainLayer_->Map,
+			TerrainCatalog_,
+			TimedUpdate.ActivatedSolidTiles);
+	ApplyEffectList(TimedSafety.Effects);
+	if (Dead_) return;
+
+	if (LadderTileId_ >= 0) {
+		Items_.UpdateTerrainItems(
+			TerrainLayer_->Map,
+			TerrainCatalog_,
+			LadderTileId_);
+	}
+
+	const std::vector<uchinoko::TileEffect> ItemEffects =
+		Items_.Update();
+	ApplyEffectList(ItemEffects);
 }
 
 void NativeStageSandboxScene::CheckGoalRegions() {
@@ -336,6 +451,8 @@ void NativeStageSandboxScene::Reload() {
 	Area_ = nullptr;
 	TerrainLayer_ = nullptr;
 	PlayerReady_ = false;
+	Items_.Reset();
+	Bricks_.Reset();
 	Pipe_.Reset();
 	Completion_.Reset();
 	ClearState_ = uchinoko::StageClearState();
@@ -345,6 +462,8 @@ void NativeStageSandboxScene::Reload() {
 	Score_ = 0;
 	Health_ = 4;
 	Lives_ = 3;
+	Broken_ = 0;
+	LadderTileId_ = -1;
 	Dead_ = false;
 	LoadError_.clear();
 
@@ -357,6 +476,9 @@ void NativeStageSandboxScene::Reload() {
 	}
 
 	Stage_ = std::move(Loaded.Value());
+
+	// V1由来のON/OFFはON開始。必要チャネル数はNative定義から導出する。
+	World_.Reset(RequiredSwitchCount(), true);
 
 	if (!LoadTileSets()) return;
 	if (!ActivateArea(Stage_.StartAreaId)) return;
@@ -442,7 +564,31 @@ void NativeStageSandboxScene::DrawTileLayer(
 				ImageIndex = Definition->ImageIndex;
 			}
 
-			if (ImageIndex == Loaded.EmptyTileId) continue;
+			if (ImageIndex == Loaded.EmptyTileId) {
+				if (ShowDebug_ &&
+					Layer.Role == uchinoko::TileLayerRole::Terrain) {
+					const uchinoko::TileDefinition* Definition =
+						DefinitionSet->FindTerrainTile(*TileId);
+					if (Definition != nullptr &&
+						Definition->SwitchChannel >= 0) {
+						const int Left =
+							StageOffsetX + Column * Layer.Map.TileWidth();
+						const int Top =
+							StageOffsetY + Row * Layer.Map.TileHeight();
+						DrawBox(
+							Left + 2, Top + 2,
+							Left + Layer.Map.TileWidth() - 2,
+							Top + Layer.Map.TileHeight() - 2,
+							GetColor(80, 110, 180), FALSE);
+						DrawFormatString(
+							Left + 2, Top + 9,
+							GetColor(180, 220, 255),
+							"W%d:OFF",
+							Definition->SwitchChannel);
+					}
+				}
+				continue;
+			}
 
 			const int Left =
 				StageOffsetX + Column * Layer.Map.TileWidth();
@@ -494,6 +640,14 @@ void NativeStageSandboxScene::DrawTileLayer(
 							Label = "?";
 							Color = GetColor(255, 210, 100);
 							break;
+						case uchinoko::TileAction::HitBrick:
+							Label = "B";
+							Color = GetColor(245, 175, 105);
+							break;
+						case uchinoko::TileAction::ToggleSwitch:
+							Label = "S";
+							Color = GetColor(120, 255, 150);
+							break;
 						case uchinoko::TileAction::Goal:
 							Label = "G";
 							Color = GetColor(100, 255, 170);
@@ -505,6 +659,28 @@ void NativeStageSandboxScene::DrawTileLayer(
 							DrawString(Left + 10, Top + 7, Label, Color);
 							break;
 						}
+					}
+
+					const uchinoko::ActiveBrick* Brick =
+						Bricks_.TryGet({Column, Row});
+					if (Brick != nullptr) {
+						DrawFormatString(
+							Left + 2, Top + 19,
+							GetColor(255, 245, 200),
+							"%s%d",
+							Brick->Phase == uchinoko::BrickPhase::Breaking
+								? "X" : "B",
+							Bricks_.VisualFrameOffset({Column, Row}));
+					}
+
+					if (Definition->SwitchChannel >= 0) {
+						DrawFormatString(
+							Left + 2, Top + 19,
+							GetColor(180, 220, 255),
+							"W%d:%s",
+							Definition->SwitchChannel,
+							World_.GetSwitch(Definition->SwitchChannel)
+								? "ON" : "OFF");
 					}
 				}
 			}
@@ -519,6 +695,43 @@ void NativeStageSandboxScene::DrawTileLayer(
 			"z=%d  %s",
 			Layer.Metadata.ZOrder,
 			Layer.Metadata.Name.c_str());
+	}
+}
+
+void NativeStageSandboxScene::DrawRuntimeEffects() {
+	for (const uchinoko::SpawnedItem& Item : Items_.Items()) {
+		const int X = ScreenX(Item.Position.X + 16.0f);
+		const int Y = ScreenY(Item.Position.Y + 16.0f);
+		switch (Item.Kind) {
+		case uchinoko::ItemKind::Coin:
+			DrawCircle(X, Y, 8, GetColor(240, 210, 70), TRUE);
+			break;
+		case uchinoko::ItemKind::Healing:
+			DrawCircle(X, Y, 8, GetColor(100, 220, 130), TRUE);
+			DrawLine(X - 4, Y, X + 4, Y, GetColor(255, 255, 255), 2);
+			DrawLine(X, Y - 4, X, Y + 4, GetColor(255, 255, 255), 2);
+			break;
+		case uchinoko::ItemKind::OneUp:
+			DrawCircle(X, Y, 9, GetColor(120, 210, 255), TRUE);
+			DrawString(X - 7, Y - 7, "1", GetColor(20, 40, 70));
+			break;
+		case uchinoko::ItemKind::LadderBuilder:
+			DrawLine(X - 6, Y - 10, X - 6, Y + 10,
+				GetColor(220, 190, 120), 2);
+			DrawLine(X + 6, Y - 10, X + 6, Y + 10,
+				GetColor(220, 190, 120), 2);
+			DrawLine(X - 6, Y, X + 6, Y,
+				GetColor(220, 190, 120), 2);
+			break;
+		}
+	}
+
+	for (const uchinoko::BrickFragment& Fragment : Bricks_.Fragments()) {
+		const int X = ScreenX(Fragment.Position.X);
+		const int Y = ScreenY(Fragment.Position.Y);
+		DrawBox(
+			X, Y, X + 7, Y + 7,
+			GetColor(190, 105, 60), TRUE);
 	}
 }
 
@@ -709,6 +922,11 @@ void NativeStageSandboxScene::draw() {
 		DrawOrder.push_back({
 			PlayerZOrder,
 			Order++,
+			DrawLayerKind::RuntimeEffects,
+			0});
+		DrawOrder.push_back({
+			PlayerZOrder,
+			Order++,
 			DrawLayerKind::Player,
 			0});
 	}
@@ -739,6 +957,9 @@ void NativeStageSandboxScene::draw() {
 		case DrawLayerKind::Object:
 			DrawObjectLayer(Area_->ObjectLayers[Entry.Index]);
 			break;
+		case DrawLayerKind::RuntimeEffects:
+			DrawRuntimeEffects();
+			break;
 		case DrawLayerKind::Player:
 			DrawPlayer();
 			break;
@@ -768,8 +989,8 @@ void NativeStageSandboxScene::draw() {
 	DrawFormatString(
 		16, 92,
 		Dead_ ? GetColor(255, 100, 100) : GetColor(255, 245, 180),
-		"Coins:%d  HP:%d  Lives:%d  Score:%d%s",
-		Coins_, Health_, Lives_, Score_,
+		"Coins:%d  HP:%d  Lives:%d  Score:%d  Broken:%d%s",
+		Coins_, Health_, Lives_, Score_, Broken_,
 		Dead_ ? "  DEAD (R: reload)" : "");
 
 	if (Completion_.Cleared) {

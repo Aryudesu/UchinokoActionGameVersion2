@@ -446,6 +446,37 @@ Result<bool> ValidateStageData(const StageData& Data) {
 					TileSet.Id + " tile " +
 					std::to_string(Definition.Id));
 			}
+			if (Definition.AutoTogglePeriod < 0) {
+				return Result<bool>::Failure(
+					"Terrain tile autoTogglePeriod must not be negative: " +
+					TileSet.Id + " tile " +
+					std::to_string(Definition.Id));
+			}
+			if (Definition.AutoTogglePeriod > 0 &&
+				Definition.SwitchChannel < 0) {
+				return Result<bool>::Failure(
+					"Terrain tile autoTogglePeriod requires switchChannel: " +
+					TileSet.Id + " tile " +
+					std::to_string(Definition.Id));
+			}
+			if (Definition.SwitchChannel >= 0) {
+				if (Definition.SwitchOnTileId < 0 ||
+					Definition.SwitchOffTileId < 0) {
+					return Result<bool>::Failure(
+						"Switch-bound terrain tile requires on/off tile ids: " +
+						TileSet.Id + " tile " +
+						std::to_string(Definition.Id));
+				}
+				if (TileSet.FindTerrainTile(
+						Definition.SwitchOnTileId) == nullptr ||
+					TileSet.FindTerrainTile(
+						Definition.SwitchOffTileId) == nullptr) {
+					return Result<bool>::Failure(
+						"Switch-bound terrain tile references undefined tile id: " +
+						TileSet.Id + " tile " +
+						std::to_string(Definition.Id));
+				}
+			}
 			for (const TileRule& Rule : Definition.Rules) {
 				if (Rule.Action != TileAction::ReplaceTile &&
 					Rule.Action != TileAction::BreakTile) {
