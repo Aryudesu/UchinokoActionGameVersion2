@@ -573,7 +573,31 @@ void NativeStageSandboxScene::DrawTileLayer(
 				ImageIndex = Definition->ImageIndex;
 			}
 
-			if (ImageIndex == Loaded.EmptyTileId) continue;
+			if (ImageIndex == Loaded.EmptyTileId) {
+				if (ShowDebug_ &&
+					Layer.Role == uchinoko::TileLayerRole::Terrain) {
+					const uchinoko::TileDefinition* Definition =
+						DefinitionSet->FindTerrainTile(*TileId);
+					if (Definition != nullptr &&
+						Definition->SwitchChannel >= 0) {
+						const int Left =
+							StageOffsetX + Column * Layer.Map.TileWidth();
+						const int Top =
+							StageOffsetY + Row * Layer.Map.TileHeight();
+						DrawBox(
+							Left + 2, Top + 2,
+							Left + Layer.Map.TileWidth() - 2,
+							Top + Layer.Map.TileHeight() - 2,
+							GetColor(80, 110, 180), FALSE);
+						DrawFormatString(
+							Left + 2, Top + 9,
+							GetColor(180, 220, 255),
+							"W%d:OFF",
+							Definition->SwitchChannel);
+					}
+				}
+				continue;
+			}
 
 			const int Left =
 				StageOffsetX + Column * Layer.Map.TileWidth();
