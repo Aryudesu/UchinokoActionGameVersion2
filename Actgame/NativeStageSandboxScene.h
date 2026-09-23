@@ -2,6 +2,7 @@
 
 #include "Foundation/BrickSystem.h"
 #include "Foundation/CharacterController.h"
+#include "Foundation/DamageReactionState.h"
 #include "Foundation/GoalState.h"
 #include "Foundation/ItemSystem.h"
 #include "Foundation/NativeObjectRuntime.h"
@@ -52,6 +53,7 @@ private:
 	int RequiredSwitchCount() const;
 	uchinoko::GameStateSnapshot MakeGameStateSnapshot() const;
 	void ApplyEffectList(const std::vector<uchinoko::TileEffect>& Effects);
+	bool BeginPlayerDamage(int Damage, float SourceCenterX);
 	void ApplyTerrainEffects();
 	void ApplyObjectContacts();
 	void CheckGoalRegions();
@@ -78,6 +80,7 @@ private:
 	uchinoko::BrickSystem Bricks_;
 	uchinoko::WorldState World_;
 	uchinoko::NativeObjectSystem Objects_;
+	uchinoko::DamageReactionState DamageReaction_;
 	uchinoko::PipeTransport Pipe_;
 	uchinoko::StageCompletionState Completion_;
 	uchinoko::StageClearState ClearState_;
@@ -91,6 +94,7 @@ private:
 	int Lives_ = 3;
 	int Broken_ = 0;
 	int LadderTileId_ = -1;
+	int FacingDirection_ = 1;
 	bool Dead_ = false;
 	std::unordered_map<std::string, LoadedTileSet> TileSets_;
 	std::string LoadError_;
