@@ -4,6 +4,7 @@
 #include "Foundation/CharacterController.h"
 #include "Foundation/GoalState.h"
 #include "Foundation/ItemSystem.h"
+#include "Foundation/NativeObjectRuntime.h"
 #include "Foundation/PipeTransport.h"
 #include "Foundation/StageData.h"
 #include "Foundation/WorldState.h"
@@ -52,6 +53,7 @@ private:
 	uchinoko::GameStateSnapshot MakeGameStateSnapshot() const;
 	void ApplyEffectList(const std::vector<uchinoko::TileEffect>& Effects);
 	void ApplyTerrainEffects();
+	void ApplyObjectContacts();
 	void CheckGoalRegions();
 	bool TryBeginTransition(const uchinoko::CharacterInput& Input);
 	void UpdateTransition();
@@ -75,11 +77,13 @@ private:
 	uchinoko::ItemSystem Items_;
 	uchinoko::BrickSystem Bricks_;
 	uchinoko::WorldState World_;
+	uchinoko::NativeObjectSystem Objects_;
 	uchinoko::PipeTransport Pipe_;
 	uchinoko::StageCompletionState Completion_;
 	uchinoko::StageClearState ClearState_;
 	std::string ActiveTransitionId_;
 	std::string ActiveTransitionTargetAreaId_;
+	std::vector<std::string> ActiveObjectContacts_;
 	bool PlayerReady_ = false;
 	int Coins_ = 0;
 	int Score_ = 0;
