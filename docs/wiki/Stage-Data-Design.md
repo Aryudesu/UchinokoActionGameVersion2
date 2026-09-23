@@ -251,6 +251,25 @@ Object propertyの `hitboxOffset` / `hitboxSize` / `contactDamage` でoverride�
 
 この段階では接触基盤まで。Enemy AI、踏みつけ、DamageReaction、LiftのStand判定は別PRで接続する。
 
+### PR #39: DamageReaction / knockback接続
+
+Object contactの `contactDamage` とTerrainの `TileEffectType::Damage` を同じ `DamageReactionState` へ通す。
+
+```text
+Terrain Damage ─┐
+                ├→ BeginPlayerDamage
+Enemy contact ──┘
+                     ↓
+             DamageReactionState
+              ├ Y速度reset
+              ├ 1～15F knockback
+              └ 16F解除
+```
+
+Object ID単位の接触開始抑制はdamage責務から外し、現在接触中debug表示のみに使う。再damage抑制はV1 `Player::Damaged()` と同様にDamageReactionStateのActive状態へ一本化する。
+
+ノックバック方向はPlayer中心Xと危険源中心Xを比較し、危険源から離れる方向を選ぶ。
+
 ---
 
 ## 6. Events
