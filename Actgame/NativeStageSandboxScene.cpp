@@ -166,6 +166,13 @@ bool NativeStageSandboxScene::ActivateArea(const std::string& AreaId) {
 	// 新しいAreaのTerrainへ現在値を反映してからruntime stateを作る。
 	World_.Synchronize(TerrainLayer_->Map, TerrainCatalog_);
 	TerrainRuntime_.Reset(TerrainLayer_->Map);
+
+	uchinoko::Result<bool> ObjectResult = Objects_.Reset(*Area_);
+	if (ObjectResult.IsFailure()) {
+		LoadError_ = ObjectResult.Error();
+		return false;
+	}
+	ActiveObjectContacts_.clear();
 	return true;
 }
 
@@ -349,6 +356,44 @@ void NativeStageSandboxScene::ApplyTerrainEffects() {
 	ApplyEffectList(ItemEffects);
 }
 
+void NativeStageSandboxScene::ApplyObjectContacts() {
+	const uchinoko::CharacterTouchBounds Touch = Player_.TouchBounds();
+	const uchinoko::WorldPosition PlayerPosition = {
+		Touch.Left,
+		Touch.Top
+	};
+	const uchinoko::WorldPosition PlayerSize = {
+		Touch.Right - Touch.Left,
+		Touch.Bottom - Touch.Top
+	};
+
+	const std::vector<uchinoko::NativeObjectContact> Contacts =
+		Objects_.FindContacts(PlayerPosition, PlayerSize);
+
+	std::vector<std::string> CurrentIds;
+	CurrentIds.reserve(Contacts.size());
+
+	for (const uchinoko::NativeObjectContact& Contact : Contacts) {
+		CurrentIds.push_back(Contact.ObjectId);
+
+		const bool WasTouching =
+			std::find(
+				ActiveObjectContacts_.begin(),
+				ActiveObjectContacts_.end(),
+				Contact.ObjectId) != ActiveObjectContacts_.end();
+		if (WasTouching || Contact.ContactDamage <= 0) continue;
+
+		Health_ -= Contact.ContactDamage;
+		if (Health_ <= 0) {
+			Health_ = 0;
+			Dead_ = true;
+			break;
+		}
+	}
+
+	ActiveObjectContacts_ = std::move(CurrentIds);
+}
+
 void NativeStageSandboxScene::CheckGoalRegions() {
 	if (Area_ == nullptr || Completion_.Cleared) return;
 
@@ -458,6 +503,7 @@ void NativeStageSandboxScene::Reload() {
 	ClearState_ = uchinoko::StageClearState();
 	ActiveTransitionId_.clear();
 	ActiveTransitionTargetAreaId_.clear();
+	ActiveObjectContacts_.clear();
 	Coins_ = 0;
 	Score_ = 0;
 	Health_ = 4;
@@ -523,6 +569,8 @@ void NativeStageSandboxScene::update() {
 
 	Player_.Step(Input, TerrainLayer_->Map, TerrainCatalog_);
 	ApplyTerrainEffects();
+	if (Dead_) return;
+	ApplyObjectContacts();
 	if (Dead_) return;
 	CheckGoalRegions();
 }
@@ -771,11 +819,10 @@ void NativeStageSandboxScene::DrawPlayer() {
 
 void NativeStageSandboxScene::DrawObjectLayer(
 	const uchinoko::ObjectLayer& Layer) {
-	for (const uchinoko::ObjectSpawn& Object : Layer.Objects) {
-		const int X = ScreenX(Object.Position.X);
-		const int Y = ScreenY(Object.Position.Y);
-
-		if (Object.TypeId == "PlayerSpawn") {
+	for (const uchinoko::ObjectSpawn& Spawn : Layer.Objects) {
+		if (Spawn.TypeId == "PlayerSpawn") {
+			const int X = ScreenX(Spawn.Position.X);
+			const int Y = ScreenY(Spawn.Position.Y);
 			if (ShowDebug_) {
 				DrawCircle(X + 16, Y + 16, 5, GetColor(120, 255, 120), FALSE);
 				DrawLine(X + 8, Y + 16, X + 24, Y + 16,
@@ -787,12 +834,19 @@ void NativeStageSandboxScene::DrawObjectLayer(
 			continue;
 		}
 
-		if (Object.TypeId == "WalkingEnemy") {
+		const uchinoko::NativeObjectRuntime* Object =
+			Objects_.Find(Spawn.Id);
+		if (Object == nullptr || !Object->Active) continue;
+
+		const int X = ScreenX(Object->Position.X);
+		const int Y = ScreenY(Object->Position.Y);
+
+		if (Object->TypeId == "WalkingEnemy") {
 			DrawBox(
 				X + 2, Y + 2, X + 30, Y + 30,
 				GetColor(240, 90, 90), FALSE);
 			DrawString(X + 10, Y + 8, "E", GetColor(255, 170, 170));
-		} else if (Object.TypeId == "HorizontalLift") {
+		} else if (Object->TypeId == "HorizontalLift") {
 			DrawBox(
 				X - 6, Y + 11, X + 38, Y + 21,
 				GetColor(90, 180, 255), FALSE);
@@ -802,9 +856,31 @@ void NativeStageSandboxScene::DrawObjectLayer(
 		}
 
 		if (ShowDebug_) {
+			const uchinoko::ObjectHitBounds Bounds = Object->HitBounds();
+			const bool Touching =
+				std::find(
+					ActiveObjectContacts_.begin(),
+					ActiveObjectContacts_.end(),
+					Object->Id) != ActiveObjectContacts_.end();
+			DrawBox(
+				ScreenX(Bounds.Position.X),
+				ScreenY(Bounds.Position.Y),
+				ScreenX(Bounds.Position.X + Bounds.Size.X),
+				ScreenY(Bounds.Position.Y + Bounds.Size.Y),
+				Touching
+					? GetColor(255, 255, 255)
+					: GetColor(255, 90, 220),
+				FALSE);
 			DrawFormatString(
-				X, Y + 34, GetColor(255, 255, 255),
-				"%s", Object.Id.c_str());
+				X, Y + 34,
+				Touching
+					? GetColor(255, 255, 255)
+					: GetColor(255, 200, 240),
+				"%s %.0fx%.0f%s",
+				Object->Id.c_str(),
+				Bounds.Size.X,
+				Bounds.Size.Y,
+				Touching ? " CONTACT" : "");
 		}
 	}
 }
@@ -984,7 +1060,7 @@ void NativeStageSandboxScene::draw() {
 		Area_->Height);
 	DrawString(
 		16, 68,
-		"Yellow=Player  Red=Enemy  Blue=Lift  Green=Goal  Yellow=Transition",
+		"Yellow=Player  Red=Enemy  Blue=Lift  Pink=ObjectHitBounds  Green=Goal",
 		GetColor(230, 235, 255));
 	DrawFormatString(
 		16, 92,
