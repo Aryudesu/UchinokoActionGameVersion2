@@ -451,6 +451,8 @@ PlayerSpawn以外のObjectSpawnはNative runtimeでHitBoundsを持てる。
 
 Player側の通常接触矩形は `CharacterController::TouchBounds()` の中央16x32。矩形は半開区間として扱い、境界に触れただけではcontactにならない。
 
+`contactDamage > 0` のObject contactはNativeStageSandboxで `DamageReactionState` を開始する。Damage reaction中の再contactはHPを減らさず、V1由来の16F reaction終了後に再びdamage可能になる。
+
 ## RegionLayer
 
 ```json
