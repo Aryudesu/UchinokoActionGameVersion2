@@ -625,6 +625,14 @@ void NativeStageSandboxScene::DrawTileLayer(
 							Label = "?";
 							Color = GetColor(255, 210, 100);
 							break;
+						case uchinoko::TileAction::HitBrick:
+							Label = "B";
+							Color = GetColor(245, 175, 105);
+							break;
+						case uchinoko::TileAction::ToggleSwitch:
+							Label = "S";
+							Color = GetColor(120, 255, 150);
+							break;
 						case uchinoko::TileAction::Goal:
 							Label = "G";
 							Color = GetColor(100, 255, 170);
@@ -636,6 +644,28 @@ void NativeStageSandboxScene::DrawTileLayer(
 							DrawString(Left + 10, Top + 7, Label, Color);
 							break;
 						}
+					}
+
+					const uchinoko::ActiveBrick* Brick =
+						Bricks_.TryGet({Column, Row});
+					if (Brick != nullptr) {
+						DrawFormatString(
+							Left + 2, Top + 19,
+							GetColor(255, 245, 200),
+							"%s%d",
+							Brick->Phase == uchinoko::BrickPhase::Breaking
+								? "X" : "B",
+							Bricks_.VisualFrameOffset({Column, Row}));
+					}
+
+					if (Definition->SwitchChannel >= 0) {
+						DrawFormatString(
+							Left + 2, Top + 19,
+							GetColor(180, 220, 255),
+							"W%d:%s",
+							Definition->SwitchChannel,
+							World_.GetSwitch(Definition->SwitchChannel)
+								? "ON" : "OFF");
 					}
 				}
 			}
@@ -650,6 +680,43 @@ void NativeStageSandboxScene::DrawTileLayer(
 			"z=%d  %s",
 			Layer.Metadata.ZOrder,
 			Layer.Metadata.Name.c_str());
+	}
+}
+
+void NativeStageSandboxScene::DrawRuntimeEffects() {
+	for (const uchinoko::SpawnedItem& Item : Items_.Items()) {
+		const int X = ScreenX(Item.Position.X + 16.0f);
+		const int Y = ScreenY(Item.Position.Y + 16.0f);
+		switch (Item.Kind) {
+		case uchinoko::ItemKind::Coin:
+			DrawCircle(X, Y, 8, GetColor(240, 210, 70), TRUE);
+			break;
+		case uchinoko::ItemKind::Healing:
+			DrawCircle(X, Y, 8, GetColor(100, 220, 130), TRUE);
+			DrawLine(X - 4, Y, X + 4, Y, GetColor(255, 255, 255), 2);
+			DrawLine(X, Y - 4, X, Y + 4, GetColor(255, 255, 255), 2);
+			break;
+		case uchinoko::ItemKind::OneUp:
+			DrawCircle(X, Y, 9, GetColor(120, 210, 255), TRUE);
+			DrawString(X - 7, Y - 7, "1", GetColor(20, 40, 70));
+			break;
+		case uchinoko::ItemKind::LadderBuilder:
+			DrawLine(X - 6, Y - 10, X - 6, Y + 10,
+				GetColor(220, 190, 120), 2);
+			DrawLine(X + 6, Y - 10, X + 6, Y + 10,
+				GetColor(220, 190, 120), 2);
+			DrawLine(X - 6, Y, X + 6, Y,
+				GetColor(220, 190, 120), 2);
+			break;
+		}
+	}
+
+	for (const uchinoko::BrickFragment& Fragment : Bricks_.Fragments()) {
+		const int X = ScreenX(Fragment.Position.X);
+		const int Y = ScreenY(Fragment.Position.Y);
+		DrawBox(
+			X, Y, X + 7, Y + 7,
+			GetColor(190, 105, 60), TRUE);
 	}
 }
 
@@ -840,6 +907,11 @@ void NativeStageSandboxScene::draw() {
 		DrawOrder.push_back({
 			PlayerZOrder,
 			Order++,
+			DrawLayerKind::RuntimeEffects,
+			0});
+		DrawOrder.push_back({
+			PlayerZOrder,
+			Order++,
 			DrawLayerKind::Player,
 			0});
 	}
@@ -870,6 +942,9 @@ void NativeStageSandboxScene::draw() {
 		case DrawLayerKind::Object:
 			DrawObjectLayer(Area_->ObjectLayers[Entry.Index]);
 			break;
+		case DrawLayerKind::RuntimeEffects:
+			DrawRuntimeEffects();
+			break;
 		case DrawLayerKind::Player:
 			DrawPlayer();
 			break;
@@ -899,8 +974,8 @@ void NativeStageSandboxScene::draw() {
 	DrawFormatString(
 		16, 92,
 		Dead_ ? GetColor(255, 100, 100) : GetColor(255, 245, 180),
-		"Coins:%d  HP:%d  Lives:%d  Score:%d%s",
-		Coins_, Health_, Lives_, Score_,
+		"Coins:%d  HP:%d  Lives:%d  Score:%d  Broken:%d%s",
+		Coins_, Health_, Lives_, Score_, Broken_,
 		Dead_ ? "  DEAD (R: reload)" : "");
 
 	if (Completion_.Cleared) {
