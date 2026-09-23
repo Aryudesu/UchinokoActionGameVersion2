@@ -1333,13 +1333,23 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(TileSet->TileCount() == 5);
 	assert(TileSet->EmptyTileId == 0);
 	assert(TileSet->Transparent);
-	assert(TileSet->TerrainTiles.size() == 3);
+	assert(TileSet->TerrainTiles.size() == 8);
 	const TileDefinition* EmptyTerrain = TileSet->FindTerrainTile(0);
 	const TileDefinition* SolidTerrain = TileSet->FindTerrainTile(2);
 	const TileDefinition* CoinTerrain = TileSet->FindTerrainTile(4);
+	const TileDefinition* QuestionTerrain = TileSet->FindTerrainTile(5);
+	const TileDefinition* BrickTerrain = TileSet->FindTerrainTile(6);
+	const TileDefinition* SwitchTerrain = TileSet->FindTerrainTile(8);
+	const TileDefinition* SwitchOnTerrain = TileSet->FindTerrainTile(9);
+	const TileDefinition* SwitchOffTerrain = TileSet->FindTerrainTile(10);
 	assert(EmptyTerrain != nullptr);
 	assert(SolidTerrain != nullptr);
 	assert(CoinTerrain != nullptr);
+	assert(QuestionTerrain != nullptr);
+	assert(BrickTerrain != nullptr);
+	assert(SwitchTerrain != nullptr);
+	assert(SwitchOnTerrain != nullptr);
+	assert(SwitchOffTerrain != nullptr);
 	assert(EmptyTerrain->Collision == CollisionShape::None);
 	assert(EmptyTerrain->ImageIndex == 0);
 	assert(SolidTerrain->Collision == CollisionShape::Solid);
@@ -1355,6 +1365,26 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(CoinTerrain->Rules[1].Value == 100);
 	assert(CoinTerrain->Rules[2].Action == TileAction::ReplaceTile);
 	assert(CoinTerrain->Rules[2].Value == 0);
+	assert(QuestionTerrain->Rules.size() == 2);
+	assert(QuestionTerrain->Rules[0].Trigger == TileTrigger::HitFromBelow);
+	assert(QuestionTerrain->Rules[0].Action == TileAction::SpawnItem);
+	assert(QuestionTerrain->Rules[0].Value == static_cast<int>(ItemKind::Healing));
+	assert(QuestionTerrain->Rules[1].Action == TileAction::ReplaceTile);
+	assert(QuestionTerrain->Rules[1].Value == 2);
+	assert(BrickTerrain->Rules.size() == 1);
+	assert(BrickTerrain->Rules[0].Action == TileAction::HitBrick);
+	assert(BrickTerrain->Rules[0].Value == BrickSystem::Version1RequiredHealth);
+	assert(SwitchTerrain->Rules.size() == 1);
+	assert(SwitchTerrain->Rules[0].Action == TileAction::ToggleSwitch);
+	assert(SwitchTerrain->Rules[0].Value == 0);
+	assert(SwitchOnTerrain->SwitchChannel == 0);
+	assert(SwitchOnTerrain->SwitchOnTileId == 9);
+	assert(SwitchOnTerrain->SwitchOffTileId == 10);
+	assert(SwitchOnTerrain->Collision == CollisionShape::Solid);
+	assert(SwitchOffTerrain->SwitchChannel == 0);
+	assert(SwitchOffTerrain->SwitchOnTileId == 9);
+	assert(SwitchOffTerrain->SwitchOffTileId == 10);
+	assert(SwitchOffTerrain->Collision == CollisionShape::None);
 	Result<TileCatalog> NativeCatalog = TileSet->BuildTerrainCatalog();
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
@@ -1388,8 +1418,11 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(Terrain->Metadata.ZOrder == 0);
 	assert(Foreground->Metadata.ZOrder == 20);
 	assert(*Background->Map.TryGet({0, 0}) == 1);
-	assert(*Terrain->Map.TryGet({2, 3}) == 2);
+	assert(*Terrain->Map.TryGet({1, 3}) == 5);
+	assert(*Terrain->Map.TryGet({2, 3}) == 6);
+	assert(*Terrain->Map.TryGet({4, 3}) == 8);
 	assert(*Terrain->Map.TryGet({2, 4}) == 4);
+	assert(*Terrain->Map.TryGet({6, 4}) == 9);
 	assert(*Foreground->Map.TryGet({7, 4}) == 3);
 
 	const ObjectLayer* Objects = Area->FindObjectLayer("objects");
@@ -1553,6 +1586,166 @@ void TestNativeStageTileRulesApplyFromJson() {
 	assert(Result.Effects[1].Type == TileEffectType::AddScore);
 	assert(Result.Effects[1].Value == 100);
 	assert(*Terrain->Map.TryGet({2, 4}) == 0);
+}
+
+void TestNativeStageGameplayAdaptersFromJson() {
+	Result<StageData> Loaded =
+		NativeStageDataLoader::Load("dat/stage/native-test/stage.json");
+	assert(Loaded.IsSuccess());
+
+	StageData Data = std::move(Loaded.Value());
+	StageArea* Area = Data.FindArea("main");
+	assert(Area != nullptr);
+	TileLayer* Terrain = Area->TerrainLayer();
+	assert(Terrain != nullptr);
+	const TileSetDefinition* TileSet = Data.FindTileSet(Terrain->TileSetId);
+	assert(TileSet != nullptr);
+
+	Result<TileCatalog> CatalogResult = TileSet->BuildTerrainCatalog();
+	assert(CatalogResult.IsSuccess());
+	TileCatalog Catalog = std::move(CatalogResult.Value());
+	TileRuntimeMap Runtime(Terrain->Map);
+
+	// ? block -> Healing SpawnItem + Used blockへの置換。
+	TileInteraction QuestionHit;
+	QuestionHit.Trigger = TileTrigger::HitFromBelow;
+	QuestionHit.Position = {1, 3};
+	QuestionHit.TileId = 5;
+	QuestionHit.Actor = TileActor::Player;
+	const TileBehaviorResult QuestionResult =
+		TileBehaviorSystem::Apply(
+			QuestionHit, Terrain->Map, Catalog, Runtime);
+	assert(QuestionResult.Handled);
+	assert(QuestionResult.Effects.size() == 1);
+	assert(QuestionResult.Effects[0].Type == TileEffectType::SpawnItem);
+	assert(QuestionResult.Effects[0].Value ==
+		static_cast<int>(ItemKind::Healing));
+	assert(*Terrain->Map.TryGet({1, 3}) == 2);
+
+	ItemSystem Items;
+	Items.ConsumeTileEffects(
+		QuestionResult.Effects,
+		Terrain->Map.TileWidth(),
+		Terrain->Map.TileHeight());
+	assert(Items.Items().size() == 1);
+	assert(Items.Items()[0].Kind == ItemKind::Healing);
+
+	std::vector<TileEffect> ItemEffects;
+	for (int Frame = 0; Frame < 64 && ItemEffects.empty(); ++Frame) {
+		ItemEffects = Items.Update();
+	}
+	assert(ItemEffects.size() == 2);
+	assert(ItemEffects[0].Type == TileEffectType::AddHealth);
+	assert(ItemEffects[0].Value == 1);
+	assert(ItemEffects[1].Type == TileEffectType::AddScore);
+	assert(ItemEffects[1].Value == 1000);
+
+	// Brick: HP4ならbump、HP5ならbreak。
+	TileInteraction BrickHit;
+	BrickHit.Trigger = TileTrigger::HitFromBelow;
+	BrickHit.Position = {2, 3};
+	BrickHit.TileId = 6;
+	BrickHit.Actor = TileActor::Player;
+	const TileBehaviorResult BrickResult =
+		TileBehaviorSystem::Apply(
+			BrickHit, Terrain->Map, Catalog, Runtime);
+	assert(BrickResult.Effects.size() == 1);
+	assert(BrickResult.Effects[0].Type == TileEffectType::BrickHit);
+
+	BrickSystem Bricks;
+	GameStateSnapshot State;
+	State.Health = 4;
+	Bricks.ConsumeTileEffects(BrickResult.Effects, State);
+	assert(Bricks.TryGet({2, 3}) != nullptr);
+	assert(Bricks.TryGet({2, 3})->Phase == BrickPhase::Bumping);
+	for (int Frame = 0; Frame < BrickSystem::Version1BumpFrames; ++Frame) {
+		Bricks.Update(Terrain->Map, 32, 32, 9999.0f);
+	}
+	assert(*Terrain->Map.TryGet({2, 3}) == 6);
+
+	State.Health = 5;
+	Bricks.ConsumeTileEffects(BrickResult.Effects, State);
+	assert(Bricks.TryGet({2, 3}) != nullptr);
+	assert(Bricks.TryGet({2, 3})->Phase == BrickPhase::Breaking);
+	std::vector<TileEffect> BrickEffects;
+	for (int Frame = 0;
+		Frame < BrickSystem::Version1BreakFrames && BrickEffects.empty();
+		++Frame) {
+		BrickEffects = Bricks.Update(
+			Terrain->Map, 32, 32, 9999.0f);
+	}
+	assert(*Terrain->Map.TryGet({2, 3}) == 0);
+	assert(BrickEffects.size() == 2);
+	assert(BrickEffects[0].Type == TileEffectType::AddScore);
+	assert(BrickEffects[1].Type == TileEffectType::TileBroken);
+
+	// Switch button -> channel 0 OFF -> bound block 9 -> 10。
+	TileInteraction SwitchHit;
+	SwitchHit.Trigger = TileTrigger::HitFromBelow;
+	SwitchHit.Position = {4, 3};
+	SwitchHit.TileId = 8;
+	SwitchHit.Actor = TileActor::Player;
+	const TileBehaviorResult SwitchResult =
+		TileBehaviorSystem::Apply(
+			SwitchHit, Terrain->Map, Catalog, Runtime);
+	assert(SwitchResult.Effects.size() == 1);
+	assert(SwitchResult.Effects[0].Type == TileEffectType::ToggleSwitch);
+	assert(SwitchResult.Effects[0].Value == 0);
+
+	WorldState World;
+	World.Reset(1, true);
+	assert(World.GetSwitch(0));
+	const WorldStateUpdate WorldUpdate =
+		World.ApplyEffects(
+			SwitchResult.Effects, Terrain->Map, Catalog);
+	assert(!World.GetSwitch(0));
+	assert(*Terrain->Map.TryGet({6, 4}) == 10);
+	assert(WorldUpdate.ChangedTiles.size() == 1);
+}
+
+void TestNativeStageDataValidationRejectsInvalidSwitchBinding() {
+	TileSetDefinition TileSet;
+	TileSet.Id = "switch";
+	TileSet.ImageFile = "dummy.png";
+	TileSet.Columns = 1;
+	TileSet.Rows = 1;
+
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.ImageIndex = 0;
+	TileSet.TerrainTiles.push_back(Empty);
+
+	TileDefinition Bound;
+	Bound.Id = 1;
+	Bound.ImageIndex = 0;
+	Bound.SwitchChannel = 0;
+	Bound.SwitchOnTileId = 1;
+	Bound.SwitchOffTileId = 99;
+	TileSet.TerrainTiles.push_back(Bound);
+
+	TileLayer Terrain;
+	Terrain.Metadata.Id = "terrain";
+	Terrain.Metadata.Name = "Terrain";
+	Terrain.Role = TileLayerRole::Terrain;
+	Terrain.TileSetId = "switch";
+	Terrain.Map = MakeMap({{1}});
+
+	StageArea Area;
+	Area.Id = "main";
+	Area.Width = 1;
+	Area.Height = 1;
+	Area.TileLayers = {Terrain};
+
+	StageData Data;
+	Data.Id = "bad-switch";
+	Data.StartAreaId = "main";
+	Data.TileSets = {TileSet};
+	Data.Areas = {Area};
+
+	Result<bool> Validation = ValidateStageData(Data);
+	assert(Validation.IsFailure());
+	assert(
+		Validation.Error().find("undefined tile id") != std::string::npos);
 }
 
 void TestNativeStageDataValidationRejectsUndefinedRuleReplacement() {
@@ -4691,7 +4884,8 @@ int main(int argc, char* argv[]) {
 		TestNativeStageDataAllowsExternalTransitions();
 		TestNativeStageDataLoaderLoadsJsonAndCsv();
 		TestNativeStageCharacterControllerUsesTerrainSemantics();
-		TestNativeStageTileRulesApplyFromJson();
+		TestNativeStageGameplayAdaptersFromJson();
+		TestNativeStageDataValidationRejectsInvalidSwitchBinding();
 		TestNativeStageDataValidationRejectsUndefinedRuleReplacement();
 		TestNativeStageDataValidationRejectsUndefinedTerrainTile();
 		TestNativeStageDataValidationRejectsUnknownTileSet();
@@ -4739,7 +4933,8 @@ int main(int argc, char* argv[]) {
 	TestLayeredMap();
 	TestNativeStageDataLoaderLoadsJsonAndCsv();
 	TestNativeStageCharacterControllerUsesTerrainSemantics();
-	TestNativeStageTileRulesApplyFromJson();
+		TestNativeStageGameplayAdaptersFromJson();
+		TestNativeStageDataValidationRejectsInvalidSwitchBinding();
 	TestNativeStageDataValidationRejectsUndefinedRuleReplacement();
 	TestNativeStageDataValidationRejectsUndefinedTerrainTile();
 	TestNativeStageDataValidationRejectsUnknownTileSet();
