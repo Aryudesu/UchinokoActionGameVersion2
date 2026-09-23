@@ -27,9 +27,9 @@ PR #28は現時点で未マージ。
 
 推奨順:
 
-1. PR #36のNative Goal判定16x32化をレビュー・マージ
-2. Native SpawnItem / Brick / WorldState adapterを段階接続
-3. ObjectSpawn TypeId/property schemaとObjectRuntime HitBoundsを設計
+1. PR #37のNative SpawnItem / Brick / WorldState adapterをレビュー・マージ
+2. ObjectSpawn TypeId/property schemaとObjectRuntime HitBoundsを設計
+3. Native ConditionalTerrain / DamageReaction等の残りadapterを整理
 4. external Stage transition / Stage loader責務を設計
 5. PR #28を旧ARY parser / converter入力として整理
 6. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
@@ -125,7 +125,7 @@ Terrain / Visual / Object / Eventを分ける。
 
 ## 6. ステージデータの未決事項
 
-PR #30〜#35はdevへマージ済み。PR #36でGoal判定のPlayer側hitboxを中央16x32へ統一中。
+PR #30〜#36はdevへマージ済み。PR #37でSpawnItem / BrickSystem / WorldState / CharacterSafetyをNativeStageSandboxへ接続中。
 
 - JSON + CSVをauthoring/native v1として採用済み。将来binary/export formatを追加するか
 - TileLayer CSVを将来full grid / sparse / chunkedへ最適化するか
