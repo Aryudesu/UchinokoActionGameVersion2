@@ -1852,6 +1852,81 @@ void TestNativeObjectRuntimeUsesPlayerCentralTouchBounds() {
 	assert(Contacts[0].ContactDamage == 1);
 }
 
+void TestNativeObjectContactComposesWithDamageReaction() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+
+	ObjectSpawn Enemy;
+	Enemy.Id = "enemy";
+	Enemy.TypeId = "WalkingEnemy";
+	Enemy.Position = {100.0f, 100.0f};
+	Layer.Objects.push_back(Enemy);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	const NativeObjectRuntime* Runtime = Objects.Find("enemy");
+	assert(Runtime != nullptr);
+	const ObjectHitBounds Bounds = Runtime->HitBounds();
+	const float SourceCenterX =
+		Bounds.Position.X + Bounds.Size.X * 0.5f;
+	assert(NearlyEqual(SourceCenterX, 116.0f));
+
+	CharacterBody LeftBody;
+	LeftBody.Position = {86.0f, 100.0f};
+	CharacterController LeftPlayer(LeftBody);
+	CharacterTouchBounds LeftTouch = LeftPlayer.TouchBounds();
+	const std::vector<NativeObjectContact> LeftContacts =
+		Objects.FindContacts(
+			{LeftTouch.Left, LeftTouch.Top},
+			{LeftTouch.Right - LeftTouch.Left,
+			 LeftTouch.Bottom - LeftTouch.Top});
+	assert(LeftContacts.size() == 1);
+	assert(LeftContacts[0].ContactDamage == 1);
+
+	const float LeftPlayerCenterX =
+		LeftPlayer.Body().Position.X +
+		LeftPlayer.Body().Width * 0.5f;
+	const int LeftDirection =
+		DamageReactionState::DirectionAwayFromSource(
+			LeftPlayerCenterX, SourceCenterX, 1);
+	assert(LeftDirection == -1);
+
+	DamageReactionState Reaction;
+	assert(Reaction.Begin(LeftDirection));
+	// Damage中は同じ/別の危険源から再度Beginされても無効。
+	assert(!Reaction.Begin(1));
+	assert(Reaction.AdvanceFrame() == -1.0f);
+
+	while (Reaction.Active()) {
+		Reaction.AdvanceFrame();
+	}
+	assert(!Reaction.Active());
+
+	CharacterBody RightBody;
+	RightBody.Position = {114.0f, 100.0f};
+	CharacterController RightPlayer(RightBody);
+	CharacterTouchBounds RightTouch = RightPlayer.TouchBounds();
+	const std::vector<NativeObjectContact> RightContacts =
+		Objects.FindContacts(
+			{RightTouch.Left, RightTouch.Top},
+			{RightTouch.Right - RightTouch.Left,
+			 RightTouch.Bottom - RightTouch.Top});
+	assert(RightContacts.size() == 1);
+
+	const float RightPlayerCenterX =
+		RightPlayer.Body().Position.X +
+		RightPlayer.Body().Width * 0.5f;
+	const int RightDirection =
+		DamageReactionState::DirectionAwayFromSource(
+			RightPlayerCenterX, SourceCenterX, -1);
+	assert(RightDirection == 1);
+	assert(Reaction.Begin(RightDirection));
+	assert(Reaction.AdvanceFrame() == 1.0f);
+}
+
 void TestNativeObjectRuntimePropertiesOverrideHitbox() {
 	StageArea Area;
 	ObjectLayer Layer;
@@ -5047,6 +5122,7 @@ int main(int argc, char* argv[]) {
 		TestNativeStageGameplayAdaptersFromJson();
 		TestNativeObjectRuntimeBuildsTypeSpecificHitBounds();
 		TestNativeObjectRuntimeUsesPlayerCentralTouchBounds();
+		TestNativeObjectContactComposesWithDamageReaction();
 		TestNativeObjectRuntimePropertiesOverrideHitbox();
 		TestNativeObjectRuntimeRejectsInvalidHitbox();
 		TestNativeStageDataValidationRejectsInvalidSwitchBinding();
@@ -5101,6 +5177,7 @@ int main(int argc, char* argv[]) {
 	TestNativeStageGameplayAdaptersFromJson();
 	TestNativeObjectRuntimeBuildsTypeSpecificHitBounds();
 	TestNativeObjectRuntimeUsesPlayerCentralTouchBounds();
+	TestNativeObjectContactComposesWithDamageReaction();
 	TestNativeObjectRuntimePropertiesOverrideHitbox();
 	TestNativeObjectRuntimeRejectsInvalidHitbox();
 	TestNativeStageDataValidationRejectsInvalidSwitchBinding();
