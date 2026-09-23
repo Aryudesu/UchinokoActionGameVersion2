@@ -525,6 +525,10 @@ void NativeObjectSystem::UpdateWalkingEnemy(
 
 	const bool HitWall =
 		ResolveWalkingEnemySide(Object, Map, Catalog);
+	if (HitWall) {
+		Object.Velocity.X =
+			static_cast<float>(Object.Direction) * Object.MoveSpeed;
+	}
 
 	// V1 WalkingEnemy2だけが崖手前で反転する。
 	// WalkingEnemy1は崖からそのまま落下する。
