@@ -46,15 +46,6 @@ bool TryPipeDirection(
 	return false;
 }
 
-bool HasAction(
-	const uchinoko::TileDefinition& Definition,
-	uchinoko::TileAction Action) {
-	for (const uchinoko::TileRule& Rule : Definition.Rules) {
-		if (Rule.Action == Action) return true;
-	}
-	return false;
-}
-
 bool TryRegionGoalKind(
 	const uchinoko::StageRegion& Region,
 	uchinoko::GoalKind& Kind) {
