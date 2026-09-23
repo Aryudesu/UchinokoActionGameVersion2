@@ -373,6 +373,14 @@ TileDefinition ReadTerrainTileDefinition(
 		Object, "collision", Context);
 	Definition.Movement = ReadMovementRegion(
 		Object, "movement", Context);
+	Definition.SwitchChannel = OptionalInteger(
+		Object, "switchChannel", -1, Context);
+	Definition.SwitchOnTileId = OptionalInteger(
+		Object, "switchOnTileId", -1, Context);
+	Definition.SwitchOffTileId = OptionalInteger(
+		Object, "switchOffTileId", -1, Context);
+	Definition.AutoTogglePeriod = OptionalInteger(
+		Object, "autoTogglePeriod", 0, Context);
 
 	const auto Rules = Object.find("rules");
 	if (Rules != Object.end()) {
