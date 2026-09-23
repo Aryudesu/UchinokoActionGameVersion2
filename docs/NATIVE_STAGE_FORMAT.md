@@ -449,6 +449,16 @@ PlayerSpawn以外のObjectSpawnはNative runtimeでHitBoundsを持てる。
 - `HorizontalLift`: offset `[-6,11]`, size `[44,10]`, contactDamage `0`
 - その他: offset `[0,0]`, size `[32,32]`, contactDamage `0`
 
+`WalkingEnemy` はさらに以下のpropertyを解釈する。
+
+- `direction: "left" | "right"`: default `"left"`
+- `variant: 1 | 2`: default `1`
+- `speed: number`: default `2.0`
+- `gravity: number`: default `0.5`
+- `maxFallSpeed: number`: default `12.0`
+
+`variant=1` はV1 WalkingEnemy1相当で崖から落ちる。`variant=2` はV1 WalkingEnemy2相当で接地中の崖手前でも反転する。
+
 Player側の通常接触矩形は `CharacterController::TouchBounds()` の中央16x32。矩形は半開区間として扱い、境界に触れただけではcontactにならない。
 
 `contactDamage > 0` のObject contactはNativeStageSandboxで `DamageReactionState` を開始する。Damage reaction中の再contactはHPを減らさず、V1由来の16F reaction終了後に再びdamage可能になる。
