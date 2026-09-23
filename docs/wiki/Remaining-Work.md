@@ -29,7 +29,7 @@ PR #28は現時点で未マージ。
 
 1. PR #36のNative Goal判定16x32化をレビュー・マージ
 2. Native SpawnItem / Brick / WorldState adapterを段階接続
-3. ObjectSpawn TypeId/property schemaを設計
+3. ObjectSpawn TypeId/property schemaとObjectRuntime HitBoundsを設計
 4. external Stage transition / Stage loader責務を設計
 5. PR #28を旧ARY parser / converter入力として整理
 6. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
@@ -151,6 +151,8 @@ PR #30ではVisual TileLayerを複数枚持ち、ZOrderで重ねる。
 ### Enemy / Lift / Dynamic Object
 
 座標付き配置リスト。
+
+Playerとの通常接触は `CharacterController::TouchBounds()` の中央16x32を基本とし、Object側はTypeIdごとの固有HitBoundsを持てる設計にする。Liftの乗り判定は通常接触とは分離して足元/Stand判定を使う。
 
 ### Event / Trigger
 
