@@ -37,7 +37,8 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #34 | Native Terrain TileRule JSON + TileBehaviorSystem接続 | merged |
 | #35 | Native Goal Region + Area間Pipe Transition runtime | merged |
 | #36 | Native Goal判定を主人公中央16x32へ統一 | merged |
-| #37 | Native SpawnItem / Brick / WorldState gameplay adapter | open |
+| #37 | Native SpawnItem / Brick / WorldState gameplay adapter | merged |
+| #38 | Native ObjectRuntime + TypeId別HitBounds接触基盤 | open |
 
 ## 読み方
 
@@ -85,8 +86,11 @@ Native Goal Region / Area transition / gameplay flow
 #36
 Goal hitbox / gameplay contact tuning
 
-#37-
+#37
 Native Item / Brick / WorldState gameplay adapters
+
+#38-
+Native ObjectRuntime / HitBounds / Player contact
 ```
 
 という流れです。
