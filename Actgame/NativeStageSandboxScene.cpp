@@ -205,12 +205,12 @@ int NativeStageSandboxScene::RequiredSwitchCount() const {
 	for (const uchinoko::TileSetDefinition& TileSet : Stage_.TileSets) {
 		for (const uchinoko::TileDefinition& Definition : TileSet.TerrainTiles) {
 			if (Definition.SwitchChannel >= 0) {
-				Count = std::max(Count, Definition.SwitchChannel + 1);
+				Count = (std::max)(Count, Definition.SwitchChannel + 1);
 			}
 			for (const uchinoko::TileRule& Rule : Definition.Rules) {
 				if (Rule.Action == uchinoko::TileAction::ToggleSwitch &&
 					Rule.Value >= 0) {
-					Count = std::max(Count, Rule.Value + 1);
+					Count = (std::max)(Count, Rule.Value + 1);
 				}
 			}
 		}
