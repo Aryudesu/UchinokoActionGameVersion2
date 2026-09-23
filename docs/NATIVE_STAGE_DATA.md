@@ -61,6 +61,35 @@ Terrain ID
 
 Native JSONの `terrainTiles[].rules` は既存 `TileRule` へそのまま変換する。CharacterControllerが生成した `TileInteraction` を `TileBehaviorSystem` に渡すことで、ReplaceTile / Coin / Damage等の既存Foundation behaviorを再利用する。
 
+### Gameplay adapter pipeline
+
+NativeStageSandboxはTileBehaviorSystemが返した意味effectを既存Foundation systemへ分配する。
+
+```text
+CharacterController::Interactions
+            ↓
+     TileBehaviorSystem
+            ↓
+       TileEffect[]
+       ├ SpawnItem    → ItemSystem
+       ├ BrickHit     → BrickSystem
+       ├ ToggleSwitch → WorldState
+       ├ resource     → PlayerResourceRules
+       └ Goal         → GoalState
+```
+
+WorldStateでSolidが新規出現した時は `CharacterSafety::ResolveActivatedSolids()` を通すため、ON/OFF切替による挟み込み判定もNative専用実装を作らない。
+
+ItemSystem / BrickSystemはArea固有runtimeとしてArea切替時にresetし、WorldStateのswitch値は同一Stage内のArea移動で保持する。
+
+`native-test` では以下を一画面で確認できる。
+
+- `?`: Healing SpawnItem。HP4 → HP5
+- `B`: Brick。HP4ではbump、HP5ではbreak
+- `S`: channel 0 toggle
+- `W0`: channel 0へ束縛されたON/OFF block
+- Coin / Pipe / Goal: 既存fixtureを継続
+
 ## ObjectLayer
 
 Enemy、Lift、MovingPlatform、Item、PlayerSpawn等。
