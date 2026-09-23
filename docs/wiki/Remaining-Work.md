@@ -27,9 +27,9 @@ PR #28は現時点で未マージ。
 
 推奨順:
 
-1. PR #39のNative DamageReaction / knockback接続をレビュー・マージ
-2. WalkingEnemy AI移動 / Terrain衝突をNative ObjectRuntimeへ接続
-3. Enemy踏みつけ / Player damage判定を役割分離
+1. PR #40のNative WalkingEnemy移動AI / Terrain衝突をレビュー・マージ
+2. Enemy踏みつけ / Player damage判定を役割分離
+3. Enemy同士の側面衝突 / Damage terrain反応 / lifecycleを整理
 4. external Stage transition / Stage loader責務を設計
 5. PR #28を旧ARY parser / converter入力として整理
 6. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
@@ -125,7 +125,7 @@ Terrain / Visual / Object / Eventを分ける。
 
 ## 6. ステージデータの未決事項
 
-PR #30〜#38はdevへマージ済み。PR #39でEnemy/Object contactとTerrain Damageを既存DamageReactionStateへ統合中。
+PR #30〜#39はdevへマージ済み。PR #40でWalkingEnemy1/2の歩行・重力・壁/崖判定をNativeObjectRuntimeへ接続中。
 
 - JSON + CSVをauthoring/native v1として採用済み。将来binary/export formatを追加するか
 - TileLayer CSVを将来full grid / sparse / chunkedへ最適化するか
