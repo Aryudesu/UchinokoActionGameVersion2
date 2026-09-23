@@ -237,14 +237,23 @@ void NativeStageSandboxScene::ApplyTerrainEffects() {
 void NativeStageSandboxScene::CheckGoalRegions() {
 	if (Area_ == nullptr || Completion_.Cleared) return;
 
-	const uchinoko::CharacterBody& Body = Player_.Body();
-	const uchinoko::WorldPosition BodySize = {Body.Width, Body.Height};
+	// TerrainのTouch判定と同じ中央16x32をGoal判定にも使う。
+	// 見た目32x32の端がGoalへ少し触れただけではクリアにしない。
+	const uchinoko::CharacterTouchBounds Touch = Player_.TouchBounds();
+	const uchinoko::WorldPosition GoalProbePosition = {
+		Touch.Left,
+		Touch.Top
+	};
+	const uchinoko::WorldPosition GoalProbeSize = {
+		Touch.Right - Touch.Left,
+		Touch.Bottom - Touch.Top
+	};
 
 	for (const uchinoko::RegionLayer& Layer : Area_->RegionLayers) {
 		for (const uchinoko::StageRegion& Region : Layer.Regions) {
 			if (Region.TypeId != "Goal") continue;
 			if (!Region.Geometry.IntersectsRectangle(
-				Body.Position, BodySize)) {
+				GoalProbePosition, GoalProbeSize)) {
 				continue;
 			}
 

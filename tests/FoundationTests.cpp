@@ -1079,6 +1079,33 @@ void TestStagePropertyValuesKeepTypes() {
 	assert(NearlyEqual(VectorValue.Y, 34.0f));
 }
 
+void TestNativeGoalUsesCentral16x32TouchBounds() {
+	CharacterBody Body;
+	Body.Position = {164.0f, 128.0f};
+	CharacterController Player(Body);
+
+	const StageRegionGeometry Goal =
+		StageRegionGeometry::Rectangle(
+			{192.0f, 128.0f}, 32.0f, 32.0f);
+
+	// 見た目32x32なら右端がGoalへ4px食い込む位置だが、
+	// Goal判定に使う中央16x32はまだ届いていない。
+	assert(Body.Position.X + Body.Width > 192.0f);
+	CharacterTouchBounds Touch = Player.TouchBounds();
+	assert(NearlyEqual(Touch.Right - Touch.Left, 16.0f));
+	assert(NearlyEqual(Touch.Bottom - Touch.Top, 32.0f));
+	assert(!Goal.IntersectsRectangle(
+		{Touch.Left, Touch.Top},
+		{Touch.Right - Touch.Left, Touch.Bottom - Touch.Top}));
+
+	// 中央16px判定がGoalへ入ったら成立する。
+	Player.Reposition({177.0f, 128.0f});
+	Touch = Player.TouchBounds();
+	assert(Goal.IntersectsRectangle(
+		{Touch.Left, Touch.Top},
+		{Touch.Right - Touch.Left, Touch.Bottom - Touch.Top}));
+}
+
 void TestStageRegionGeometryIntersection() {
 	const StageRegionGeometry Rectangle =
 		StageRegionGeometry::Rectangle({100.0f, 50.0f}, 32.0f, 64.0f);
@@ -4657,6 +4684,7 @@ void TestExternalStageSpawnStaysOnFloor() {
 int main(int argc, char* argv[]) {
 	if (argc >= 2 && std::string(argv[1]) == "--native-stage-loader") {
 		TestStagePropertyValuesKeepTypes();
+		TestNativeGoalUsesCentral16x32TouchBounds();
 		TestStageRegionGeometryIntersection();
 		TestNativeStageDataSupportsOverlappingContent();
 		TestNativeStageDataValidationRejectsAmbiguousStructure();
@@ -4718,6 +4746,7 @@ int main(int argc, char* argv[]) {
 	TestNativeStageDataLoaderRejectsUnsupportedVersion();
 	TestNativeStageDataLoaderRejectsNestedProperties();
 	TestStagePropertyValuesKeepTypes();
+	TestNativeGoalUsesCentral16x32TouchBounds();
 	TestStageRegionGeometryIntersection();
 	TestNativeStageDataSupportsOverlappingContent();
 	TestNativeStageDataValidationRejectsAmbiguousStructure();
