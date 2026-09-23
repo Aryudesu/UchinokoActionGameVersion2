@@ -135,9 +135,28 @@ Object側のHitBoundsはTypeIdごとの既定値を持つ。
 
 必要ならObject propertyで `hitboxOffset` / `hitboxSize` / `contactDamage` を上書きできる。
 
-WalkingEnemyの接触damageは現在「接触開始時に1回」だけSandboxのHPへ反映する。V1相当のノックバック・無敵時間、踏みつけ、Enemy AI移動は別責務として後続で接続する。
+WalkingEnemyの `contactDamage` はSandboxで既存Foundation `DamageReactionState` へ接続する。
 
-Liftについてもこの段階ではHitBoundsをruntime化するだけで、Playerを乗せるStand/足元判定は後続実装とする。
+```text
+Player TouchBounds
+      ×
+Enemy HitBounds
+      ↓
+contactDamage
+      ↓
+DamageReactionState
+ ├ damage開始時にY速度reset
+ ├ 1～15F: sourceと反対方向へ3px/frame
+ └ 16F: reaction解除
+```
+
+Damage中は `DamageReactionState::Begin()` がfalseを返すため、同じEnemy・別Enemy・Damage terrainのいずれからも重複damageを受けない。16F解除後も危険源と接触していれば再度damage可能。#38のObject ID単位の「接触開始時のみ」抑制はdebug接触表示だけに変更し、無敵時間の責務をDamageReactionStateへ一本化する。
+
+Terrainの `TileEffectType::Damage` も同じ経路へ通し、Tile hazardとEnemy contactで被ダメージ挙動を分けない。
+
+踏みつけ、Enemy AI移動は後続で接続する。
+
+LiftについてはHitBoundsをruntime化済みだが、Playerを乗せるStand/足元判定は後続実装とする。
 
 ## RegionLayer
 
