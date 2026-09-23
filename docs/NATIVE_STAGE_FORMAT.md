@@ -134,6 +134,10 @@ Current fields:
 - `imageIndex`: divided-image index inside the TileSet; defaults to `id`
 - `collision`: collision behavior
 - `movement`: optional movement region
+- `switchChannel`: optional WorldState switch channel; default `-1`
+- `switchOnTileId`: semantic ID used while the channel is ON
+- `switchOffTileId`: semantic ID used while the channel is OFF
+- `autoTogglePeriod`: optional automatic toggle period in frames; default `0`
 
 Supported `collision` values:
 
@@ -160,6 +164,33 @@ Supported `movement` values:
 - `water`
 - `gravityUp`
 - `gravityDown`
+
+### WorldState binding
+
+ON/OFF等の共有状態へ束縛するterrainは、ON/OFF両方のsemantic IDで同じbindingを持つ。
+
+```json
+{
+  "id": 9,
+  "imageIndex": 2,
+  "collision": "solid",
+  "switchChannel": 0,
+  "switchOnTileId": 9,
+  "switchOffTileId": 10
+},
+{
+  "id": 10,
+  "imageIndex": 0,
+  "collision": "none",
+  "switchChannel": 0,
+  "switchOnTileId": 9,
+  "switchOffTileId": 10
+}
+```
+
+`switchChannel >= 0` のterrainでは `switchOnTileId` / `switchOffTileId` が必須で、同じTileSet内のsemantic IDを参照する必要がある。
+
+`autoTogglePeriod > 0` は `switchChannel` を必要とする。NativeStageSandboxでは既存Foundation `WorldState` を使い、Stage内のArea移動でもswitch値を保持する。
 
 The TileSet builds the existing Foundation `TileCatalog`, so CharacterController consumes native terrain through the same collision implementation already used by the Foundation sandboxes.
 
