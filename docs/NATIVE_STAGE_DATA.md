@@ -102,6 +102,43 @@ ObjectSpawnはworld座標を持つため、
 
 へ自由に配置できる。
 
+### Native Object runtime / HitBounds
+
+`ObjectSpawn` は配置データであり、実行時には `NativeObjectRuntime` へ変換する。
+
+```text
+ObjectSpawn
+   ↓ ActivateArea
+NativeObjectRuntime
+ ├ Position
+ ├ HitboxOffset
+ ├ HitboxSize
+ ├ ContactDamage
+ └ Active
+```
+
+Playerとの通常接触は、見た目32x32全体ではなく既存 `CharacterController::TouchBounds()` の中央16x32を使う。
+
+```text
+Player TouchBounds (16x32)
+        ×
+Object HitBounds
+        ↓
+NativeObjectContact
+```
+
+Object側のHitBoundsはTypeIdごとの既定値を持つ。
+
+- `WalkingEnemy`: offset=(8,1), size=(16,31)。V1 WalkingEnemy1の32x32 + gap.x=8 / gap.y=1由来
+- `HorizontalLift`: offset=(-6,11), size=(44,10)。Native sandboxで従来debug表示していた足場形状
+- その他TypeId: 当面32x32のdebug/runtime既定値
+
+必要ならObject propertyで `hitboxOffset` / `hitboxSize` / `contactDamage` を上書きできる。
+
+WalkingEnemyの接触damageは現在「接触開始時に1回」だけSandboxのHPへ反映する。V1相当のノックバック・無敵時間、踏みつけ、Enemy AI移動は別責務として後続で接続する。
+
+Liftについてもこの段階ではHitBoundsをruntime化するだけで、Playerを乗せるStand/足元判定は後続実装とする。
+
 ## RegionLayer
 
 Goal、Checkpoint、Camera/BGM trigger、Scene event等。
