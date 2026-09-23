@@ -1797,6 +1797,11 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	assert(NearlyEqual(Enemy->HitboxSize.X, 16.0f));
 	assert(NearlyEqual(Enemy->HitboxSize.Y, 31.0f));
 	assert(Enemy->ContactDamage == 1);
+	assert(Enemy->Direction == -1);
+	assert(Enemy->Variant == 1);
+	assert(NearlyEqual(Enemy->MoveSpeed, 2.0f));
+	assert(NearlyEqual(Enemy->Gravity, 0.5f));
+	assert(NearlyEqual(Enemy->MaxFallSpeed, 12.0f));
 
 	const ObjectHitBounds EnemyBounds = Enemy->HitBounds();
 	assert(NearlyEqual(EnemyBounds.Position.X, 232.0f));
@@ -1925,6 +1930,164 @@ void TestNativeObjectContactComposesWithDamageReaction() {
 	assert(RightDirection == 1);
 	assert(Reaction.Begin(RightDirection));
 	assert(Reaction.AdvanceFrame() == 1.0f);
+}
+
+TileCatalog MakeNativeObjectMovementCatalog() {
+	TileCatalog Catalog;
+
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	TileDefinition OneWay;
+	OneWay.Id = 2;
+	OneWay.Collision = CollisionShape::OneWay;
+	assert(Catalog.Register(OneWay).IsSuccess());
+
+	TileDefinition DropThrough;
+	DropThrough.Id = 3;
+	DropThrough.Collision = CollisionShape::DropThroughOneWay;
+	assert(Catalog.Register(DropThrough).IsSuccess());
+
+	return Catalog;
+}
+
+ObjectSpawn MakeWalkingEnemySpawn(
+	const std::string& Id,
+	WorldPosition Position,
+	const char* Direction,
+	int Variant) {
+	ObjectSpawn Enemy;
+	Enemy.Id = Id;
+	Enemy.TypeId = "WalkingEnemy";
+	Enemy.Position = Position;
+	Enemy.Properties["direction"] =
+		StagePropertyValue::String(Direction);
+	Enemy.Properties["variant"] =
+		StagePropertyValue::Integer(Variant);
+	Enemy.Properties["speed"] =
+		StagePropertyValue::Float(2.0f);
+	return Enemy;
+}
+
+void TestNativeWalkingEnemyMovesAndTurnsAtWall() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 0, 0, 1, 0},
+		{1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog = MakeNativeObjectMovementCatalog();
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	Layer.Objects.push_back(
+		MakeWalkingEnemySpawn(
+			"walker", {64.0f, 32.0f}, "right", 1));
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	for (int Frame = 0; Frame < 5; ++Frame) {
+		Objects.Update(Map, Catalog);
+	}
+
+	const NativeObjectRuntime* Enemy = Objects.Find("walker");
+	assert(Enemy != nullptr);
+	assert(NearlyEqual(Enemy->Position.X, 72.0f));
+	assert(NearlyEqual(Enemy->Position.Y, 32.0f));
+	assert(Enemy->Direction == -1);
+	assert(Enemy->Grounded);
+	assert(NearlyEqual(Enemy->Velocity.Y, 0.0f));
+
+	Objects.Update(Map, Catalog);
+	Enemy = Objects.Find("walker");
+	assert(NearlyEqual(Enemy->Position.X, 70.0f));
+	assert(Enemy->Direction == -1);
+}
+
+void TestNativeWalkingEnemyVariantsDifferAtCliff() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0},
+		{1, 1, 1, 0, 0},
+		{0, 0, 0, 0, 0}
+	});
+	TileCatalog Catalog = MakeNativeObjectMovementCatalog();
+
+	StageArea Variant1Area;
+	ObjectLayer Variant1Layer;
+	Variant1Layer.Metadata.Id = "objects";
+	Variant1Layer.Objects.push_back(
+		MakeWalkingEnemySpawn(
+			"walker-1", {64.0f, 32.0f}, "right", 1));
+	Variant1Area.ObjectLayers.push_back(Variant1Layer);
+
+	NativeObjectSystem Variant1;
+	assert(Variant1.Reset(Variant1Area).IsSuccess());
+	for (int Frame = 0; Frame < 10; ++Frame) {
+		Variant1.Update(Map, Catalog);
+	}
+	const NativeObjectRuntime* Walker1 = Variant1.Find("walker-1");
+	assert(Walker1 != nullptr);
+	assert(Walker1->Position.Y > 32.0f);
+	assert(!Walker1->Grounded);
+	assert(Walker1->Direction == 1);
+
+	StageArea Variant2Area;
+	ObjectLayer Variant2Layer;
+	Variant2Layer.Metadata.Id = "objects";
+	Variant2Layer.Objects.push_back(
+		MakeWalkingEnemySpawn(
+			"walker-2", {64.0f, 32.0f}, "right", 2));
+	Variant2Area.ObjectLayers.push_back(Variant2Layer);
+
+	NativeObjectSystem Variant2;
+	assert(Variant2.Reset(Variant2Area).IsSuccess());
+	for (int Frame = 0; Frame < 10; ++Frame) {
+		Variant2.Update(Map, Catalog);
+	}
+	const NativeObjectRuntime* Walker2 = Variant2.Find("walker-2");
+	assert(Walker2 != nullptr);
+	assert(NearlyEqual(Walker2->Position.Y, 32.0f));
+	assert(Walker2->Grounded);
+	assert(Walker2->Direction == -1);
+	assert(Walker2->Position.X < 72.0f);
+}
+
+void TestNativeWalkingEnemyStandsOnOneWayFloors() {
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 0, 0},
+		{2, 2, 2}
+	});
+	TileCatalog Catalog = MakeNativeObjectMovementCatalog();
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	Layer.Objects.push_back(
+		MakeWalkingEnemySpawn(
+			"walker", {32.0f, 16.0f}, "right", 1));
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	for (int Frame = 0; Frame < 20; ++Frame) {
+		Objects.Update(Map, Catalog);
+	}
+
+	const NativeObjectRuntime* Enemy = Objects.Find("walker");
+	assert(Enemy != nullptr);
+	assert(Enemy->Grounded);
+	assert(NearlyEqual(Enemy->Position.Y, 32.0f));
 }
 
 void TestNativeObjectRuntimePropertiesOverrideHitbox() {
@@ -5123,6 +5286,9 @@ int main(int argc, char* argv[]) {
 		TestNativeObjectRuntimeBuildsTypeSpecificHitBounds();
 		TestNativeObjectRuntimeUsesPlayerCentralTouchBounds();
 		TestNativeObjectContactComposesWithDamageReaction();
+		TestNativeWalkingEnemyMovesAndTurnsAtWall();
+		TestNativeWalkingEnemyVariantsDifferAtCliff();
+		TestNativeWalkingEnemyStandsOnOneWayFloors();
 		TestNativeObjectRuntimePropertiesOverrideHitbox();
 		TestNativeObjectRuntimeRejectsInvalidHitbox();
 		TestNativeStageDataValidationRejectsInvalidSwitchBinding();
@@ -5178,6 +5344,9 @@ int main(int argc, char* argv[]) {
 	TestNativeObjectRuntimeBuildsTypeSpecificHitBounds();
 	TestNativeObjectRuntimeUsesPlayerCentralTouchBounds();
 	TestNativeObjectContactComposesWithDamageReaction();
+	TestNativeWalkingEnemyMovesAndTurnsAtWall();
+	TestNativeWalkingEnemyVariantsDifferAtCliff();
+	TestNativeWalkingEnemyStandsOnOneWayFloors();
 	TestNativeObjectRuntimePropertiesOverrideHitbox();
 	TestNativeObjectRuntimeRejectsInvalidHitbox();
 	TestNativeStageDataValidationRejectsInvalidSwitchBinding();
