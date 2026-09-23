@@ -416,6 +416,41 @@ Multiple objects may occupy the same coordinates.
 
 The current NativeStageSandbox requires exactly one PlayerSpawn in the start Area. It is deliberately represented as an ObjectSpawn so the future editor can place/move it like other stage objects.
 
+### Object runtime hitbox properties
+
+PlayerSpawn以外のObjectSpawnはNative runtimeでHitBoundsを持てる。
+
+任意のoverride property:
+
+- `hitboxOffset: [x, y]`: Object positionからHitBounds左上へのoffset
+- `hitboxSize: [width, height]`: 正の矩形サイズ
+- `contactDamage: integer`: Player通常接触時のdamage値。0以上
+
+例:
+
+```json
+{
+  "id": "enemy-1",
+  "type": "WalkingEnemy",
+  "position": [224, 128],
+  "properties": {
+    "direction": "left",
+    "speed": 2,
+    "hitboxOffset": [8, 1],
+    "hitboxSize": [16, 31],
+    "contactDamage": 1
+  }
+}
+```
+
+省略時はTypeId別のruntime既定値を使う。現在の既定値:
+
+- `WalkingEnemy`: offset `[8,1]`, size `[16,31]`, contactDamage `1`
+- `HorizontalLift`: offset `[-6,11]`, size `[44,10]`, contactDamage `0`
+- その他: offset `[0,0]`, size `[32,32]`, contactDamage `0`
+
+Player側の通常接触矩形は `CharacterController::TouchBounds()` の中央16x32。矩形は半開区間として扱い、境界に触れただけではcontactにならない。
+
 ## RegionLayer
 
 ```json
