@@ -154,6 +154,76 @@ struct ObjectSpawn {
 
 Object/Region/Transitionはstable IDを持ち、Area内で一意にする。
 
+### Player / Object 接触判定の基本方針
+
+主人公とObjectの通常接触判定は、主人公の見た目32x32全体ではなく、既存の `CharacterController::TouchBounds()` を基本にする。
+
+```text
+Player visual/body
+    32x32
+      ↓
+Touch / Hurtの基本判定
+  center 16x32
+      ×
+Object固有 HitBounds
+```
+
+目的:
+
+- 見た目の左右端が少し触れただけでEnemy接触やItem取得になるのを避ける
+- Coin / Goal等のTouch系判定と基準を揃える
+- Object runtimeごとに大きさの異なる当たり判定を持てるようにする
+
+Object側のHitBoundsは32x32固定にしない。
+
+例:
+
+- WalkingEnemy: sprite/挙動に合わせた矩形
+- Item / collectible: 小さめの取得矩形
+- Lift / MovingPlatform: 足場形状に合わせた矩形
+- 大型Enemy/Boss: 専用サイズ
+
+ただし用途ごとに判定責務は分ける。
+
+```text
+Terrainとの移動衝突
+  → CharacterControllerの既存Body/probe
+
+Coin / Goal / Enemy接触 / Item取得
+  → Player TouchBounds (center 16x32) を基本
+
+攻撃
+  → AttackHitbox
+
+被ダメージ
+  → Hurtbox
+     当面TouchBoundsと共用してよいが、必要なら独立可能
+
+Liftへ乗る
+  → 足元 / Stand判定
+```
+
+したがって将来のObject runtimeは、概念的には
+
+```text
+ObjectSpawn
+   ↓
+ObjectRuntime
+ ├ Position
+ ├ HitBounds
+ └ TypeId固有behavior
+
+Player TouchBounds
+      ×
+Object HitBounds
+      ↓
+contact event
+```
+
+とする。
+
+Goal Regionについても同じ方針で、PR #36ではPlayer側判定を中央16x32へ統一した。
+
 ---
 
 ## 6. Events
