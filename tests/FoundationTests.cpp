@@ -11,6 +11,7 @@
 #include "../Actgame/Foundation/StageProgress.h"
 #include "../Actgame/Foundation/ItemSystem.h"
 #include "../Actgame/Foundation/LayeredMap.h"
+#include "../Actgame/Foundation/NativeObjectRuntime.h"
 #include "../Actgame/Foundation/NativeStageDataLoader.h"
 #include "../Actgame/Foundation/PipeTransport.h"
 #include "../Actgame/Foundation/PlayerResourceRules.h"
@@ -1433,14 +1434,10 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NearlyEqual(Objects->Objects[0].Position.Y, 128.0f));
 	assert(Objects->Objects[1].TypeId == "WalkingEnemy");
 	assert(Objects->Objects[2].TypeId == "HorizontalLift");
-	assert(NearlyEqual(Objects->Objects[1].Position.X, 96.0f));
-	assert(NearlyEqual(Objects->Objects[1].Position.Y, 96.0f));
-	assert(NearlyEqual(
-		Objects->Objects[2].Position.X,
-		Objects->Objects[1].Position.X));
-	assert(NearlyEqual(
-		Objects->Objects[2].Position.Y,
-		Objects->Objects[1].Position.Y));
+	assert(NearlyEqual(Objects->Objects[1].Position.X, 224.0f));
+	assert(NearlyEqual(Objects->Objects[1].Position.Y, 128.0f));
+	assert(NearlyEqual(Objects->Objects[2].Position.X, 96.0f));
+	assert(NearlyEqual(Objects->Objects[2].Position.Y, 96.0f));
 
 	std::string Direction;
 	int Variant = 0;
@@ -1772,6 +1769,142 @@ void TestNativeStageDataValidationRejectsInvalidSwitchBinding() {
 	assert(Validation.IsFailure());
 	assert(
 		Validation.Error().find("undefined tile id") != std::string::npos);
+}
+
+void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
+	Result<StageData> Loaded =
+		NativeStageDataLoader::Load("dat/stage/native-test/stage.json");
+	assert(Loaded.IsSuccess());
+
+	const StageArea* Area = Loaded.Value().FindArea("main");
+	assert(Area != nullptr);
+
+	NativeObjectSystem Objects;
+	Result<bool> Reset = Objects.Reset(*Area);
+	assert(Reset.IsSuccess());
+	assert(Objects.Objects().size() == 2);
+
+	const NativeObjectRuntime* Enemy = Objects.Find("enemy-1");
+	const NativeObjectRuntime* Lift = Objects.Find("lift-1");
+	assert(Enemy != nullptr);
+	assert(Lift != nullptr);
+
+	assert(Enemy->TypeId == "WalkingEnemy");
+	assert(NearlyEqual(Enemy->Position.X, 224.0f));
+	assert(NearlyEqual(Enemy->Position.Y, 128.0f));
+	assert(NearlyEqual(Enemy->HitboxOffset.X, 8.0f));
+	assert(NearlyEqual(Enemy->HitboxOffset.Y, 1.0f));
+	assert(NearlyEqual(Enemy->HitboxSize.X, 16.0f));
+	assert(NearlyEqual(Enemy->HitboxSize.Y, 31.0f));
+	assert(Enemy->ContactDamage == 1);
+
+	const ObjectHitBounds EnemyBounds = Enemy->HitBounds();
+	assert(NearlyEqual(EnemyBounds.Position.X, 232.0f));
+	assert(NearlyEqual(EnemyBounds.Position.Y, 129.0f));
+	assert(NearlyEqual(EnemyBounds.Size.X, 16.0f));
+	assert(NearlyEqual(EnemyBounds.Size.Y, 31.0f));
+
+	assert(Lift->TypeId == "HorizontalLift");
+	assert(NearlyEqual(Lift->HitboxOffset.X, -6.0f));
+	assert(NearlyEqual(Lift->HitboxOffset.Y, 11.0f));
+	assert(NearlyEqual(Lift->HitboxSize.X, 44.0f));
+	assert(NearlyEqual(Lift->HitboxSize.Y, 10.0f));
+	assert(Lift->ContactDamage == 0);
+}
+
+void TestNativeObjectRuntimeUsesPlayerCentralTouchBounds() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+
+	ObjectSpawn Enemy;
+	Enemy.Id = "enemy";
+	Enemy.TypeId = "WalkingEnemy";
+	Enemy.Position = {100.0f, 100.0f};
+	Layer.Objects.push_back(Enemy);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	CharacterBody Body;
+	Body.Position = {68.0f, 100.0f};
+	CharacterController Player(Body);
+	CharacterTouchBounds Touch = Player.TouchBounds();
+
+	// 見た目32pxの右端はenemy spriteへ触れているが、
+	// center 16x32はenemy hitboxへ届いていない。
+	assert(Body.Position.X + Body.Width == 100.0f);
+	std::vector<NativeObjectContact> Contacts =
+		Objects.FindContacts(
+			{Touch.Left, Touch.Top},
+			{Touch.Right - Touch.Left, Touch.Bottom - Touch.Top});
+	assert(Contacts.empty());
+
+	Player.Reposition({86.0f, 100.0f});
+	Touch = Player.TouchBounds();
+	Contacts = Objects.FindContacts(
+		{Touch.Left, Touch.Top},
+		{Touch.Right - Touch.Left, Touch.Bottom - Touch.Top});
+	assert(Contacts.size() == 1);
+	assert(Contacts[0].ObjectId == "enemy");
+	assert(Contacts[0].TypeId == "WalkingEnemy");
+	assert(Contacts[0].ContactDamage == 1);
+}
+
+void TestNativeObjectRuntimePropertiesOverrideHitbox() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+
+	ObjectSpawn Custom;
+	Custom.Id = "custom";
+	Custom.TypeId = "UnknownObject";
+	Custom.Position = {10.0f, 20.0f};
+	Custom.Properties["hitboxOffset"] =
+		StagePropertyValue::Vector2({3.0f, 4.0f});
+	Custom.Properties["hitboxSize"] =
+		StagePropertyValue::Vector2({12.0f, 18.0f});
+	Custom.Properties["contactDamage"] =
+		StagePropertyValue::Integer(2);
+	Layer.Objects.push_back(Custom);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	const NativeObjectRuntime* Runtime = Objects.Find("custom");
+	assert(Runtime != nullptr);
+	assert(NearlyEqual(Runtime->HitboxOffset.X, 3.0f));
+	assert(NearlyEqual(Runtime->HitboxOffset.Y, 4.0f));
+	assert(NearlyEqual(Runtime->HitboxSize.X, 12.0f));
+	assert(NearlyEqual(Runtime->HitboxSize.Y, 18.0f));
+	assert(Runtime->ContactDamage == 2);
+
+	const ObjectHitBounds Bounds = Runtime->HitBounds();
+	assert(NearlyEqual(Bounds.Position.X, 13.0f));
+	assert(NearlyEqual(Bounds.Position.Y, 24.0f));
+}
+
+void TestNativeObjectRuntimeRejectsInvalidHitbox() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+
+	ObjectSpawn Invalid;
+	Invalid.Id = "invalid";
+	Invalid.TypeId = "WalkingEnemy";
+	Invalid.Properties["hitboxSize"] =
+		StagePropertyValue::Vector2({0.0f, 32.0f});
+	Layer.Objects.push_back(Invalid);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	Result<bool> Reset = Objects.Reset(Area);
+	assert(Reset.IsFailure());
+	assert(
+		Reset.Error().find("hitboxSize must be positive") !=
+		std::string::npos);
 }
 
 void TestNativeStageDataValidationRejectsUndefinedRuleReplacement() {
@@ -4912,6 +5045,10 @@ int main(int argc, char* argv[]) {
 		TestNativeStageCharacterControllerUsesTerrainSemantics();
 		TestNativeStageTileRulesApplyFromJson();
 		TestNativeStageGameplayAdaptersFromJson();
+		TestNativeObjectRuntimeBuildsTypeSpecificHitBounds();
+		TestNativeObjectRuntimeUsesPlayerCentralTouchBounds();
+		TestNativeObjectRuntimePropertiesOverrideHitbox();
+		TestNativeObjectRuntimeRejectsInvalidHitbox();
 		TestNativeStageDataValidationRejectsInvalidSwitchBinding();
 		TestNativeStageDataValidationRejectsUndefinedRuleReplacement();
 		TestNativeStageDataValidationRejectsUndefinedTerrainTile();
@@ -4962,6 +5099,10 @@ int main(int argc, char* argv[]) {
 	TestNativeStageCharacterControllerUsesTerrainSemantics();
 	TestNativeStageTileRulesApplyFromJson();
 	TestNativeStageGameplayAdaptersFromJson();
+	TestNativeObjectRuntimeBuildsTypeSpecificHitBounds();
+	TestNativeObjectRuntimeUsesPlayerCentralTouchBounds();
+	TestNativeObjectRuntimePropertiesOverrideHitbox();
+	TestNativeObjectRuntimeRejectsInvalidHitbox();
 	TestNativeStageDataValidationRejectsInvalidSwitchBinding();
 	TestNativeStageDataValidationRejectsUndefinedRuleReplacement();
 	TestNativeStageDataValidationRejectsUndefinedTerrainTile();
