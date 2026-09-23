@@ -270,6 +270,33 @@ Object ID単位の接触開始抑制はdamage責務から外し、現在接触�
 
 ノックバック方向はPlayer中心Xと危険源中心Xを比較し、危険源から離れる方向を選ぶ。
 
+### PR #40: WalkingEnemy movement / Terrain collision
+
+`NativeObjectRuntime` にWalkingEnemy用motion stateを追加。
+
+```text
+InitialPosition
+Velocity
+Direction
+Variant
+MoveSpeed
+Gravity
+MaxFallSpeed
+Grounded
+```
+
+V1の `WalkingEnemy1 / WalkingEnemy2` 差を `variant` で表現する。
+
+- variant 1: 壁/World端で反転、崖では落下
+- variant 2: 上記に加えて接地中の崖手前でも反転
+- default speed 2.0 / gravity 0.5 / max fall 12.0
+
+横方向はObject固有HitBounds + `TerrainCollision::TryGetSideBlock()`、接地はsurface探索を使う。Solid / OneWay / DropThroughOneWay / slope / stairを床候補として扱う。
+
+NativeStageSandboxではObject update後の位置で#39のcontact damage / knockbackを判定する。
+
+踏みつけ、Enemy同士の接触、Enemy側Damage terrain反応、画面外respawnは後続へ分離する。
+
 ---
 
 ## 6. Events
