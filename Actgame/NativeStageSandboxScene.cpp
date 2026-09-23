@@ -2,6 +2,7 @@
 
 #include "Conf.h"
 #include "DxLib.h"
+#include "Foundation/CharacterSafety.h"
 #include "Foundation/NativeStageDataLoader.h"
 #include "Foundation/PlayerResourceRules.h"
 #include "InputKey.h"
@@ -41,6 +42,15 @@ bool TryPipeDirection(
 		return true;
 	case uchinoko::StageDirection::None:
 		return false;
+	}
+	return false;
+}
+
+bool HasAction(
+	const uchinoko::TileDefinition& Definition,
+	uchinoko::TileAction Action) {
+	for (const uchinoko::TileRule& Rule : Definition.Rules) {
+		if (Rule.Action == Action) return true;
 	}
 	return false;
 }
