@@ -39,7 +39,8 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #36 | Native Goal判定を主人公中央16x32へ統一 | merged |
 | #37 | Native SpawnItem / Brick / WorldState gameplay adapter | merged |
 | #38 | Native ObjectRuntime + TypeId別HitBounds接触基盤 | merged |
-| #39 | Native Enemy接触 + DamageReaction / knockback | open |
+| #39 | Native Enemy接触 + DamageReaction / knockback | merged |
+| #40 | Native WalkingEnemy移動AI + Terrain衝突 | open |
 
 ## 読み方
 
@@ -93,8 +94,11 @@ Native Item / Brick / WorldState gameplay adapters
 #38
 Native ObjectRuntime / HitBounds / Player contact
 
-#39-
+#39
 Native Enemy contact / DamageReaction / knockback
+
+#40-
+Native WalkingEnemy movement / Terrain collision
 ```
 
 という流れです。
