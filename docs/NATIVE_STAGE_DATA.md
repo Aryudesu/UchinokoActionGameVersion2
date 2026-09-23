@@ -154,7 +154,29 @@ Damage中は `DamageReactionState::Begin()` がfalseを返すため、同じEnem
 
 Terrainの `TileEffectType::Damage` も同じ経路へ通し、Tile hazardとEnemy contactで被ダメージ挙動を分けない。
 
-踏みつけ、Enemy AI移動は後続で接続する。
+### WalkingEnemy runtime movement
+
+`NativeObjectSystem::Update()` は `WalkingEnemy` のTypeIdだけを現在更新対象とし、Object propertyからV1由来の歩行設定を構築する。
+
+```text
+WalkingEnemy
+ ├ direction = left / right
+ ├ variant   = 1 / 2
+ ├ speed     = 2.0 (default)
+ ├ gravity   = 0.5 (default)
+ └ maxFallSpeed = 12.0 (default)
+```
+
+V1の差をそのまま保持する。
+
+- variant 1: WalkingEnemy1相当。壁・World端で反転するが、崖ではそのまま落ちる
+- variant 2: WalkingEnemy2相当。壁・World端に加え、接地中は進行方向の崖でも反転する
+
+横衝突は既存 `TerrainCollision::TryGetSideBlock()` を使い、Object固有HitBoundsの左右端で判定する。床・坂・OneWayはsurface探索で接地し、`DropThroughOneWay` もEnemyにとっては床として扱う。
+
+NativeStageSandboxではPlayer更新後にObjectRuntimeも1フレーム更新してからcontact判定を行うため、移動後のEnemy位置でDamageReactionが発火する。
+
+踏みつけ、Enemy同士の接触反転、EnemyへのDamage terrain反応、画面外respawnは後続で接続する。
 
 LiftについてはHitBoundsをruntime化済みだが、Playerを乗せるStand/足元判定は後続実装とする。
 
