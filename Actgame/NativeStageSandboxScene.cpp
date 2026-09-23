@@ -235,6 +235,33 @@ NativeStageSandboxScene::MakeGameStateSnapshot() const {
 	return State;
 }
 
+bool NativeStageSandboxScene::BeginPlayerDamage(
+	int Damage, float SourceCenterX) {
+	if (Damage <= 0 || Dead_) return false;
+
+	const uchinoko::CharacterBody& Body = Player_.Body();
+	const float PlayerCenterX =
+		Body.Position.X + Body.Width * 0.5f;
+	const int KnockbackDirection =
+		uchinoko::DamageReactionState::DirectionAwayFromSource(
+			PlayerCenterX,
+			SourceCenterX,
+			-FacingDirection_);
+
+	if (!DamageReaction_.Begin(KnockbackDirection)) {
+		return false;
+	}
+
+	// V1 Player::Damaged() と同じく、被ダメージ開始時にY速度を0へ戻す。
+	Player_.Reposition(Player_.Body().Position);
+	Health_ -= Damage;
+	if (Health_ <= 0) {
+		Health_ = 0;
+		Dead_ = true;
+	}
+	return true;
+}
+
 void NativeStageSandboxScene::ApplyEffectList(
 	const std::vector<uchinoko::TileEffect>& Effects) {
 	for (const uchinoko::TileEffect& Effect : Effects) {
@@ -258,12 +285,12 @@ void NativeStageSandboxScene::ApplyEffectList(
 			++Broken_;
 			break;
 		case uchinoko::TileEffectType::Damage:
-			if (Effect.Actor == uchinoko::TileActor::Player) {
-				Health_ -= Effect.Value;
-				if (Health_ <= 0) {
-					Health_ = 0;
-					Dead_ = true;
-				}
+			if (Effect.Actor == uchinoko::TileActor::Player &&
+				TerrainLayer_ != nullptr) {
+				const float SourceCenterX =
+					(static_cast<float>(Effect.Position.Column) + 0.5f) *
+					static_cast<float>(TerrainLayer_->Map.TileWidth());
+				BeginPlayerDamage(Effect.Value, SourceCenterX);
 			}
 			break;
 		case uchinoko::TileEffectType::InstantDeath:
@@ -375,22 +402,21 @@ void NativeStageSandboxScene::ApplyObjectContacts() {
 
 	for (const uchinoko::NativeObjectContact& Contact : Contacts) {
 		CurrentIds.push_back(Contact.ObjectId);
+		if (Contact.ContactDamage <= 0) continue;
 
-		const bool WasTouching =
-			std::find(
-				ActiveObjectContacts_.begin(),
-				ActiveObjectContacts_.end(),
-				Contact.ObjectId) != ActiveObjectContacts_.end();
-		if (WasTouching || Contact.ContactDamage <= 0) continue;
+		const uchinoko::NativeObjectRuntime* Object =
+			Objects_.Find(Contact.ObjectId);
+		if (Object == nullptr) continue;
 
-		Health_ -= Contact.ContactDamage;
-		if (Health_ <= 0) {
-			Health_ = 0;
-			Dead_ = true;
-			break;
-		}
+		const uchinoko::ObjectHitBounds Bounds = Object->HitBounds();
+		const float SourceCenterX =
+			Bounds.Position.X + Bounds.Size.X * 0.5f;
+		BeginPlayerDamage(Contact.ContactDamage, SourceCenterX);
+		if (Dead_) break;
 	}
 
+	// #38では再ダメージ抑制にも使っていたが、#39以降はdebug表示用の
+	// 「現在接触中Object一覧」。無敵時間はDamageReactionStateへ一本化する。
 	ActiveObjectContacts_ = std::move(CurrentIds);
 }
 
@@ -498,6 +524,7 @@ void NativeStageSandboxScene::Reload() {
 	PlayerReady_ = false;
 	Items_.Reset();
 	Bricks_.Reset();
+	DamageReaction_.Reset();
 	Pipe_.Reset();
 	Completion_.Reset();
 	ClearState_ = uchinoko::StageClearState();
@@ -510,6 +537,7 @@ void NativeStageSandboxScene::Reload() {
 	Lives_ = 3;
 	Broken_ = 0;
 	LadderTileId_ = -1;
+	FacingDirection_ = 1;
 	Dead_ = false;
 	LoadError_.clear();
 
@@ -558,12 +586,31 @@ void NativeStageSandboxScene::update() {
 		return;
 	}
 
+	// V1 DamageMotion相当。被ダメージ中はユーザー入力を無視し、
+	// 1～15Fは3px/frameで危険源から離れ、16F目で通常へ戻る。
+	if (DamageReaction_.Active()) {
+		uchinoko::CharacterInput DamageInput;
+		DamageInput.Horizontal = DamageReaction_.AdvanceFrame();
+		Player_.Step(
+			DamageInput,
+			TerrainLayer_->Map,
+			TerrainCatalog_);
+		ApplyTerrainEffects();
+		if (Dead_) return;
+		ApplyObjectContacts();
+		if (Dead_) return;
+		CheckGoalRegions();
+		return;
+	}
+
 	uchinoko::CharacterInput Input;
 	if (ReturnKey(KEY_INPUT_LEFT) != 0) Input.Horizontal -= 1.0f;
 	if (ReturnKey(KEY_INPUT_RIGHT) != 0) Input.Horizontal += 1.0f;
 	if (ReturnKey(KEY_INPUT_UP) != 0) Input.Vertical -= 1.0f;
 	if (ReturnKey(KEY_INPUT_DOWN) != 0) Input.Vertical += 1.0f;
 	Input.JumpPressed = ReturnKey(KEY_INPUT_Z) == 1;
+	if (Input.Horizontal > 0.0f) FacingDirection_ = 1;
+	else if (Input.Horizontal < 0.0f) FacingDirection_ = -1;
 
 	if (TryBeginTransition(Input)) return;
 
@@ -794,7 +841,10 @@ void NativeStageSandboxScene::DrawPlayer() {
 
 	DrawBox(
 		Left, Top, Right, Bottom,
-		GetColor(245, 215, 70), TRUE);
+		DamageReaction_.Active()
+			? GetColor(245, 125, 90)
+			: GetColor(245, 215, 70),
+		TRUE);
 	DrawBox(
 		Left, Top, Right, Bottom,
 		GetColor(255, 255, 150), FALSE);
@@ -810,10 +860,21 @@ void NativeStageSandboxScene::DrawPlayer() {
 		DrawFormatString(
 			Left, Top - 20,
 			GetColor(255, 255, 255),
-			"P(%.0f,%.0f)%s",
+			"P(%.0f,%.0f)%s%s",
 			Body.Position.X,
 			Body.Position.Y,
-			Body.Grounded ? " G" : "");
+			Body.Grounded ? " G" : "",
+			DamageReaction_.Active() ? " DAMAGE" : "");
+		if (DamageReaction_.Active()) {
+			DrawFormatString(
+				Left,
+				Top - 38,
+				GetColor(255, 170, 140),
+				"DMG %d/%d dir=%d",
+				DamageReaction_.Frame(),
+				uchinoko::DamageReactionState::Version1DurationFrames,
+				DamageReaction_.KnockbackDirection());
+		}
 	}
 }
 
@@ -1065,8 +1126,9 @@ void NativeStageSandboxScene::draw() {
 	DrawFormatString(
 		16, 92,
 		Dead_ ? GetColor(255, 100, 100) : GetColor(255, 245, 180),
-		"Coins:%d  HP:%d  Lives:%d  Score:%d  Broken:%d%s",
+		"Coins:%d  HP:%d  Lives:%d  Score:%d  Broken:%d%s%s",
 		Coins_, Health_, Lives_, Score_, Broken_,
+		DamageReaction_.Active() ? "  DAMAGE" : "",
 		Dead_ ? "  DEAD (R: reload)" : "");
 
 	if (Completion_.Cleared) {
