@@ -1548,9 +1548,35 @@ void TestNativeStageCharacterControllerUsesTerrainSemantics() {
 	assert(Player.Body().Grounded);
 	assert(NearlyEqual(Player.Body().Position.Y, 128.0f));
 
-	Player.Step(0.0f, true, Terrain->Map, Catalog.Value());
-	assert(Player.Body().Position.Y < 128.0f);
-	assert(!Player.Body().Grounded);
+	// #37 fixtureではPlayerSpawnの真上に? block(id=5)がある。
+	// Spawn位置でZを押すと上昇するのではなく、正しくHitFromBelowになる。
+	CharacterBody QuestionBody;
+	QuestionBody.Position = Spawn->Position;
+	QuestionBody.Grounded = true;
+	CharacterController QuestionPlayer(QuestionBody);
+	QuestionPlayer.Step(0.0f, true, Terrain->Map, Catalog.Value());
+
+	bool HitQuestionFromBelow = false;
+	for (const TileInteraction& Interaction : QuestionPlayer.Interactions()) {
+		if (Interaction.Trigger == TileTrigger::HitFromBelow &&
+			Interaction.Position.Column == 1 &&
+			Interaction.Position.Row == 3 &&
+			Interaction.TileId == 5) {
+			HitQuestionFromBelow = true;
+			break;
+		}
+	}
+	assert(HitQuestionFromBelow);
+
+	// CharacterController自体のジャンプ確認は、頭上が空いているcol=0で行う。
+	// gameplay fixtureの配置変更でphysics smoke testの意味を変えない。
+	CharacterBody JumpBody;
+	JumpBody.Position = {0.0f, 128.0f};
+	JumpBody.Grounded = true;
+	CharacterController JumpPlayer(JumpBody);
+	JumpPlayer.Step(0.0f, true, Terrain->Map, Catalog.Value());
+	assert(JumpPlayer.Body().Position.Y < 128.0f);
+	assert(!JumpPlayer.Body().Grounded);
 }
 
 void TestNativeStageTileRulesApplyFromJson() {
