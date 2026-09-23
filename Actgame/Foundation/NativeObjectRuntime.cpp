@@ -1,5 +1,10 @@
 #include "NativeObjectRuntime.h"
 
+#include "TerrainCollision.h"
+
+#include <algorithm>
+#include <cmath>
+
 namespace uchinoko {
 
 namespace {
@@ -21,6 +26,23 @@ bool TryReadVector2(
 	return true;
 }
 
+bool TryReadFloat(
+	const StagePropertyMap& Properties,
+	const char* Name,
+	float& Value,
+	std::string& Error,
+	const std::string& ObjectId) {
+	const auto Found = Properties.find(Name);
+	if (Found == Properties.end()) return true;
+	if (!Found->second.TryGetFloat(Value)) {
+		Error =
+			"Object property must be number: " +
+			ObjectId + "." + Name;
+		return false;
+	}
+	return true;
+}
+
 bool TryReadInteger(
 	const StagePropertyMap& Properties,
 	const char* Name,
@@ -36,6 +58,254 @@ bool TryReadInteger(
 		return false;
 	}
 	return true;
+}
+
+bool TryReadString(
+	const StagePropertyMap& Properties,
+	const char* Name,
+	std::string& Value,
+	std::string& Error,
+	const std::string& ObjectId) {
+	const auto Found = Properties.find(Name);
+	if (Found == Properties.end()) return true;
+	if (!Found->second.TryGetString(Value)) {
+		Error =
+			"Object property must be string: " +
+			ObjectId + "." + Name;
+		return false;
+	}
+	return true;
+}
+
+bool TryObjectSurfaceY(
+	CollisionShape Shape,
+	TilePosition Tile,
+	float WorldX,
+	int TileWidth,
+	int TileHeight,
+	float& SurfaceY) {
+	if (Shape == CollisionShape::DropThroughOneWay) {
+		SurfaceY = static_cast<float>(Tile.Row * TileHeight);
+		return true;
+	}
+	return TerrainCollision::TryGetSurfaceY(
+		Shape,
+		Tile,
+		WorldX,
+		TileWidth,
+		TileHeight,
+		SurfaceY);
+}
+
+bool FindObjectGround(
+	const TileMap& Map,
+	const TileCatalog& Catalog,
+	WorldPosition Foot,
+	float MaxRise,
+	float MaxDrop,
+	GroundHit& Hit) {
+	if (MaxRise < 0.0f ||
+		MaxDrop < 0.0f ||
+		Foot.X < 0.0f) {
+		return false;
+	}
+
+	const int Column =
+		static_cast<int>(std::floor(Foot.X / Map.TileWidth()));
+	if (Column < 0 || Column >= Map.Width()) return false;
+
+	const int FirstRow = (std::max)(
+		0,
+		static_cast<int>(
+			std::floor((Foot.Y - MaxRise) / Map.TileHeight())) - 1);
+	const int LastRow = (std::min)(
+		Map.Height() - 1,
+		static_cast<int>(
+			std::floor((Foot.Y + MaxDrop) / Map.TileHeight())) + 1);
+
+	bool Found = false;
+	for (int Row = FirstRow; Row <= LastRow; ++Row) {
+		const TilePosition Position = {Column, Row};
+		const int* Id = Map.TryGet(Position);
+		const TileDefinition* Definition =
+			Id == nullptr ? nullptr : Catalog.Find(*Id);
+		if (Definition == nullptr) continue;
+
+		float SurfaceY = 0.0f;
+		if (!TryObjectSurfaceY(
+			Definition->Collision,
+			Position,
+			Foot.X,
+			Map.TileWidth(),
+			Map.TileHeight(),
+			SurfaceY)) {
+			continue;
+		}
+
+		const float Distance = SurfaceY - Foot.Y;
+		if (Distance < -MaxRise ||
+			Distance > MaxDrop) {
+			continue;
+		}
+
+		if (!Found || SurfaceY < Hit.SurfaceY) {
+			Found = true;
+			Hit.Tile = Position;
+			Hit.SurfaceY = SurfaceY;
+			Hit.Shape = Definition->Collision;
+		}
+	}
+	return Found;
+}
+
+bool ResolveWalkingEnemySide(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog) {
+	const ObjectHitBounds Bounds = Object.HitBounds();
+	const float WorldWidth =
+		static_cast<float>(Map.Width() * Map.TileWidth());
+
+	if (Bounds.Position.X < 0.0f) {
+		Object.Position.X -= Bounds.Position.X;
+		Object.Direction = 1;
+		return true;
+	}
+	if (Bounds.Position.X + Bounds.Size.X > WorldWidth) {
+		Object.Position.X -=
+			Bounds.Position.X + Bounds.Size.X - WorldWidth;
+		Object.Direction = -1;
+		return true;
+	}
+
+	const bool MovingRight = Object.Direction > 0;
+	const float ProbeX =
+		MovingRight
+			? Bounds.Position.X + Bounds.Size.X - 0.01f
+			: Bounds.Position.X + 0.01f;
+	const int Column =
+		static_cast<int>(std::floor(ProbeX / Map.TileWidth()));
+	if (Column < 0 || Column >= Map.Width()) return false;
+
+	const int FirstRow = (std::max)(
+		0,
+		static_cast<int>(
+			std::floor(Bounds.Position.Y / Map.TileHeight())));
+	const int LastRow = (std::min)(
+		Map.Height() - 1,
+		static_cast<int>(
+			std::floor(
+				(Bounds.Position.Y + Bounds.Size.Y - 0.01f) /
+				Map.TileHeight())));
+
+	for (int Row = FirstRow; Row <= LastRow; ++Row) {
+		const TilePosition Position = {Column, Row};
+		const int* Id = Map.TryGet(Position);
+		const TileDefinition* Definition =
+			Id == nullptr ? nullptr : Catalog.Find(*Id);
+		if (Definition == nullptr) continue;
+
+		float BlockTop = 0.0f;
+		float BlockBottom = 0.0f;
+		if (!TerrainCollision::TryGetSideBlock(
+			Definition->Collision,
+			Position,
+			MovingRight
+				? TerrainCollision::TileSide::Left
+				: TerrainCollision::TileSide::Right,
+			Map.TileWidth(),
+			Map.TileHeight(),
+			BlockTop,
+			BlockBottom)) {
+			continue;
+		}
+
+		const float BoundsBottom =
+			Bounds.Position.Y + Bounds.Size.Y;
+		if (Bounds.Position.Y >= BlockBottom ||
+			BoundsBottom <= BlockTop) {
+			continue;
+		}
+
+		if (MovingRight) {
+			const float TileLeft =
+				static_cast<float>(Column * Map.TileWidth());
+			Object.Position.X =
+				TileLeft -
+				Object.HitboxOffset.X -
+				Object.HitboxSize.X;
+			Object.Direction = -1;
+		} else {
+			const float TileRight =
+				static_cast<float>((Column + 1) * Map.TileWidth());
+			Object.Position.X =
+				TileRight - Object.HitboxOffset.X;
+			Object.Direction = 1;
+		}
+		return true;
+	}
+	return false;
+}
+
+bool HasWalkingEnemyGroundAhead(
+	const NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog) {
+	const ObjectHitBounds Bounds = Object.HitBounds();
+	const float ProbeX =
+		Object.Direction > 0
+			? Bounds.Position.X + Bounds.Size.X + 0.5f
+			: Bounds.Position.X - 0.5f;
+	const float FootY =
+		Bounds.Position.Y + Bounds.Size.Y + 0.5f;
+
+	GroundHit Hit;
+	return FindObjectGround(
+		Map,
+		Catalog,
+		{ProbeX, FootY},
+		2.0f,
+		Object.MoveSpeed * 2.0f + 2.0f,
+		Hit);
+}
+
+void ResolveWalkingEnemyVertical(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog) {
+	Object.Velocity.Y = (std::min)(
+		Object.MaxFallSpeed,
+		Object.Velocity.Y + Object.Gravity);
+	Object.Position.Y += Object.Velocity.Y;
+
+	const ObjectHitBounds Bounds = Object.HitBounds();
+	const float FootX =
+		Bounds.Position.X + Bounds.Size.X * 0.5f;
+	const float FootY =
+		Bounds.Position.Y + Bounds.Size.Y;
+
+	GroundHit Hit;
+	const float SnapDistance =
+		Object.MoveSpeed * 2.0f + 2.0f;
+	const bool Found = FindObjectGround(
+		Map,
+		Catalog,
+		{FootX, FootY},
+		std::fabs(Object.Velocity.Y) + SnapDistance,
+		Object.Grounded ? SnapDistance : 0.0f,
+		Hit);
+
+	if (!Found || Object.Velocity.Y < 0.0f) {
+		Object.Grounded = false;
+		return;
+	}
+
+	Object.Position.Y =
+		Hit.SurfaceY -
+		Object.HitboxOffset.Y -
+		Object.HitboxSize.Y;
+	Object.Velocity.Y = 0.0f;
+	Object.Grounded = true;
 }
 
 } // namespace
@@ -80,6 +350,7 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 	Runtime.Id = Spawn.Id;
 	Runtime.TypeId = Spawn.TypeId;
 	Runtime.Position = Spawn.Position;
+	Runtime.InitialPosition = Spawn.Position;
 
 	if (Spawn.TypeId == "WalkingEnemy") {
 		// V1 WalkingEnemy1:
@@ -88,6 +359,11 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.HitboxOffset = {8.0f, 1.0f};
 		Runtime.HitboxSize = {16.0f, 31.0f};
 		Runtime.ContactDamage = 1;
+		Runtime.Direction = -1;
+		Runtime.Variant = 1;
+		Runtime.MoveSpeed = 2.0f;
+		Runtime.Gravity = 0.5f;
+		Runtime.MaxFallSpeed = 12.0f;
 	} else if (Spawn.TypeId == "HorizontalLift") {
 		// NativeStageSandboxで従来debug描画していた44x10の足場形状。
 		Runtime.HitboxOffset = {-6.0f, 11.0f};
@@ -124,6 +400,69 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 			Error,
 			Spawn.Id)) {
 		return Result<NativeObjectRuntime>::Failure(Error);
+	}
+
+	if (Spawn.TypeId == "WalkingEnemy") {
+		std::string Direction =
+			Runtime.Direction < 0 ? "left" : "right";
+		if (!TryReadString(
+			Spawn.Properties,
+			"direction",
+			Direction,
+			Error,
+			Spawn.Id)) {
+			return Result<NativeObjectRuntime>::Failure(Error);
+		}
+		if (Direction == "left") {
+			Runtime.Direction = -1;
+		} else if (Direction == "right") {
+			Runtime.Direction = 1;
+		} else {
+			return Result<NativeObjectRuntime>::Failure(
+				"WalkingEnemy direction must be left or right: " +
+				Spawn.Id);
+		}
+
+		if (!TryReadInteger(
+			Spawn.Properties,
+			"variant",
+			Runtime.Variant,
+			Error,
+			Spawn.Id) ||
+			!TryReadFloat(
+				Spawn.Properties,
+				"speed",
+				Runtime.MoveSpeed,
+				Error,
+				Spawn.Id) ||
+			!TryReadFloat(
+				Spawn.Properties,
+				"gravity",
+				Runtime.Gravity,
+				Error,
+				Spawn.Id) ||
+			!TryReadFloat(
+				Spawn.Properties,
+				"maxFallSpeed",
+				Runtime.MaxFallSpeed,
+				Error,
+				Spawn.Id)) {
+			return Result<NativeObjectRuntime>::Failure(Error);
+		}
+
+		if (Runtime.Variant != 1 &&
+			Runtime.Variant != 2) {
+			return Result<NativeObjectRuntime>::Failure(
+				"WalkingEnemy variant must be 1 or 2: " +
+				Spawn.Id);
+		}
+		if (Runtime.MoveSpeed < 0.0f ||
+			Runtime.Gravity < 0.0f ||
+			Runtime.MaxFallSpeed <= 0.0f) {
+			return Result<NativeObjectRuntime>::Failure(
+				"WalkingEnemy motion values are invalid: " +
+				Spawn.Id);
+		}
 	}
 
 	if (Runtime.HitboxSize.X <= 0.0f ||
@@ -164,6 +503,52 @@ const NativeObjectRuntime* NativeObjectSystem::Find(
 		if (Object.Id == ObjectId) return &Object;
 	}
 	return nullptr;
+}
+
+NativeObjectRuntime* NativeObjectSystem::Find(
+	const std::string& ObjectId) {
+	for (NativeObjectRuntime& Object : Objects_) {
+		if (Object.Id == ObjectId) return &Object;
+	}
+	return nullptr;
+}
+
+void NativeObjectSystem::UpdateWalkingEnemy(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog) {
+	if (!Object.Active || Object.MoveSpeed <= 0.0f) return;
+
+	Object.Velocity.X =
+		static_cast<float>(Object.Direction) * Object.MoveSpeed;
+	Object.Position.X += Object.Velocity.X;
+
+	const bool HitWall =
+		ResolveWalkingEnemySide(Object, Map, Catalog);
+
+	// V1 WalkingEnemy2だけが崖手前で反転する。
+	// WalkingEnemy1は崖からそのまま落下する。
+	if (!HitWall &&
+		Object.Variant == 2 &&
+		Object.Grounded &&
+		!HasWalkingEnemyGroundAhead(Object, Map, Catalog)) {
+		Object.Direction *= -1;
+		Object.Velocity.X =
+			static_cast<float>(Object.Direction) * Object.MoveSpeed;
+	}
+
+	ResolveWalkingEnemyVertical(Object, Map, Catalog);
+}
+
+void NativeObjectSystem::Update(
+	const TileMap& Map,
+	const TileCatalog& Catalog) {
+	for (NativeObjectRuntime& Object : Objects_) {
+		if (!Object.Active) continue;
+		if (Object.TypeId == "WalkingEnemy") {
+			UpdateWalkingEnemy(Object, Map, Catalog);
+		}
+	}
 }
 
 std::vector<NativeObjectContact> NativeObjectSystem::FindContacts(
