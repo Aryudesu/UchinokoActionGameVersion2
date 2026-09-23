@@ -4884,6 +4884,7 @@ int main(int argc, char* argv[]) {
 		TestNativeStageDataAllowsExternalTransitions();
 		TestNativeStageDataLoaderLoadsJsonAndCsv();
 		TestNativeStageCharacterControllerUsesTerrainSemantics();
+		TestNativeStageTileRulesApplyFromJson();
 		TestNativeStageGameplayAdaptersFromJson();
 		TestNativeStageDataValidationRejectsInvalidSwitchBinding();
 		TestNativeStageDataValidationRejectsUndefinedRuleReplacement();
@@ -4933,8 +4934,9 @@ int main(int argc, char* argv[]) {
 	TestLayeredMap();
 	TestNativeStageDataLoaderLoadsJsonAndCsv();
 	TestNativeStageCharacterControllerUsesTerrainSemantics();
-		TestNativeStageGameplayAdaptersFromJson();
-		TestNativeStageDataValidationRejectsInvalidSwitchBinding();
+	TestNativeStageTileRulesApplyFromJson();
+	TestNativeStageGameplayAdaptersFromJson();
+	TestNativeStageDataValidationRejectsInvalidSwitchBinding();
 	TestNativeStageDataValidationRejectsUndefinedRuleReplacement();
 	TestNativeStageDataValidationRejectsUndefinedTerrainTile();
 	TestNativeStageDataValidationRejectsUnknownTileSet();
