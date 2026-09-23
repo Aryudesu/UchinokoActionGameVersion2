@@ -38,7 +38,8 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #35 | Native Goal Region + Area間Pipe Transition runtime | merged |
 | #36 | Native Goal判定を主人公中央16x32へ統一 | merged |
 | #37 | Native SpawnItem / Brick / WorldState gameplay adapter | merged |
-| #38 | Native ObjectRuntime + TypeId別HitBounds接触基盤 | open |
+| #38 | Native ObjectRuntime + TypeId別HitBounds接触基盤 | merged |
+| #39 | Native Enemy接触 + DamageReaction / knockback | open |
 
 ## 読み方
 
@@ -89,8 +90,11 @@ Goal hitbox / gameplay contact tuning
 #37
 Native Item / Brick / WorldState gameplay adapters
 
-#38-
+#38
 Native ObjectRuntime / HitBounds / Player contact
+
+#39-
+Native Enemy contact / DamageReaction / knockback
 ```
 
 という流れです。
