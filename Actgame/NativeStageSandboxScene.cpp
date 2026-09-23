@@ -160,6 +160,20 @@ bool NativeStageSandboxScene::ActivateArea(const std::string& AreaId) {
 		return false;
 	}
 	TerrainCatalog_ = std::move(Catalog.Value());
+
+	Items_.Reset();
+	Bricks_.Reset();
+	LadderTileId_ = -1;
+	for (const uchinoko::TileDefinition& Definition : TileSet->TerrainTiles) {
+		if (Definition.Movement == uchinoko::MovementRegion::Ladder) {
+			LadderTileId_ = Definition.Id;
+			break;
+		}
+	}
+
+	// Switch状態はStage内Area移動で保持する。
+	// 新しいAreaのTerrainへ現在値を反映してからruntime stateを作る。
+	World_.Synchronize(TerrainLayer_->Map, TerrainCatalog_);
 	TerrainRuntime_.Reset(TerrainLayer_->Map);
 	return true;
 }
@@ -195,16 +209,36 @@ bool NativeStageSandboxScene::InitializeNativePlayer() {
 	return true;
 }
 
-void NativeStageSandboxScene::ApplyTerrainEffects() {
-	if (TerrainLayer_ == nullptr) return;
+int NativeStageSandboxScene::RequiredSwitchCount() const {
+	int Count = 0;
+	for (const uchinoko::TileSetDefinition& TileSet : Stage_.TileSets) {
+		for (const uchinoko::TileDefinition& Definition : TileSet.TerrainTiles) {
+			if (Definition.SwitchChannel >= 0) {
+				Count = std::max(Count, Definition.SwitchChannel + 1);
+			}
+			for (const uchinoko::TileRule& Rule : Definition.Rules) {
+				if (Rule.Action == uchinoko::TileAction::ToggleSwitch &&
+					Rule.Value >= 0) {
+					Count = std::max(Count, Rule.Value + 1);
+				}
+			}
+		}
+	}
+	return Count;
+}
 
-	const std::vector<uchinoko::TileEffect> Effects =
-		uchinoko::TileBehaviorSystem::ApplyAll(
-			Player_.Interactions(),
-			TerrainLayer_->Map,
-			TerrainCatalog_,
-			TerrainRuntime_);
+uchinoko::GameStateSnapshot
+NativeStageSandboxScene::MakeGameStateSnapshot() const {
+	uchinoko::GameStateSnapshot State;
+	State.Coins = Coins_;
+	State.Health = Health_;
+	State.Lives = Lives_;
+	State.Score = Score_;
+	return State;
+}
 
+void NativeStageSandboxScene::ApplyEffectList(
+	const std::vector<uchinoko::TileEffect>& Effects) {
 	for (const uchinoko::TileEffect& Effect : Effects) {
 		switch (Effect.Type) {
 		case uchinoko::TileEffectType::AddCoin:
@@ -222,6 +256,9 @@ void NativeStageSandboxScene::ApplyTerrainEffects() {
 		case uchinoko::TileEffectType::AddScore:
 			Score_ += Effect.Value;
 			break;
+		case uchinoko::TileEffectType::TileBroken:
+			++Broken_;
+			break;
 		case uchinoko::TileEffectType::Damage:
 			if (Effect.Actor == uchinoko::TileActor::Player) {
 				Health_ -= Effect.Value;
@@ -236,12 +273,89 @@ void NativeStageSandboxScene::ApplyTerrainEffects() {
 				Dead_ = true;
 			}
 			break;
+		case uchinoko::TileEffectType::Goal: {
+			uchinoko::GoalKind Kind;
+			if (!Completion_.Cleared &&
+				uchinoko::TryGoalKindFromValue(Effect.Value, Kind)) {
+				ClearState_.Record(Kind);
+				Completion_.Complete(Kind);
+			}
+			break;
+		}
 		default:
-			// SpawnItem / switch / brick / goal adapters are connected
-			// separately. TileBehaviorSystem itself is already shared.
+			// SpawnItem / ToggleSwitch / BrickHitは専用systemが消費する。
 			break;
 		}
 	}
+}
+
+void NativeStageSandboxScene::ApplyTerrainEffects() {
+	if (TerrainLayer_ == nullptr || Area_ == nullptr) return;
+
+	const std::vector<uchinoko::TileEffect> TileEffects =
+		uchinoko::TileBehaviorSystem::ApplyAll(
+			Player_.Interactions(),
+			TerrainLayer_->Map,
+			TerrainCatalog_,
+			TerrainRuntime_);
+
+	Items_.ConsumeTileEffects(
+		TileEffects,
+		TerrainLayer_->Map.TileWidth(),
+		TerrainLayer_->Map.TileHeight());
+	Bricks_.ConsumeTileEffects(
+		TileEffects,
+		MakeGameStateSnapshot());
+	ApplyEffectList(TileEffects);
+	if (Dead_ || Completion_.Cleared) return;
+
+	const std::vector<uchinoko::TileEffect> BrickEffects =
+		Bricks_.Update(
+			TerrainLayer_->Map,
+			TerrainLayer_->Map.TileWidth(),
+			TerrainLayer_->Map.TileHeight(),
+			static_cast<float>(
+				Area_->Height * Area_->TileHeight + Area_->TileHeight * 3));
+	ApplyEffectList(BrickEffects);
+	if (Dead_) return;
+
+	const uchinoko::WorldStateUpdate WorldUpdate =
+		World_.ApplyEffects(
+			TileEffects,
+			TerrainLayer_->Map,
+			TerrainCatalog_);
+	const uchinoko::CharacterSafetyResult WorldSafety =
+		uchinoko::CharacterSafety::ResolveActivatedSolids(
+			Player_,
+			TerrainLayer_->Map,
+			TerrainCatalog_,
+			WorldUpdate.ActivatedSolidTiles);
+	ApplyEffectList(WorldSafety.Effects);
+	if (Dead_) return;
+
+	const uchinoko::WorldStateUpdate TimedUpdate =
+		World_.AdvanceFrame(
+			TerrainLayer_->Map,
+			TerrainCatalog_);
+	const uchinoko::CharacterSafetyResult TimedSafety =
+		uchinoko::CharacterSafety::ResolveActivatedSolids(
+			Player_,
+			TerrainLayer_->Map,
+			TerrainCatalog_,
+			TimedUpdate.ActivatedSolidTiles);
+	ApplyEffectList(TimedSafety.Effects);
+	if (Dead_) return;
+
+	if (LadderTileId_ >= 0) {
+		Items_.UpdateTerrainItems(
+			TerrainLayer_->Map,
+			TerrainCatalog_,
+			LadderTileId_);
+	}
+
+	const std::vector<uchinoko::TileEffect> ItemEffects =
+		Items_.Update();
+	ApplyEffectList(ItemEffects);
 }
 
 void NativeStageSandboxScene::CheckGoalRegions() {
