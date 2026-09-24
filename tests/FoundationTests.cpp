@@ -2100,6 +2100,52 @@ void TestNativeWalkingEnemyMovesAndTurnsAtWall() {
 	assert(Enemy->Direction == -1);
 }
 
+void TestNativeWalkingEnemiesTurnWhenTheyMeet() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog = MakeNativeObjectMovementCatalog();
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	Layer.Objects.push_back(
+		MakeWalkingEnemySpawn(
+			"left", {48.0f, 32.0f}, "right", 1));
+	Layer.Objects.push_back(
+		MakeWalkingEnemySpawn(
+			"right", {80.0f, 32.0f}, "left", 1));
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	for (int Frame = 0; Frame < 5; ++Frame) {
+		Objects.Update(Map, Catalog);
+	}
+
+	const NativeObjectRuntime* Left = Objects.Find("left");
+	const NativeObjectRuntime* Right = Objects.Find("right");
+	assert(Left != nullptr);
+	assert(Right != nullptr);
+	assert(Left->Direction == -1);
+	assert(Right->Direction == 1);
+	assert(Left->Velocity.X < 0.0f);
+	assert(Right->Velocity.X > 0.0f);
+	assert(!Left->HitBounds().Intersects(
+		Right->HitBounds().Position,
+		Right->HitBounds().Size));
+
+	Objects.Update(Map, Catalog);
+	Left = Objects.Find("left");
+	Right = Objects.Find("right");
+	assert(Left->Position.X < Right->Position.X);
+	assert(Left->Direction == -1);
+	assert(Right->Direction == 1);
+}
+
 void TestNativeWalkingEnemyVariantsDifferAtCliff() {
 	TileMap Map = MakeMap({
 		{0, 0, 0, 0, 0},
@@ -5376,6 +5422,7 @@ int main(int argc, char* argv[]) {
 		TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage();
 		TestCharacterSetVelocityKeepsInternalVelocityInSync();
 		TestNativeWalkingEnemyMovesAndTurnsAtWall();
+	TestNativeWalkingEnemiesTurnWhenTheyMeet();
 		TestNativeWalkingEnemyVariantsDifferAtCliff();
 		TestNativeWalkingEnemyStandsOnOneWayFloors();
 		TestNativeObjectRuntimePropertiesOverrideHitbox();
@@ -5436,6 +5483,7 @@ int main(int argc, char* argv[]) {
 	TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage();
 	TestCharacterSetVelocityKeepsInternalVelocityInSync();
 	TestNativeWalkingEnemyMovesAndTurnsAtWall();
+	TestNativeWalkingEnemiesTurnWhenTheyMeet();
 	TestNativeWalkingEnemyVariantsDifferAtCliff();
 	TestNativeWalkingEnemyStandsOnOneWayFloors();
 	TestNativeObjectRuntimePropertiesOverrideHitbox();
