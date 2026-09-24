@@ -94,6 +94,34 @@
               }
             },
             {
+              "id": "enemy-meet-left",
+              "type": "WalkingEnemy",
+              "position": [
+                80,
+                128
+              ],
+              "properties": {
+                "direction": "right",
+                "variant": 1,
+                "speed": 2,
+                "aggressive": false
+              }
+            },
+            {
+              "id": "enemy-meet-right",
+              "type": "WalkingEnemy",
+              "position": [
+                144,
+                128
+              ],
+              "properties": {
+                "direction": "left",
+                "variant": 1,
+                "speed": 2,
+                "aggressive": false
+              }
+            },
+            {
               "id": "lift-1",
               "type": "HorizontalLift",
               "position": [
