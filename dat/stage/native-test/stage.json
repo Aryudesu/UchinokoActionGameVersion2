@@ -66,14 +66,28 @@
               ]
             },
             {
-              "id": "enemy-1",
+              "id": "enemy-cliff-turn",
               "type": "WalkingEnemy",
               "position": [
-                224,
-                128
+                48,
+                32
               ],
               "properties": {
-                "direction": "left",
+                "direction": "right",
+                "variant": 2,
+                "speed": 2,
+                "aggressive": false
+              }
+            },
+            {
+              "id": "enemy-cliff-fall",
+              "type": "WalkingEnemy",
+              "position": [
+                160,
+                32
+              ],
+              "properties": {
+                "direction": "right",
                 "variant": 1,
                 "speed": 2,
                 "aggressive": false
