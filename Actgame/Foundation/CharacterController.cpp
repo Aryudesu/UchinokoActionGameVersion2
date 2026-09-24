@@ -75,6 +75,13 @@ void CharacterController::Reposition(WorldPosition Position, bool ResetVelocity)
 	VelocityY10_ = 0;
 }
 
+void CharacterController::SetVelocity(WorldPosition Velocity) {
+	Body_.Velocity = Velocity;
+	VelocityX10_ = static_cast<int>(std::round(Velocity.X * 10.0f));
+	VelocityY10_ = static_cast<int>(std::round(Velocity.Y * 10.0f));
+	Body_.Grounded = false;
+}
+
 
 CollisionShape CharacterController::ShapeAt(
 	const TileMap& Map, const TileCatalog& Catalog, float X, float Y) const {
