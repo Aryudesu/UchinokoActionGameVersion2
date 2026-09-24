@@ -1424,14 +1424,10 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(*Terrain->Map.TryGet({4, 3}) == 8);
 	assert(*Terrain->Map.TryGet({2, 4}) == 4);
 	assert(*Terrain->Map.TryGet({6, 4}) == 9);
-	// #40 cliff comparison fixture:
-	// left platform = variant2 TURN, right platform = variant1 FALL.
-	assert(*Terrain->Map.TryGet({1, 2}) == 2);
-	assert(*Terrain->Map.TryGet({2, 2}) == 2);
-	assert(*Terrain->Map.TryGet({3, 2}) == 0);
-	assert(*Terrain->Map.TryGet({4, 2}) == 2);
-	assert(*Terrain->Map.TryGet({6, 2}) == 2);
-	assert(*Terrain->Map.TryGet({7, 2}) == 0);
+	// 踏みつけ確認のため、旧cliff fixtureの上段ブロックは撤去済み。
+	for (int Column = 0; Column < 8; ++Column) {
+		assert(*Terrain->Map.TryGet({Column, 2}) == 0);
+	}
 	assert(*Foreground->Map.TryGet({7, 4}) == 3);
 
 	const ObjectLayer* Objects = Area->FindObjectLayer("objects");
