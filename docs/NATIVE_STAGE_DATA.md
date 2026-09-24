@@ -176,6 +176,22 @@ V1の差をそのまま保持する。
 
 NativeStageSandboxではPlayer更新後にObjectRuntimeも1フレーム更新してからcontact判定を行うため、移動後のEnemy位置でDamageReactionが発火する。
 
+`native-test/main` には崖挙動を目視比較する専用fixtureを置く。
+
+```text
+left upper platform
+  enemy-cliff-turn
+  variant=2 / TURN
+  → 崖手前で反転して上段に残る
+
+right upper platform
+  enemy-cliff-fall
+  variant=1 / FALL
+  → 右の崖から落下して下段床へ着地する
+```
+
+Debug表示ではWalkingEnemyへ `FALL` / `TURN` を明示する。
+
 踏みつけ、Enemy同士の接触反転、EnemyへのDamage terrain反応、画面外respawnは後続で接続する。
 
 LiftについてはHitBoundsをruntime化済みだが、Playerを乗せるStand/足元判定は後続実装とする。
