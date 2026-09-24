@@ -940,9 +940,9 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					Touching
 						? GetColor(255, 255, 255)
 						: GetColor(255, 200, 240),
-					"%s V%d %s %.0fpx%s",
+					"%s %s %s %.0fpx%s",
 					Object->Id.c_str(),
-					Object->Variant,
+					Object->Variant == 2 ? "TURN" : "FALL",
 					Object->Direction < 0 ? "<" : ">",
 					Object->MoveSpeed,
 					Touching ? " CONTACT" : "");
