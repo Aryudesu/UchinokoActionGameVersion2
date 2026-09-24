@@ -1432,7 +1432,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 
 	const ObjectLayer* Objects = Area->FindObjectLayer("objects");
 	assert(Objects != nullptr);
-	assert(Objects->Objects.size() == 4);
+	assert(Objects->Objects.size() == 6);
 	assert(Objects->Objects[0].TypeId == "PlayerSpawn");
 	assert(NearlyEqual(Objects->Objects[0].Position.X, 32.0f));
 	assert(NearlyEqual(Objects->Objects[0].Position.Y, 128.0f));
@@ -1447,9 +1447,19 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NearlyEqual(Objects->Objects[2].Position.X, 160.0f));
 	assert(NearlyEqual(Objects->Objects[2].Position.Y, 32.0f));
 
-	assert(Objects->Objects[3].TypeId == "HorizontalLift");
-	assert(NearlyEqual(Objects->Objects[3].Position.X, 96.0f));
-	assert(NearlyEqual(Objects->Objects[3].Position.Y, 96.0f));
+	assert(Objects->Objects[3].Id == "enemy-meet-left");
+	assert(Objects->Objects[3].TypeId == "WalkingEnemy");
+	assert(NearlyEqual(Objects->Objects[3].Position.X, 80.0f));
+	assert(NearlyEqual(Objects->Objects[3].Position.Y, 128.0f));
+
+	assert(Objects->Objects[4].Id == "enemy-meet-right");
+	assert(Objects->Objects[4].TypeId == "WalkingEnemy");
+	assert(NearlyEqual(Objects->Objects[4].Position.X, 144.0f));
+	assert(NearlyEqual(Objects->Objects[4].Position.Y, 128.0f));
+
+	assert(Objects->Objects[5].TypeId == "HorizontalLift");
+	assert(NearlyEqual(Objects->Objects[5].Position.X, 96.0f));
+	assert(NearlyEqual(Objects->Objects[5].Position.Y, 96.0f));
 
 	std::string Direction;
 	int Variant = 0;
