@@ -24,9 +24,17 @@ struct NativeObjectRuntime {
 	std::string Id;
 	std::string TypeId;
 	WorldPosition Position;
+	WorldPosition InitialPosition;
+	WorldPosition Velocity;
 	WorldPosition HitboxOffset;
 	WorldPosition HitboxSize;
 	int ContactDamage = 0;
+	int Direction = -1;
+	int Variant = 0;
+	float MoveSpeed = 0.0f;
+	float Gravity = 0.5f;
+	float MaxFallSpeed = 12.0f;
+	bool Grounded = false;
 	bool Active = true;
 
 	ObjectHitBounds HitBounds() const;
@@ -48,6 +56,11 @@ public:
 	}
 
 	const NativeObjectRuntime* Find(const std::string& ObjectId) const;
+	NativeObjectRuntime* Find(const std::string& ObjectId);
+
+	void Update(
+		const TileMap& Map,
+		const TileCatalog& Catalog);
 
 	std::vector<NativeObjectContact> FindContacts(
 		WorldPosition Position,
@@ -56,6 +69,10 @@ public:
 private:
 	static Result<NativeObjectRuntime> BuildRuntime(
 		const ObjectSpawn& Spawn);
+	static void UpdateWalkingEnemy(
+		NativeObjectRuntime& Object,
+		const TileMap& Map,
+		const TileCatalog& Catalog);
 
 	std::vector<NativeObjectRuntime> Objects_;
 };

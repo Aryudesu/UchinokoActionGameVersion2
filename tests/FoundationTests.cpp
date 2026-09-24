@@ -1424,43 +1424,67 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(*Terrain->Map.TryGet({4, 3}) == 8);
 	assert(*Terrain->Map.TryGet({2, 4}) == 4);
 	assert(*Terrain->Map.TryGet({6, 4}) == 9);
+	// #40 cliff comparison fixture:
+	// left platform = variant2 TURN, right platform = variant1 FALL.
+	assert(*Terrain->Map.TryGet({1, 2}) == 2);
+	assert(*Terrain->Map.TryGet({2, 2}) == 2);
+	assert(*Terrain->Map.TryGet({3, 2}) == 0);
+	assert(*Terrain->Map.TryGet({4, 2}) == 2);
+	assert(*Terrain->Map.TryGet({6, 2}) == 2);
+	assert(*Terrain->Map.TryGet({7, 2}) == 0);
 	assert(*Foreground->Map.TryGet({7, 4}) == 3);
 
 	const ObjectLayer* Objects = Area->FindObjectLayer("objects");
 	assert(Objects != nullptr);
-	assert(Objects->Objects.size() == 3);
+	assert(Objects->Objects.size() == 4);
 	assert(Objects->Objects[0].TypeId == "PlayerSpawn");
 	assert(NearlyEqual(Objects->Objects[0].Position.X, 32.0f));
 	assert(NearlyEqual(Objects->Objects[0].Position.Y, 128.0f));
+
+	assert(Objects->Objects[1].Id == "enemy-cliff-turn");
 	assert(Objects->Objects[1].TypeId == "WalkingEnemy");
-	assert(Objects->Objects[2].TypeId == "HorizontalLift");
-	assert(NearlyEqual(Objects->Objects[1].Position.X, 224.0f));
-	assert(NearlyEqual(Objects->Objects[1].Position.Y, 128.0f));
-	assert(NearlyEqual(Objects->Objects[2].Position.X, 96.0f));
-	assert(NearlyEqual(Objects->Objects[2].Position.Y, 96.0f));
+	assert(NearlyEqual(Objects->Objects[1].Position.X, 48.0f));
+	assert(NearlyEqual(Objects->Objects[1].Position.Y, 32.0f));
+
+	assert(Objects->Objects[2].Id == "enemy-cliff-fall");
+	assert(Objects->Objects[2].TypeId == "WalkingEnemy");
+	assert(NearlyEqual(Objects->Objects[2].Position.X, 160.0f));
+	assert(NearlyEqual(Objects->Objects[2].Position.Y, 32.0f));
+
+	assert(Objects->Objects[3].TypeId == "HorizontalLift");
+	assert(NearlyEqual(Objects->Objects[3].Position.X, 96.0f));
+	assert(NearlyEqual(Objects->Objects[3].Position.Y, 96.0f));
 
 	std::string Direction;
 	int Variant = 0;
 	float Speed = 0.0f;
 	bool Aggressive = true;
+
 	assert(Objects->Objects[1].Properties.at("direction").TryGetString(Direction));
-	assert(Direction == "left");
+	assert(Direction == "right");
 	assert(Objects->Objects[1].Properties.at("variant").TryGetInteger(Variant));
-	assert(Variant == 1);
+	assert(Variant == 2);
 	assert(Objects->Objects[1].Properties.at("speed").TryGetFloat(Speed));
 	assert(NearlyEqual(Speed, 2.0f));
-	assert(Objects->Objects[1].Properties.at("aggressive").TryGetBoolean(Aggressive));
+
+	assert(Objects->Objects[2].Properties.at("direction").TryGetString(Direction));
+	assert(Direction == "right");
+	assert(Objects->Objects[2].Properties.at("variant").TryGetInteger(Variant));
+	assert(Variant == 1);
+	assert(Objects->Objects[2].Properties.at("speed").TryGetFloat(Speed));
+	assert(NearlyEqual(Speed, 2.0f));
+	assert(Objects->Objects[2].Properties.at("aggressive").TryGetBoolean(Aggressive));
 	assert(!Aggressive);
 
 	float LiftRange = 0.0f;
 	float LiftSpeed = 0.0f;
-	assert(Objects->Objects[2].Properties.at("range").TryGetFloat(LiftRange));
+	assert(Objects->Objects[3].Properties.at("range").TryGetFloat(LiftRange));
 	assert(NearlyEqual(LiftRange, 192.0f));
-	assert(Objects->Objects[2].Properties.at("speed").TryGetFloat(LiftSpeed));
+	assert(Objects->Objects[3].Properties.at("speed").TryGetFloat(LiftSpeed));
 	assert(NearlyEqual(LiftSpeed, 2.0f));
 
 	WorldPosition PathDelta;
-	assert(Objects->Objects[2].Properties.at("pathDelta").TryGetVector2(PathDelta));
+	assert(Objects->Objects[3].Properties.at("pathDelta").TryGetVector2(PathDelta));
 	assert(NearlyEqual(PathDelta.X, 192.0f));
 	assert(NearlyEqual(PathDelta.Y, 0.0f));
 
@@ -1782,27 +1806,42 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	NativeObjectSystem Objects;
 	Result<bool> Reset = Objects.Reset(*Area);
 	assert(Reset.IsSuccess());
-	assert(Objects.Objects().size() == 2);
+	assert(Objects.Objects().size() == 3);
 
-	const NativeObjectRuntime* Enemy = Objects.Find("enemy-1");
+	const NativeObjectRuntime* TurnEnemy =
+		Objects.Find("enemy-cliff-turn");
+	const NativeObjectRuntime* FallEnemy =
+		Objects.Find("enemy-cliff-fall");
 	const NativeObjectRuntime* Lift = Objects.Find("lift-1");
-	assert(Enemy != nullptr);
+	assert(TurnEnemy != nullptr);
+	assert(FallEnemy != nullptr);
 	assert(Lift != nullptr);
 
-	assert(Enemy->TypeId == "WalkingEnemy");
-	assert(NearlyEqual(Enemy->Position.X, 224.0f));
-	assert(NearlyEqual(Enemy->Position.Y, 128.0f));
-	assert(NearlyEqual(Enemy->HitboxOffset.X, 8.0f));
-	assert(NearlyEqual(Enemy->HitboxOffset.Y, 1.0f));
-	assert(NearlyEqual(Enemy->HitboxSize.X, 16.0f));
-	assert(NearlyEqual(Enemy->HitboxSize.Y, 31.0f));
-	assert(Enemy->ContactDamage == 1);
+	assert(FallEnemy->TypeId == "WalkingEnemy");
+	assert(NearlyEqual(FallEnemy->Position.X, 160.0f));
+	assert(NearlyEqual(FallEnemy->Position.Y, 32.0f));
+	assert(NearlyEqual(FallEnemy->HitboxOffset.X, 8.0f));
+	assert(NearlyEqual(FallEnemy->HitboxOffset.Y, 1.0f));
+	assert(NearlyEqual(FallEnemy->HitboxSize.X, 16.0f));
+	assert(NearlyEqual(FallEnemy->HitboxSize.Y, 31.0f));
+	assert(FallEnemy->ContactDamage == 1);
+	assert(FallEnemy->Direction == 1);
+	assert(FallEnemy->Variant == 1);
+	assert(NearlyEqual(FallEnemy->MoveSpeed, 2.0f));
+	assert(NearlyEqual(FallEnemy->Gravity, 0.5f));
+	assert(NearlyEqual(FallEnemy->MaxFallSpeed, 12.0f));
 
-	const ObjectHitBounds EnemyBounds = Enemy->HitBounds();
-	assert(NearlyEqual(EnemyBounds.Position.X, 232.0f));
-	assert(NearlyEqual(EnemyBounds.Position.Y, 129.0f));
+	const ObjectHitBounds EnemyBounds = FallEnemy->HitBounds();
+	assert(NearlyEqual(EnemyBounds.Position.X, 168.0f));
+	assert(NearlyEqual(EnemyBounds.Position.Y, 33.0f));
 	assert(NearlyEqual(EnemyBounds.Size.X, 16.0f));
 	assert(NearlyEqual(EnemyBounds.Size.Y, 31.0f));
+
+	assert(TurnEnemy->TypeId == "WalkingEnemy");
+	assert(TurnEnemy->Direction == 1);
+	assert(TurnEnemy->Variant == 2);
+	assert(NearlyEqual(TurnEnemy->Position.X, 48.0f));
+	assert(NearlyEqual(TurnEnemy->Position.Y, 32.0f));
 
 	assert(Lift->TypeId == "HorizontalLift");
 	assert(NearlyEqual(Lift->HitboxOffset.X, -6.0f));
@@ -1925,6 +1964,164 @@ void TestNativeObjectContactComposesWithDamageReaction() {
 	assert(RightDirection == 1);
 	assert(Reaction.Begin(RightDirection));
 	assert(Reaction.AdvanceFrame() == 1.0f);
+}
+
+TileCatalog MakeNativeObjectMovementCatalog() {
+	TileCatalog Catalog;
+
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	TileDefinition OneWay;
+	OneWay.Id = 2;
+	OneWay.Collision = CollisionShape::OneWay;
+	assert(Catalog.Register(OneWay).IsSuccess());
+
+	TileDefinition DropThrough;
+	DropThrough.Id = 3;
+	DropThrough.Collision = CollisionShape::DropThroughOneWay;
+	assert(Catalog.Register(DropThrough).IsSuccess());
+
+	return Catalog;
+}
+
+ObjectSpawn MakeWalkingEnemySpawn(
+	const std::string& Id,
+	WorldPosition Position,
+	const char* Direction,
+	int Variant) {
+	ObjectSpawn Enemy;
+	Enemy.Id = Id;
+	Enemy.TypeId = "WalkingEnemy";
+	Enemy.Position = Position;
+	Enemy.Properties["direction"] =
+		StagePropertyValue::String(Direction);
+	Enemy.Properties["variant"] =
+		StagePropertyValue::Integer(Variant);
+	Enemy.Properties["speed"] =
+		StagePropertyValue::Float(2.0f);
+	return Enemy;
+}
+
+void TestNativeWalkingEnemyMovesAndTurnsAtWall() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 0, 0, 1, 0},
+		{1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog = MakeNativeObjectMovementCatalog();
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	Layer.Objects.push_back(
+		MakeWalkingEnemySpawn(
+			"walker", {64.0f, 32.0f}, "right", 1));
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	for (int Frame = 0; Frame < 5; ++Frame) {
+		Objects.Update(Map, Catalog);
+	}
+
+	const NativeObjectRuntime* Enemy = Objects.Find("walker");
+	assert(Enemy != nullptr);
+	assert(NearlyEqual(Enemy->Position.X, 72.0f));
+	assert(NearlyEqual(Enemy->Position.Y, 32.0f));
+	assert(Enemy->Direction == -1);
+	assert(Enemy->Grounded);
+	assert(NearlyEqual(Enemy->Velocity.Y, 0.0f));
+
+	Objects.Update(Map, Catalog);
+	Enemy = Objects.Find("walker");
+	assert(NearlyEqual(Enemy->Position.X, 70.0f));
+	assert(Enemy->Direction == -1);
+}
+
+void TestNativeWalkingEnemyVariantsDifferAtCliff() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0},
+		{1, 1, 1, 0, 0},
+		{0, 0, 0, 0, 0}
+	});
+	TileCatalog Catalog = MakeNativeObjectMovementCatalog();
+
+	StageArea Variant1Area;
+	ObjectLayer Variant1Layer;
+	Variant1Layer.Metadata.Id = "objects";
+	Variant1Layer.Objects.push_back(
+		MakeWalkingEnemySpawn(
+			"walker-1", {64.0f, 32.0f}, "right", 1));
+	Variant1Area.ObjectLayers.push_back(Variant1Layer);
+
+	NativeObjectSystem Variant1;
+	assert(Variant1.Reset(Variant1Area).IsSuccess());
+	for (int Frame = 0; Frame < 10; ++Frame) {
+		Variant1.Update(Map, Catalog);
+	}
+	const NativeObjectRuntime* Walker1 = Variant1.Find("walker-1");
+	assert(Walker1 != nullptr);
+	assert(Walker1->Position.Y > 32.0f);
+	assert(!Walker1->Grounded);
+	assert(Walker1->Direction == 1);
+
+	StageArea Variant2Area;
+	ObjectLayer Variant2Layer;
+	Variant2Layer.Metadata.Id = "objects";
+	Variant2Layer.Objects.push_back(
+		MakeWalkingEnemySpawn(
+			"walker-2", {64.0f, 32.0f}, "right", 2));
+	Variant2Area.ObjectLayers.push_back(Variant2Layer);
+
+	NativeObjectSystem Variant2;
+	assert(Variant2.Reset(Variant2Area).IsSuccess());
+	for (int Frame = 0; Frame < 10; ++Frame) {
+		Variant2.Update(Map, Catalog);
+	}
+	const NativeObjectRuntime* Walker2 = Variant2.Find("walker-2");
+	assert(Walker2 != nullptr);
+	assert(NearlyEqual(Walker2->Position.Y, 32.0f));
+	assert(Walker2->Grounded);
+	assert(Walker2->Direction == -1);
+	assert(Walker2->Position.X < 72.0f);
+}
+
+void TestNativeWalkingEnemyStandsOnOneWayFloors() {
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 0, 0},
+		{2, 2, 2}
+	});
+	TileCatalog Catalog = MakeNativeObjectMovementCatalog();
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	Layer.Objects.push_back(
+		MakeWalkingEnemySpawn(
+			"walker", {32.0f, 16.0f}, "right", 1));
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	for (int Frame = 0; Frame < 20; ++Frame) {
+		Objects.Update(Map, Catalog);
+	}
+
+	const NativeObjectRuntime* Enemy = Objects.Find("walker");
+	assert(Enemy != nullptr);
+	assert(Enemy->Grounded);
+	assert(NearlyEqual(Enemy->Position.Y, 32.0f));
 }
 
 void TestNativeObjectRuntimePropertiesOverrideHitbox() {
@@ -5123,6 +5320,9 @@ int main(int argc, char* argv[]) {
 		TestNativeObjectRuntimeBuildsTypeSpecificHitBounds();
 		TestNativeObjectRuntimeUsesPlayerCentralTouchBounds();
 		TestNativeObjectContactComposesWithDamageReaction();
+		TestNativeWalkingEnemyMovesAndTurnsAtWall();
+		TestNativeWalkingEnemyVariantsDifferAtCliff();
+		TestNativeWalkingEnemyStandsOnOneWayFloors();
 		TestNativeObjectRuntimePropertiesOverrideHitbox();
 		TestNativeObjectRuntimeRejectsInvalidHitbox();
 		TestNativeStageDataValidationRejectsInvalidSwitchBinding();
@@ -5178,6 +5378,9 @@ int main(int argc, char* argv[]) {
 	TestNativeObjectRuntimeBuildsTypeSpecificHitBounds();
 	TestNativeObjectRuntimeUsesPlayerCentralTouchBounds();
 	TestNativeObjectContactComposesWithDamageReaction();
+	TestNativeWalkingEnemyMovesAndTurnsAtWall();
+	TestNativeWalkingEnemyVariantsDifferAtCliff();
+	TestNativeWalkingEnemyStandsOnOneWayFloors();
 	TestNativeObjectRuntimePropertiesOverrideHitbox();
 	TestNativeObjectRuntimeRejectsInvalidHitbox();
 	TestNativeStageDataValidationRejectsInvalidSwitchBinding();
