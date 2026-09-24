@@ -67,6 +67,8 @@ public:
 	const CharacterBody& Body() const { return Body_; }
 	CharacterBody& Body() { return Body_; }
 	void Reposition(WorldPosition Position, bool ResetVelocity = true);
+	// 外部gameplay反応（踏みつけbounce等）から速度を変更し、内部の10倍固定小数状態も同期する。
+	void SetVelocity(WorldPosition Velocity);
 	const std::vector<TileInteraction>& Interactions() const { return Interactions_; }
 	// TileTrigger::Touch は見た目32x32より狭い、中央16x32の判定を使う。
 	CharacterTouchBounds TouchBounds() const;
