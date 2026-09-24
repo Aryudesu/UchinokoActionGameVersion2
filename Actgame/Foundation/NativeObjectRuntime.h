@@ -40,11 +40,17 @@ struct NativeObjectRuntime {
 	ObjectHitBounds HitBounds() const;
 };
 
+enum class NativeObjectContactKind {
+	Touch,
+	Stomp
+};
+
 struct NativeObjectContact {
 	std::size_t ObjectIndex = 0;
 	std::string ObjectId;
 	std::string TypeId;
 	int ContactDamage = 0;
+	NativeObjectContactKind Kind = NativeObjectContactKind::Touch;
 };
 
 class NativeObjectSystem {
@@ -64,7 +70,10 @@ public:
 
 	std::vector<NativeObjectContact> FindContacts(
 		WorldPosition Position,
-		WorldPosition Size) const;
+		WorldPosition Size,
+		float PlayerVerticalVelocity = 0.0f) const;
+
+	bool Deactivate(const std::string& ObjectId);
 
 private:
 	static Result<NativeObjectRuntime> BuildRuntime(
