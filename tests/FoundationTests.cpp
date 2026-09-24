@@ -1891,6 +1891,59 @@ void TestNativeObjectRuntimeUsesPlayerCentralTouchBounds() {
 	assert(Contacts[0].ContactDamage == 1);
 }
 
+
+void TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Enemy;
+	Enemy.Id = "enemy";
+	Enemy.TypeId = "WalkingEnemy";
+	Enemy.Position = {100.0f, 100.0f};
+	Layer.Objects.push_back(Enemy);
+	Area.ObjectLayers.push_back(Layer);
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	const std::vector<NativeObjectContact> Stomp = Objects.FindContacts(
+		{108.0f, 70.0f}, {16.0f, 32.0f}, 4.0f);
+	assert(Stomp.size() == 1);
+	assert(Stomp[0].Kind == NativeObjectContactKind::Stomp);
+	assert(Stomp[0].ContactDamage == 0);
+
+	const std::vector<NativeObjectContact> Rising = Objects.FindContacts(
+		{108.0f, 70.0f}, {16.0f, 32.0f}, -4.0f);
+	assert(Rising.size() == 1);
+	assert(Rising[0].Kind == NativeObjectContactKind::Touch);
+	assert(Rising[0].ContactDamage == 1);
+
+	const std::vector<NativeObjectContact> Side = Objects.FindContacts(
+		{96.0f, 100.0f}, {16.0f, 32.0f}, 4.0f);
+	assert(Side.size() == 1);
+	assert(Side[0].Kind == NativeObjectContactKind::Touch);
+	assert(Side[0].ContactDamage == 1);
+
+	assert(Objects.Deactivate("enemy"));
+	assert(!Objects.Deactivate("enemy"));
+	assert(Objects.FindContacts({108.0f, 70.0f}, {16.0f, 32.0f}, 4.0f).empty());
+}
+
+void TestCharacterSetVelocityKeepsInternalVelocityInSync() {
+	CharacterBody Body;
+	Body.Position = {32.0f, 32.0f};
+	CharacterMotion Motion;
+	Motion.Gravity = 0.0f;
+	Motion.MoveSpeed = 0.0f;
+	CharacterController Player(Body, Motion);
+	Player.SetVelocity({0.0f, -6.0f});
+	assert(NearlyEqual(Player.Body().Velocity.Y, -6.0f));
+	TileMap Map = MakeMap({{0, 0, 0}, {0, 0, 0}, {0, 0, 0}});
+	TileCatalog Catalog = MakeTerrainCatalog();
+	Player.StepWithoutInput(Map, Catalog);
+	assert(Player.Body().Position.Y < 32.0f);
+	assert(NearlyEqual(Player.Body().Velocity.Y, -6.0f));
+}
+
 void TestNativeObjectContactComposesWithDamageReaction() {
 	StageArea Area;
 	ObjectLayer Layer;
@@ -5320,6 +5373,8 @@ int main(int argc, char* argv[]) {
 		TestNativeObjectRuntimeBuildsTypeSpecificHitBounds();
 		TestNativeObjectRuntimeUsesPlayerCentralTouchBounds();
 		TestNativeObjectContactComposesWithDamageReaction();
+		TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage();
+		TestCharacterSetVelocityKeepsInternalVelocityInSync();
 		TestNativeWalkingEnemyMovesAndTurnsAtWall();
 		TestNativeWalkingEnemyVariantsDifferAtCliff();
 		TestNativeWalkingEnemyStandsOnOneWayFloors();
@@ -5378,6 +5433,8 @@ int main(int argc, char* argv[]) {
 	TestNativeObjectRuntimeBuildsTypeSpecificHitBounds();
 	TestNativeObjectRuntimeUsesPlayerCentralTouchBounds();
 	TestNativeObjectContactComposesWithDamageReaction();
+	TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage();
+	TestCharacterSetVelocityKeepsInternalVelocityInSync();
 	TestNativeWalkingEnemyMovesAndTurnsAtWall();
 	TestNativeWalkingEnemyVariantsDifferAtCliff();
 	TestNativeWalkingEnemyStandsOnOneWayFloors();
