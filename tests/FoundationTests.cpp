@@ -1595,14 +1595,19 @@ void TestNativeStageCharacterControllerUsesTerrainSemantics() {
 	}
 	assert(HitQuestionFromBelow);
 
-	// CharacterController自体のジャンプ確認は、頭上が空いているcol=0で行う。
-	// gameplay fixtureの配置変更でphysics smoke testの意味を変えない。
+	// CharacterController自体のジャンプ確認はgameplay fixtureから分離する。
+	// stage.json側の配置変更でphysics smoke testの意味を変えない。
+	TileMap JumpMap = MakeMap({
+		{0, 0, 0},
+		{0, 0, 0},
+		{2, 2, 2}
+	});
 	CharacterBody JumpBody;
-	JumpBody.Position = {0.0f, 128.0f};
+	JumpBody.Position = {32.0f, 32.0f};
 	JumpBody.Grounded = true;
 	CharacterController JumpPlayer(JumpBody);
-	JumpPlayer.Step(0.0f, true, Terrain->Map, Catalog.Value());
-	assert(JumpPlayer.Body().Position.Y < 128.0f);
+	JumpPlayer.Step(0.0f, true, JumpMap, Catalog.Value());
+	assert(JumpPlayer.Body().Position.Y < 32.0f);
 	assert(!JumpPlayer.Body().Grounded);
 }
 
