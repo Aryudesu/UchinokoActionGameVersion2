@@ -1938,7 +1938,11 @@ void TestCharacterSetVelocityKeepsInternalVelocityInSync() {
 	Player.SetVelocity({0.0f, -6.0f});
 	assert(NearlyEqual(Player.Body().Velocity.Y, -6.0f));
 	TileMap Map = MakeMap({{0, 0, 0}, {0, 0, 0}, {0, 0, 0}});
-	TileCatalog Catalog = MakeTerrainCatalog();
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
 	Player.StepWithoutInput(Map, Catalog);
 	assert(Player.Body().Position.Y < 32.0f);
 	assert(NearlyEqual(Player.Body().Velocity.Y, -6.0f));
