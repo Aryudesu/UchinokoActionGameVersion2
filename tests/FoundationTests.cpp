@@ -1422,7 +1422,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
 	assert(Area->Width == 24);
-	assert(Area->Height == 14);
+	assert(Area->Height == 18);
 	assert(Area->TileWidth == 32);
 	assert(Area->TileHeight == 32);
 	assert(Area->Settings.TimeLimitSeconds == 300);
@@ -1451,7 +1451,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(*Terrain->Map.TryGet({4, 3}) == 8);
 	assert(*Terrain->Map.TryGet({2, 4}) == 4);
 	assert(*Terrain->Map.TryGet({6, 4}) == 9);
-	assert(*Terrain->Map.TryGet({23, 5}) == 2);
+	assert(*Terrain->Map.TryGet({23, 11}) == 2);
 	// 踏みつけ確認のため、旧cliff fixtureの上段ブロックは撤去済み。
 	for (int Column = 0; Column < 8; ++Column) {
 		assert(*Terrain->Map.TryGet({Column, 2}) == 0);
