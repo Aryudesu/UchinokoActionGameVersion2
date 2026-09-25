@@ -1967,6 +1967,68 @@ void TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage() {
 	assert(Objects.FindContacts({108.0f, 70.0f}, {16.0f, 32.0f}, 4.0f).empty());
 }
 
+void TestNativeWalkingEnemyLifecycleUsesCameraAndKeepsDefeatedState() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	Layer.Objects.push_back(
+		MakeWalkingEnemySpawn(
+			"walker", {640.0f, 100.0f}, "right", 1));
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	const WorldPosition ViewSize = {512.0f, 320.0f};
+
+	// 初期Cameraから十分離れたEnemyはDormantへ入り、spawn位置へ戻る。
+	Objects.UpdateLifecycle({0.0f, 0.0f}, ViewSize);
+	const NativeObjectRuntime* Enemy = Objects.Find("walker");
+	assert(Enemy != nullptr);
+	assert(Enemy->LifeState == ObjectLifeState::Dormant);
+	assert(!Enemy->Active);
+	assert(Enemy->RespawnArmed);
+	assert(NearlyEqual(Enemy->Position.X, 640.0f));
+	assert(Enemy->Direction == 1);
+
+	// spawn地点がActivation範囲へ入るとActive化する。
+	Objects.UpdateLifecycle({200.0f, 0.0f}, ViewSize);
+	Enemy = Objects.Find("walker");
+	assert(Enemy->LifeState == ObjectLifeState::Active);
+	assert(Enemy->Active);
+	assert(!Enemy->RespawnArmed);
+
+	// Active中に現在位置がCameraから十分離れるとDormantへ戻る。
+	NativeObjectRuntime* MutableEnemy = Objects.Find("walker");
+	assert(MutableEnemy != nullptr);
+	MutableEnemy->Position = {900.0f, 100.0f};
+	MutableEnemy->Direction = -1;
+	Objects.UpdateLifecycle({200.0f, 0.0f}, ViewSize);
+	Enemy = Objects.Find("walker");
+	assert(Enemy->LifeState == ObjectLifeState::Dormant);
+	assert(!Enemy->Active);
+	assert(NearlyEqual(Enemy->Position.X, 640.0f));
+	assert(Enemy->Direction == 1);
+
+	// spawn地点がまだCamera付近にある間は即respawnしない。
+	Objects.UpdateLifecycle({200.0f, 0.0f}, ViewSize);
+	assert(Objects.Find("walker")->LifeState == ObjectLifeState::Dormant);
+
+	// 一度spawn地点を画面外へ出してから戻すと再度Active化する。
+	Objects.UpdateLifecycle({0.0f, 0.0f}, ViewSize);
+	assert(Objects.Find("walker")->RespawnArmed);
+	Objects.UpdateLifecycle({200.0f, 0.0f}, ViewSize);
+	assert(Objects.Find("walker")->LifeState == ObjectLifeState::Active);
+
+	// 倒されたEnemyはCameraを往復しても復活しない。
+	assert(Objects.Deactivate("walker"));
+	assert(Objects.Find("walker")->LifeState == ObjectLifeState::Defeated);
+	Objects.UpdateLifecycle({0.0f, 0.0f}, ViewSize);
+	Objects.UpdateLifecycle({200.0f, 0.0f}, ViewSize);
+	assert(Objects.Find("walker")->LifeState == ObjectLifeState::Defeated);
+	assert(!Objects.Find("walker")->Active);
+}
+
 void TestCharacterSetVelocityKeepsInternalVelocityInSync() {
 	CharacterBody Body;
 	Body.Position = {32.0f, 32.0f};
@@ -5524,6 +5586,7 @@ int main(int argc, char* argv[]) {
 	TestNativeObjectRuntimeUsesPlayerCentralTouchBounds();
 	TestNativeObjectContactComposesWithDamageReaction();
 	TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage();
+	TestNativeWalkingEnemyLifecycleUsesCameraAndKeepsDefeatedState();
 	TestCharacterSetVelocityKeepsInternalVelocityInSync();
 	TestNativeWalkingEnemyMovesAndTurnsAtWall();
 	TestNativeWalkingEnemiesTurnWhenTheyMeet();
