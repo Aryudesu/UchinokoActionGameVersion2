@@ -318,6 +318,23 @@ bool IsEnemyDamageAction(const TileRule& Rule) {
 		Rule.Action == TileAction::InstantDeath;
 }
 
+bool IntersectsExpandedView(
+	const ObjectHitBounds& Bounds,
+	WorldPosition CameraPosition,
+	WorldPosition ViewSize,
+	float Margin) {
+	const float SafeMargin = (std::max)(0.0f, Margin);
+	const WorldPosition ViewPosition = {
+		CameraPosition.X - SafeMargin,
+		CameraPosition.Y - SafeMargin
+	};
+	const WorldPosition ExpandedSize = {
+		ViewSize.X + SafeMargin * 2.0f,
+		ViewSize.Y + SafeMargin * 2.0f
+	};
+	return Bounds.Intersects(ViewPosition, ExpandedSize);
+}
+
 bool TouchesEnemyDamageTerrain(
 	const NativeObjectRuntime& Object,
 	const TileMap& Map,
@@ -479,6 +496,7 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 				"WalkingEnemy direction must be left or right: " +
 				Spawn.Id);
 		}
+		Runtime.InitialDirection = Runtime.Direction;
 
 		if (!TryReadInteger(
 			Spawn.Properties,
@@ -570,6 +588,68 @@ NativeObjectRuntime* NativeObjectSystem::Find(
 	return nullptr;
 }
 
+void NativeObjectSystem::ResetToSpawn(
+	NativeObjectRuntime& Object) {
+	Object.Position = Object.InitialPosition;
+	Object.Direction = Object.InitialDirection;
+	Object.Velocity = {0.0f, 0.0f};
+	Object.Grounded = false;
+}
+
+void NativeObjectSystem::UpdateLifecycle(
+	WorldPosition CameraPosition,
+	WorldPosition ViewSize,
+	float ActivationMargin,
+	float DormancyMargin) {
+	for (NativeObjectRuntime& Object : Objects_) {
+		// 現時点では画面外spawn/despawnの対象はWalkingEnemyのみ。
+		// Lift等はCamera外でも状態を保持して動かし続ける。
+		if (Object.TypeId != "WalkingEnemy") continue;
+		if (Object.LifeState == ObjectLifeState::Defeated) continue;
+
+		if (Object.LifeState == ObjectLifeState::Active) {
+			if (IntersectsExpandedView(
+				Object.HitBounds(),
+				CameraPosition,
+				ViewSize,
+				DormancyMargin)) {
+				continue;
+			}
+
+			Object.LifeState = ObjectLifeState::Dormant;
+			Object.Active = false;
+			ResetToSpawn(Object);
+
+			const ObjectHitBounds SpawnBounds = Object.HitBounds();
+			Object.RespawnArmed = !IntersectsExpandedView(
+				SpawnBounds,
+				CameraPosition,
+				ViewSize,
+				ActivationMargin);
+			continue;
+		}
+
+		const ObjectHitBounds SpawnBounds = Object.HitBounds();
+		const bool SpawnInActivationView = IntersectsExpandedView(
+			SpawnBounds,
+			CameraPosition,
+			ViewSize,
+			ActivationMargin);
+
+		if (!SpawnInActivationView) {
+			// 一度spawn地点を十分画面外へ出してからでないと再出現させない。
+			Object.RespawnArmed = true;
+			continue;
+		}
+		if (!Object.RespawnArmed) continue;
+
+		Object.LifeState = ObjectLifeState::Active;
+		Object.Active = true;
+		Object.RespawnArmed = false;
+		ResetToSpawn(Object);
+	}
+}
+
 void NativeObjectSystem::UpdateWalkingEnemy(
 	NativeObjectRuntime& Object,
 	const TileMap& Map,
@@ -603,6 +683,7 @@ void NativeObjectSystem::UpdateWalkingEnemy(
 	// Damage / InstantDeath はデータ上は区別したまま保持する。
 	// 現在のWalkingEnemyはHPを持たないため、どちらも接触時に非Active化する。
 	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
+		Object.LifeState = ObjectLifeState::Defeated;
 		Object.Active = false;
 		Object.Velocity = {0.0f, 0.0f};
 	}
@@ -722,6 +803,7 @@ std::vector<NativeObjectContact> NativeObjectSystem::FindContacts(
 bool NativeObjectSystem::Deactivate(const std::string& ObjectId) {
 	NativeObjectRuntime* Object = Find(ObjectId);
 	if (Object == nullptr || !Object->Active) return false;
+	Object->LifeState = ObjectLifeState::Defeated;
 	Object->Active = false;
 	Object->Velocity = {0.0f, 0.0f};
 	return true;
