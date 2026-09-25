@@ -1,6 +1,6 @@
 #pragma once
 
-#include "StageTypes.h"
+#include "Coordinates.h"
 
 namespace uchinoko {
 
