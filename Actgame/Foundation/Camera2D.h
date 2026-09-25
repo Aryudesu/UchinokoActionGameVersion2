@@ -16,10 +16,10 @@ struct PlatformerCameraSettings {
 	float HorizontalFollowRate = 0.08f;
 
 	// Playerの基準位置。0=上端, 1=下端。
-	float VerticalAnchor = 0.65f;
+	float VerticalAnchor = 0.55f;
 	// Anchorからこの範囲内ではYカメラを動かさない。
-	float VerticalDeadZoneUp = 48.0f;
-	float VerticalDeadZoneDown = 32.0f;
+	float VerticalDeadZoneUp = 64.0f;
+	float VerticalDeadZoneDown = 16.0f;
 };
 
 // World座標上の表示領域を表すDxLib非依存の2Dカメラ。
