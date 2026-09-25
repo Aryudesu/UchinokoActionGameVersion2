@@ -9,229 +9,56 @@
   "areas": [
     {
       "id": "main",
-      "size": [
-        8,
-        6
-      ],
-      "tileSize": [
-        32,
-        32
-      ],
+      "size": [8, 6],
+      "tileSize": [32, 32],
       "settings": {
         "timeLimitSeconds": 300,
         "bgm": "test-bgm",
         "background": "test-sky",
-        "properties": {
-          "cameraMode": "follow"
-        }
+        "properties": { "cameraMode": "follow" }
       },
       "tileLayers": [
-        {
-          "id": "background",
-          "name": "Background",
-          "role": "visual",
-          "zOrder": -10,
-          "source": "main/background.csv",
-          "tileSet": "native-test"
-        },
-        {
-          "id": "terrain",
-          "name": "Terrain",
-          "role": "terrain",
-          "zOrder": 0,
-          "source": "main/terrain.csv",
-          "tileSet": "native-test"
-        },
-        {
-          "id": "foreground",
-          "name": "Foreground",
-          "role": "visual",
-          "zOrder": 20,
-          "source": "main/foreground.csv",
-          "tileSet": "native-test"
-        }
+        { "id": "background", "name": "Background", "role": "visual", "zOrder": -10, "source": "main/background.csv", "tileSet": "native-test" },
+        { "id": "terrain", "name": "Terrain", "role": "terrain", "zOrder": 0, "source": "main/terrain.csv", "tileSet": "native-test" },
+        { "id": "foreground", "name": "Foreground", "role": "visual", "zOrder": 20, "source": "main/foreground.csv", "tileSet": "native-test" }
       ],
       "objectLayers": [
         {
-          "id": "objects",
-          "name": "Objects",
-          "zOrder": 10,
+          "id": "objects", "name": "Objects", "zOrder": 10,
           "objects": [
-            {
-              "id": "player-start",
-              "type": "PlayerSpawn",
-              "position": [
-                32,
-                128
-              ]
-            },
-            {
-              "id": "enemy-cliff-turn",
-              "type": "WalkingEnemy",
-              "position": [
-                48,
-                32
-              ],
-              "properties": {
-                "direction": "right",
-                "variant": 2,
-                "speed": 2,
-                "aggressive": false
-              }
-            },
-            {
-              "id": "enemy-cliff-fall",
-              "type": "WalkingEnemy",
-              "position": [
-                160,
-                32
-              ],
-              "properties": {
-                "direction": "right",
-                "variant": 1,
-                "speed": 2,
-                "aggressive": false
-              }
-            },
-            {
-              "id": "enemy-meet-left",
-              "type": "WalkingEnemy",
-              "position": [
-                80,
-                128
-              ],
-              "properties": {
-                "direction": "right",
-                "variant": 1,
-                "speed": 2,
-                "aggressive": false
-              }
-            },
-            {
-              "id": "enemy-meet-right",
-              "type": "WalkingEnemy",
-              "position": [
-                144,
-                128
-              ],
-              "properties": {
-                "direction": "left",
-                "variant": 1,
-                "speed": 2,
-                "aggressive": false
-              }
-            },
-            {
-              "id": "lift-1",
-              "type": "HorizontalLift",
-              "position": [
-                96,
-                96
-              ],
-              "properties": {
-                "range": 192,
-                "speed": 2,
-                "pathDelta": [
-                  192,
-                  0
-                ]
-              }
-            }
+            { "id": "player-start", "type": "PlayerSpawn", "position": [32, 128] },
+            { "id": "enemy-cliff-turn", "type": "WalkingEnemy", "position": [48, 32], "properties": { "direction": "right", "variant": 2, "speed": 2, "aggressive": false } },
+            { "id": "enemy-cliff-fall", "type": "WalkingEnemy", "position": [160, 32], "properties": { "direction": "right", "variant": 1, "speed": 2, "aggressive": false } },
+            { "id": "enemy-meet-left", "type": "WalkingEnemy", "position": [80, 128], "properties": { "direction": "right", "variant": 1, "speed": 2, "aggressive": false } },
+            { "id": "enemy-meet-right", "type": "WalkingEnemy", "position": [144, 128], "properties": { "direction": "left", "variant": 1, "speed": 2, "aggressive": false } },
+            { "id": "lift-1", "type": "HorizontalLift", "position": [96, 96], "properties": { "range": 192, "speed": 2, "pathDelta": [192, 0] } }
           ]
         }
       ],
       "regionLayers": [],
       "transitions": [
-        {
-          "id": "pipe-main-sub",
-          "type": "Pipe",
-          "entry": {
-            "shape": "point",
-            "position": [
-              128,
-              128
-            ]
-          },
-          "targetArea": "sub",
-          "exitPosition": [
-            32,
-            128
-          ],
-          "enterDirection": "down",
-          "exitDirection": "up"
-        }
+        { "id": "pipe-main-sub", "type": "Pipe", "entry": { "shape": "point", "position": [128, 128] }, "targetArea": "sub", "exitPosition": [32, 128], "enterDirection": "down", "exitDirection": "up" }
       ]
     },
     {
       "id": "sub",
-      "size": [
-        8,
-        6
-      ],
-      "tileSize": [
-        32,
-        32
-      ],
+      "size": [8, 6],
+      "tileSize": [32, 32],
       "settings": {
         "timeLimitSeconds": 0,
         "bgm": "test-sub-bgm",
         "background": "test-sub-sky",
-        "properties": {
-          "cameraMode": "follow"
-        }
+        "properties": { "cameraMode": "follow" }
       },
       "tileLayers": [
-        {
-          "id": "background",
-          "name": "Background",
-          "role": "visual",
-          "zOrder": -10,
-          "source": "sub/background.csv",
-          "tileSet": "native-test"
-        },
-        {
-          "id": "terrain",
-          "name": "Terrain",
-          "role": "terrain",
-          "zOrder": 0,
-          "source": "sub/terrain.csv",
-          "tileSet": "native-test"
-        },
-        {
-          "id": "foreground",
-          "name": "Foreground",
-          "role": "visual",
-          "zOrder": 20,
-          "source": "sub/foreground.csv",
-          "tileSet": "native-test"
-        }
+        { "id": "background", "name": "Background", "role": "visual", "zOrder": -10, "source": "sub/background.csv", "tileSet": "native-test" },
+        { "id": "terrain", "name": "Terrain", "role": "terrain", "zOrder": 0, "source": "sub/terrain.csv", "tileSet": "native-test" },
+        { "id": "foreground", "name": "Foreground", "role": "visual", "zOrder": 20, "source": "sub/foreground.csv", "tileSet": "native-test" }
       ],
       "regionLayers": [
-        {
-          "id": "events",
-          "name": "Events",
-          "zOrder": 30,
-          "regions": [
-            {
-              "id": "goal-sub",
-              "type": "Goal",
-              "geometry": {
-                "shape": "rectangle",
-                "position": [
-                  192,
-                  128
-                ],
-                "size": [
-                  32,
-                  32
-                ]
-              },
-              "properties": {
-                "goalKind": "normal"
-              }
-            }
-          ]
-        }
+        { "id": "events", "name": "Events", "zOrder": 30, "regions": [
+          { "id": "goal-sub", "type": "Goal", "geometry": { "shape": "rectangle", "position": [192, 128], "size": [32, 32] }, "properties": { "goalKind": "normal" } }
+        ] }
       ],
       "transitions": []
     }
@@ -240,121 +67,49 @@
     {
       "id": "native-test",
       "source": "tiles.png",
-      "tileSize": [
-        32,
-        32
-      ],
-      "grid": [
-        5,
-        1
-      ],
+      "tileSize": [32, 32],
+      "grid": [5, 1],
       "emptyTile": 0,
       "transparent": true,
       "terrainTiles": [
-        {
-          "id": 0,
-          "imageIndex": 0,
-          "collision": "none",
-          "movement": "none"
-        },
-        {
-          "id": 2,
-          "imageIndex": 2,
-          "collision": "solid",
-          "movement": "none"
-        },
-        {
-          "id": 4,
-          "imageIndex": 4,
-          "collision": "none",
-          "movement": "none",
-          "rules": [
-            {
-              "trigger": "touch",
-              "action": "addCoin",
-              "value": 1,
-              "target": "player"
-            },
-            {
-              "trigger": "touch",
-              "action": "addScore",
-              "value": 100,
-              "target": "player"
-            },
-            {
-              "trigger": "touch",
-              "action": "replaceTile",
-              "value": 0,
-              "target": "player"
-            }
-          ]
-        },
-        {
-          "id": 5,
-          "imageIndex": 2,
-          "collision": "solid",
-          "movement": "none",
-          "rules": [
-            {
-              "trigger": "hitFromBelow",
-              "action": "spawnItem",
-              "value": 2,
-              "target": "player"
-            },
-            {
-              "trigger": "hitFromBelow",
-              "action": "replaceTile",
-              "value": 2,
-              "target": "player"
-            }
-          ]
-        },
-        {
-          "id": 6,
-          "imageIndex": 2,
-          "collision": "solid",
-          "movement": "none",
-          "rules": [
-            {
-              "trigger": "hitFromBelow",
-              "action": "hitBrick",
-              "value": 5,
-              "target": "player"
-            }
-          ]
-        },
-        {
-          "id": 8,
-          "imageIndex": 2,
-          "collision": "solid",
-          "movement": "none",
-          "rules": [
-            {
-              "trigger": "hitFromBelow",
-              "action": "toggleSwitch",
-              "value": 0,
-              "target": "player"
-            }
-          ]
-        },
-        {
-          "id": 9,
-          "imageIndex": 2,
-          "collision": "solid",
-          "movement": "none",
-          "switchChannel": 0,
-          "switchOnTileId": 9,
-          "switchOffTileId": 10
-        },
-        {
-          "id": 10,
-          "imageIndex": 0,
-          "collision": "none",
-          "movement": "none",
-          "switchChannel": 0,
-          "switchOnTileId": 9,
-          "switchOffTileId": 10
-        }
+        { "id": 0, "imageIndex": 0, "collision": "none", "movement": "none" },
+        { "id": 2, "imageIndex": 2, "collision": "solid", "movement": "none" },
+        { "id": 4, "imageIndex": 4, "collision": "none", "movement": "none", "rules": [
+          { "trigger": "touch", "action": "addCoin", "value": 1, "target": "player" },
+          { "trigger": "touch", "action": "addScore", "value": 100, "target": "player" },
+          { "trigger": "touch", "action": "replaceTile", "value": 0, "target": "player" }
+        ] },
+        { "id": 5, "imageIndex": 2, "collision": "solid", "movement": "none", "rules": [
+          { "trigger": "hitFromBelow", "action": "spawnItem", "value": 2, "target": "player" },
+          { "trigger": "hitFromBelow", "action": "replaceTile", "value": 2, "target": "player" }
+        ] },
+        { "id": 6, "imageIndex": 2, "collision": "solid", "movement": "none", "rules": [
+          { "trigger": "hitFromBelow", "action": "hitBrick", "value": 5, "target": "player" }
+        ] },
+        { "id": 8, "imageIndex": 2, "collision": "solid", "movement": "none", "rules": [
+          { "trigger": "hitFromBelow", "action": "toggleSwitch", "value": 0, "target": "player" }
+        ] },
+        { "id": 9, "imageIndex": 2, "collision": "solid", "movement": "none", "switchChannel": 0, "switchOnTileId": 9, "switchOffTileId": 10 },
+        { "id": 10, "imageIndex": 0, "collision": "none", "movement": "none", "switchChannel": 0, "switchOnTileId": 9, "switchOffTileId": 10 },
+
+        { "id": 11, "imageIndex": 2, "collision": "solid", "movement": "none", "rules": [
+          { "trigger": "touch", "action": "damage", "value": 1, "target": "player" }
+        ] },
+        { "id": 12, "imageIndex": 2, "collision": "solid", "movement": "none", "rules": [
+          { "trigger": "touch", "action": "damage", "value": 1, "target": "enemy" }
+        ] },
+        { "id": 13, "imageIndex": 2, "collision": "solid", "movement": "none", "rules": [
+          { "trigger": "touch", "action": "damage", "value": 1, "target": "both" }
+        ] },
+        { "id": 14, "imageIndex": 2, "collision": "solid", "movement": "none", "rules": [
+          { "trigger": "touch", "action": "instantDeath", "value": 0, "target": "player" }
+        ] },
+        { "id": 15, "imageIndex": 2, "collision": "solid", "movement": "none", "rules": [
+          { "trigger": "touch", "action": "instantDeath", "value": 0, "target": "enemy" }
+        ] },
+        { "id": 16, "imageIndex": 2, "collision": "solid", "movement": "none", "rules": [
+          { "trigger": "touch", "action": "instantDeath", "value": 0, "target": "both" }
+        ] }
       ]
     }
   ]
