@@ -657,7 +657,9 @@ void NativeStageSandboxScene::update() {
 			TerrainCatalog_);
 		ApplyTerrainEffects();
 		if (Dead_) return;
-		Objects_.Update(TerrainLayer_->Map, TerrainCatalog_);
+		Objects_.UpdateLifecycle(Camera_.Position(), Camera_.ViewSize());
+		Objects_.UpdateLifecycle(Camera_.Position(), Camera_.ViewSize());
+	Objects_.Update(TerrainLayer_->Map, TerrainCatalog_);
 		ApplyObjectContacts();
 		if (Dead_) return;
 		CheckGoalRegions();
