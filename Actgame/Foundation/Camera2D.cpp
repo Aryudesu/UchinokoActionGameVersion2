@@ -2,21 +2,13 @@
 
 #include <algorithm>
 
-namespace {
-
-float ClampFloat(float Value, float MinValue, float MaxValue) {
-	return (std::max)(MinValue, (std::min)(Value, MaxValue));
-}
-
-} // namespace
-
 namespace uchinoko {
 
 void Camera2D::ClampToWorld(WorldPosition WorldSize) {
 	const float MaxX = (std::max)(0.0f, WorldSize.X - ViewSize_.X);
 	const float MaxY = (std::max)(0.0f, WorldSize.Y - ViewSize_.Y);
-	Position_.X = ClampFloat(Position_.X, 0.0f, MaxX);
-	Position_.Y = ClampFloat(Position_.Y, 0.0f, MaxY);
+	Position_.X = (std::clamp)(Position_.X, 0.0f, MaxX);
+	Position_.Y = (std::clamp)(Position_.Y, 0.0f, MaxY);
 }
 
 void Camera2D::FollowCentered(
@@ -33,7 +25,7 @@ void Camera2D::FollowPlatformer(
 	float MoveDirectionX,
 	WorldPosition WorldSize,
 	const PlatformerCameraSettings& Settings) {
-	const float Rate = ClampFloat(
+	const float Rate = (std::clamp)(
 		Settings.HorizontalLookAheadRate,
 		0.0f,
 		1.0f);
@@ -50,7 +42,7 @@ void Camera2D::FollowPlatformer(
 	Position_.X =
 		Target.X - ViewSize_.X * 0.5f + LookAheadX_;
 
-	const float Anchor = ClampFloat(
+	const float Anchor = (std::clamp)(
 		Settings.VerticalAnchor,
 		0.0f,
 		1.0f);
