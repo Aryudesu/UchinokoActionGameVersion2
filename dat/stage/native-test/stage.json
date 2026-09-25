@@ -9,7 +9,7 @@
   "areas": [
     {
       "id": "main",
-      "size": [8, 6],
+      "size": [24, 14],
       "tileSize": [32, 32],
       "settings": {
         "timeLimitSeconds": 300,
