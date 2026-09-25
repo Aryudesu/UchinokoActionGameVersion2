@@ -33,6 +33,7 @@ public:
 	WorldPosition Position() const { return Position_; }
 	WorldPosition ViewSize() const { return ViewSize_; }
 	float HorizontalOffsetX() const { return HorizontalOffsetX_; }
+	int HorizontalFollowDirection() const { return HorizontalFollowDirection_; }
 
 	void SetPosition(WorldPosition Position) { Position_ = Position; }
 	void SetViewSize(WorldPosition ViewSize) { ViewSize_ = ViewSize; }
@@ -64,6 +65,7 @@ private:
 	WorldPosition Position_ = {0.0f, 0.0f};
 	WorldPosition ViewSize_ = {512.0f, 320.0f};
 	float HorizontalOffsetX_ = 0.0f;
+	int HorizontalFollowDirection_ = 0;
 };
 
 } // namespace uchinoko
