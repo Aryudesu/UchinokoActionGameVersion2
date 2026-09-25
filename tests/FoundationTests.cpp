@@ -1971,9 +1971,17 @@ void TestNativeWalkingEnemyLifecycleUsesCameraAndKeepsDefeatedState() {
 	StageArea Area;
 	ObjectLayer Layer;
 	Layer.Metadata.Id = "objects";
-	Layer.Objects.push_back(
-		MakeWalkingEnemySpawn(
-			"walker", {640.0f, 100.0f}, "right", 1));
+	ObjectSpawn EnemySpawn;
+	EnemySpawn.Id = "walker";
+	EnemySpawn.TypeId = "WalkingEnemy";
+	EnemySpawn.Position = {640.0f, 100.0f};
+	EnemySpawn.Properties["direction"] =
+		StagePropertyValue::String("right");
+	EnemySpawn.Properties["variant"] =
+		StagePropertyValue::Integer(1);
+	EnemySpawn.Properties["speed"] =
+		StagePropertyValue::Float(2.0f);
+	Layer.Objects.push_back(EnemySpawn);
 	Area.ObjectLayers.push_back(Layer);
 
 	NativeObjectSystem Objects;
