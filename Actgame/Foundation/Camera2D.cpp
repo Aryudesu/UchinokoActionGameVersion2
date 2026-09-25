@@ -17,6 +17,7 @@ void Camera2D::FollowCentered(
 	Position_.X = Target.X - ViewSize_.X * 0.5f;
 	Position_.Y = Target.Y - ViewSize_.Y * 0.5f;
 	HorizontalOffsetX_ = 0.0f;
+	HorizontalFollowDirection_ = 0;
 	ClampToWorld(WorldSize);
 }
 
@@ -46,21 +47,38 @@ void Camera2D::FollowPlatformer(
 		0.0f,
 		1.0f);
 
-	const float TargetViewX = Target.X - Position_.X;
-	bool FollowHorizontal = false;
-	float DesiredX = Position_.X;
+	const int MoveDirection =
+		MoveDirectionX > 0.0f ? 1 :
+		MoveDirectionX < 0.0f ? -1 : 0;
 
-	if (MoveDirectionX > 0.0f &&
-		TargetViewX > ViewSize_.X * RightTrigger) {
-		DesiredX = Target.X - ViewSize_.X * RightAnchor;
-		FollowHorizontal = true;
-	} else if (MoveDirectionX < 0.0f &&
-		TargetViewX < ViewSize_.X * LeftTrigger) {
-		DesiredX = Target.X - ViewSize_.X * LeftAnchor;
-		FollowHorizontal = true;
+	// 逆方向へ振り返った瞬間はCamera追従を解除する。
+	// その後、Player自身が反対側Triggerまで移動してから
+	// 新しい進行方向のAnchor追従へ切り替える。
+	if (MoveDirection != 0 &&
+		HorizontalFollowDirection_ != 0 &&
+		MoveDirection != HorizontalFollowDirection_) {
+		HorizontalFollowDirection_ = 0;
 	}
 
-	if (FollowHorizontal) {
+	const float TargetViewX = Target.X - Position_.X;
+	if (HorizontalFollowDirection_ == 0) {
+		if (MoveDirection > 0 &&
+			TargetViewX > ViewSize_.X * RightTrigger) {
+			HorizontalFollowDirection_ = 1;
+		} else if (MoveDirection < 0 &&
+			TargetViewX < ViewSize_.X * LeftTrigger) {
+			HorizontalFollowDirection_ = -1;
+		}
+	}
+
+	float DesiredX = Position_.X;
+	if (HorizontalFollowDirection_ > 0) {
+		DesiredX = Target.X - ViewSize_.X * RightAnchor;
+	} else if (HorizontalFollowDirection_ < 0) {
+		DesiredX = Target.X - ViewSize_.X * LeftAnchor;
+	}
+
+	if (HorizontalFollowDirection_ != 0) {
 		Position_.X += (DesiredX - Position_.X) * HorizontalRate;
 	}
 
