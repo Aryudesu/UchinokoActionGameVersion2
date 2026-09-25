@@ -12,17 +12,11 @@
 #include <utility>
 
 namespace {
-constexpr int StageOffsetX = 64;
-constexpr int StageOffsetY = 120;
+constexpr int StageViewportX = 64;
+constexpr int StageViewportY = 120;
+constexpr float DefaultCameraViewWidth = 512.0f;
+constexpr float DefaultCameraViewHeight = 320.0f;
 constexpr int PlayerZOrder = 15;
-
-int ScreenX(float WorldX) {
-	return StageOffsetX + static_cast<int>(WorldX);
-}
-
-int ScreenY(float WorldY) {
-	return StageOffsetY + static_cast<int>(WorldY);
-}
 
 bool TryPipeDirection(
 	uchinoko::StageDirection Direction,
@@ -72,6 +66,38 @@ NativeStageSandboxScene::NativeStageSandboxScene() {
 
 NativeStageSandboxScene::~NativeStageSandboxScene() {
 	DestroyTileSets();
+}
+
+int NativeStageSandboxScene::ScreenX(float WorldX) const {
+	const uchinoko::WorldPosition View =
+		Camera_.WorldToView({WorldX, 0.0f});
+	return StageViewportX + static_cast<int>(View.X);
+}
+
+int NativeStageSandboxScene::ScreenY(float WorldY) const {
+	const uchinoko::WorldPosition View =
+		Camera_.WorldToView({0.0f, WorldY});
+	return StageViewportY + static_cast<int>(View.Y);
+}
+
+void NativeStageSandboxScene::UpdateCamera() {
+	if (!PlayerReady_ || Area_ == nullptr) return;
+
+	const uchinoko::CharacterBody& Body = Player_.Body();
+	const uchinoko::WorldPosition Target = {
+		Body.Position.X + Body.Width * 0.5f,
+		Body.Position.Y + Body.Height * 0.5f
+	};
+	const uchinoko::WorldPosition WorldSize = {
+		static_cast<float>(Area_->Width * Area_->TileWidth),
+		static_cast<float>(Area_->Height * Area_->TileHeight)
+	};
+
+	Camera_.FollowPlatformer(
+		Target,
+		Body.Velocity.X,
+		WorldSize,
+		CameraSettings_);
 }
 
 void NativeStageSandboxScene::DestroyTileSets() {
@@ -571,7 +597,24 @@ void NativeStageSandboxScene::Reload() {
 
 	if (!LoadTileSets()) return;
 	if (!ActivateArea(Stage_.StartAreaId)) return;
-	InitializeNativePlayer();
+	if (!InitializeNativePlayer()) return;
+
+	Camera_.SetViewSize({
+		DefaultCameraViewWidth,
+		DefaultCameraViewHeight
+	});
+	Camera_.SetPosition({0.0f, 0.0f});
+
+	const uchinoko::CharacterBody& Body = Player_.Body();
+	Camera_.FollowCentered(
+		{
+			Body.Position.X + Body.Width * 0.5f,
+			Body.Position.Y + Body.Height * 0.5f
+		},
+		{
+			static_cast<float>(Area_->Width * Area_->TileWidth),
+			static_cast<float>(Area_->Height * Area_->TileHeight)
+		});
 }
 
 void NativeStageSandboxScene::update() {
@@ -593,11 +636,13 @@ void NativeStageSandboxScene::update() {
 
 	if (Pipe_.IsActive()) {
 		UpdateTransition();
+		UpdateCamera();
 		return;
 	}
 
 	if (Completion_.Cleared) {
 		Player_.StepWithoutInput(TerrainLayer_->Map, TerrainCatalog_);
+		UpdateCamera();
 		return;
 	}
 
@@ -616,6 +661,7 @@ void NativeStageSandboxScene::update() {
 		ApplyObjectContacts();
 		if (Dead_) return;
 		CheckGoalRegions();
+		UpdateCamera();
 		return;
 	}
 
@@ -628,7 +674,10 @@ void NativeStageSandboxScene::update() {
 	if (Input.Horizontal > 0.0f) FacingDirection_ = 1;
 	else if (Input.Horizontal < 0.0f) FacingDirection_ = -1;
 
-	if (TryBeginTransition(Input)) return;
+	if (TryBeginTransition(Input)) {
+		UpdateCamera();
+		return;
+	}
 
 	Player_.Step(Input, TerrainLayer_->Map, TerrainCatalog_);
 	ApplyTerrainEffects();
@@ -637,6 +686,7 @@ void NativeStageSandboxScene::update() {
 	ApplyObjectContacts();
 	if (Dead_) return;
 	CheckGoalRegions();
+	UpdateCamera();
 }
 
 void NativeStageSandboxScene::DrawTileLayer(
@@ -659,9 +709,9 @@ void NativeStageSandboxScene::DrawTileLayer(
 					DefinitionSet->FindTerrainTile(*TileId);
 				if (Definition == nullptr) {
 					const int Left =
-						StageOffsetX + Column * Layer.Map.TileWidth();
+						ScreenX(static_cast<float>(Column * Layer.Map.TileWidth()));
 					const int Top =
-						StageOffsetY + Row * Layer.Map.TileHeight();
+						ScreenY(static_cast<float>(Row * Layer.Map.TileHeight()));
 					DrawBox(
 						Left, Top,
 						Left + Layer.Map.TileWidth(),
@@ -684,9 +734,9 @@ void NativeStageSandboxScene::DrawTileLayer(
 					if (Definition != nullptr &&
 						Definition->SwitchChannel >= 0) {
 						const int Left =
-							StageOffsetX + Column * Layer.Map.TileWidth();
+							ScreenX(static_cast<float>(Column * Layer.Map.TileWidth()));
 						const int Top =
-							StageOffsetY + Row * Layer.Map.TileHeight();
+							ScreenY(static_cast<float>(Row * Layer.Map.TileHeight()));
 						DrawBox(
 							Left + 2, Top + 2,
 							Left + Layer.Map.TileWidth() - 2,
@@ -703,9 +753,9 @@ void NativeStageSandboxScene::DrawTileLayer(
 			}
 
 			const int Left =
-				StageOffsetX + Column * Layer.Map.TileWidth();
+				ScreenX(static_cast<float>(Column * Layer.Map.TileWidth()));
 			const int Top =
-				StageOffsetY + Row * Layer.Map.TileHeight();
+				ScreenY(static_cast<float>(Row * Layer.Map.TileHeight()));
 
 			if (ImageIndex < 0 ||
 				static_cast<std::size_t>(ImageIndex) >= Loaded.Handles.size()) {
@@ -801,8 +851,8 @@ void NativeStageSandboxScene::DrawTileLayer(
 
 	if (ShowDebug_) {
 		DrawFormatString(
-			StageOffsetX + Area_->Width * Area_->TileWidth + 24,
-			StageOffsetY + 18 * Layer.Metadata.ZOrder / 10 + 60,
+			StageViewportX + static_cast<int>(Camera_.ViewSize().X) + 16,
+			StageViewportY + 18 * Layer.Metadata.ZOrder / 10 + 60,
 			GetColor(210, 220, 255),
 			"z=%d  %s",
 			Layer.Metadata.ZOrder,
@@ -1123,6 +1173,12 @@ void NativeStageSandboxScene::draw() {
 			return Left.Order < Right.Order;
 		});
 
+	SetDrawArea(
+		StageViewportX,
+		StageViewportY,
+		StageViewportX + static_cast<int>(Camera_.ViewSize().X) - 1,
+		StageViewportY + static_cast<int>(Camera_.ViewSize().Y) - 1);
+
 	for (const DrawLayerEntry& Entry : DrawOrder) {
 		switch (Entry.Kind) {
 		case DrawLayerKind::Tile:
@@ -1143,6 +1199,15 @@ void NativeStageSandboxScene::draw() {
 		}
 	}
 	DrawTransitions();
+
+	SetDrawArea(0, 0, WINDOWX - 1, WINDOWY - 1);
+	DrawBox(
+		StageViewportX - 1,
+		StageViewportY - 1,
+		StageViewportX + static_cast<int>(Camera_.ViewSize().X),
+		StageViewportY + static_cast<int>(Camera_.ViewSize().Y),
+		GetColor(170, 190, 220),
+		FALSE);
 
 	DrawString(
 		16, 16,
@@ -1167,6 +1232,27 @@ void NativeStageSandboxScene::draw() {
 		Coins_, Health_, Lives_, Score_, Broken_,
 		DamageReaction_.Active() ? "  DAMAGE" : "",
 		Dead_ ? "  DEAD (R: reload)" : "");
+
+	if (ShowDebug_) {
+		DrawFormatString(
+			StageViewportX + static_cast<int>(Camera_.ViewSize().X) + 16,
+			StageViewportY + 16,
+			GetColor(210, 230, 255),
+			"Camera");
+		DrawFormatString(
+			StageViewportX + static_cast<int>(Camera_.ViewSize().X) + 16,
+			StageViewportY + 38,
+			GetColor(210, 230, 255),
+			"(%.0f,%.0f)",
+			Camera_.Position().X,
+			Camera_.Position().Y);
+		DrawFormatString(
+			StageViewportX + static_cast<int>(Camera_.ViewSize().X) + 16,
+			StageViewportY + 60,
+			GetColor(210, 230, 255),
+			"look %.1f",
+			Camera_.LookAheadX());
+	}
 
 	if (Completion_.Cleared) {
 		DrawFormatString(
