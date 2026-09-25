@@ -308,6 +308,63 @@ void ResolveWalkingEnemyVertical(
 	Object.Grounded = true;
 }
 
+bool RuleTargetsEnemy(const TileRule& Rule) {
+	return Rule.Target == TileTarget::Enemy ||
+		Rule.Target == TileTarget::Both;
+}
+
+bool IsEnemyDamageAction(const TileRule& Rule) {
+	return Rule.Action == TileAction::Damage ||
+		Rule.Action == TileAction::InstantDeath;
+}
+
+bool TouchesEnemyDamageTerrain(
+	const NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog) {
+	const ObjectHitBounds Bounds = Object.HitBounds();
+	if (!Bounds.IsValid()) return false;
+
+	// 接地したSolid等もTouchとして拾えるよう、判定矩形をわずかに広げる。
+	constexpr float TouchEpsilon = 0.01f;
+	const float Left = Bounds.Position.X - TouchEpsilon;
+	const float Top = Bounds.Position.Y - TouchEpsilon;
+	const float Right = Bounds.Position.X + Bounds.Size.X + TouchEpsilon;
+	const float Bottom = Bounds.Position.Y + Bounds.Size.Y + TouchEpsilon;
+
+	const int FirstColumn = (std::max)(
+		0,
+		static_cast<int>(std::floor(Left / Map.TileWidth())));
+	const int LastColumn = (std::min)(
+		Map.Width() - 1,
+		static_cast<int>(std::floor(Right / Map.TileWidth())));
+	const int FirstRow = (std::max)(
+		0,
+		static_cast<int>(std::floor(Top / Map.TileHeight())));
+	const int LastRow = (std::min)(
+		Map.Height() - 1,
+		static_cast<int>(std::floor(Bottom / Map.TileHeight())));
+
+	for (int Row = FirstRow; Row <= LastRow; ++Row) {
+		for (int Column = FirstColumn; Column <= LastColumn; ++Column) {
+			const int* Id = Map.TryGet({Column, Row});
+			const TileDefinition* Definition =
+				Id == nullptr ? nullptr : Catalog.Find(*Id);
+			if (Definition == nullptr) continue;
+
+			for (const TileRule& Rule : Definition->Rules) {
+				if (Rule.Trigger != TileTrigger::Touch ||
+					!RuleTargetsEnemy(Rule) ||
+					!IsEnemyDamageAction(Rule)) {
+					continue;
+				}
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 } // namespace
 
 bool ObjectHitBounds::IsValid() const {
@@ -542,6 +599,13 @@ void NativeObjectSystem::UpdateWalkingEnemy(
 	}
 
 	ResolveWalkingEnemyVertical(Object, Map, Catalog);
+
+	// Damage / InstantDeath はデータ上は区別したまま保持する。
+	// 現在のWalkingEnemyはHPを持たないため、どちらも接触時に非Active化する。
+	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
+		Object.Active = false;
+		Object.Velocity = {0.0f, 0.0f};
+	}
 }
 
 void NativeObjectSystem::Update(
