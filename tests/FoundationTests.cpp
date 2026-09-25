@@ -1334,7 +1334,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(TileSet->TileCount() == 5);
 	assert(TileSet->EmptyTileId == 0);
 	assert(TileSet->Transparent);
-	assert(TileSet->TerrainTiles.size() == 8);
+	assert(TileSet->TerrainTiles.size() == 14);
 	const TileDefinition* EmptyTerrain = TileSet->FindTerrainTile(0);
 	const TileDefinition* SolidTerrain = TileSet->FindTerrainTile(2);
 	const TileDefinition* CoinTerrain = TileSet->FindTerrainTile(4);
@@ -1343,6 +1343,33 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	const TileDefinition* SwitchTerrain = TileSet->FindTerrainTile(8);
 	const TileDefinition* SwitchOnTerrain = TileSet->FindTerrainTile(9);
 	const TileDefinition* SwitchOffTerrain = TileSet->FindTerrainTile(10);
+	const TileDefinition* PlayerDamageTerrain = TileSet->FindTerrainTile(11);
+	const TileDefinition* EnemyDamageTerrain = TileSet->FindTerrainTile(12);
+	const TileDefinition* BothDamageTerrain = TileSet->FindTerrainTile(13);
+	const TileDefinition* PlayerDeathTerrain = TileSet->FindTerrainTile(14);
+	const TileDefinition* EnemyDeathTerrain = TileSet->FindTerrainTile(15);
+	const TileDefinition* BothDeathTerrain = TileSet->FindTerrainTile(16);
+
+	assert(PlayerDamageTerrain != nullptr);
+	assert(EnemyDamageTerrain != nullptr);
+	assert(BothDamageTerrain != nullptr);
+	assert(PlayerDeathTerrain != nullptr);
+	assert(EnemyDeathTerrain != nullptr);
+	assert(BothDeathTerrain != nullptr);
+
+	assert(PlayerDamageTerrain->Rules[0].Action == TileAction::Damage);
+	assert(PlayerDamageTerrain->Rules[0].Target == TileTarget::Player);
+	assert(EnemyDamageTerrain->Rules[0].Action == TileAction::Damage);
+	assert(EnemyDamageTerrain->Rules[0].Target == TileTarget::Enemy);
+	assert(BothDamageTerrain->Rules[0].Action == TileAction::Damage);
+	assert(BothDamageTerrain->Rules[0].Target == TileTarget::Both);
+
+	assert(PlayerDeathTerrain->Rules[0].Action == TileAction::InstantDeath);
+	assert(PlayerDeathTerrain->Rules[0].Target == TileTarget::Player);
+	assert(EnemyDeathTerrain->Rules[0].Action == TileAction::InstantDeath);
+	assert(EnemyDeathTerrain->Rules[0].Target == TileTarget::Enemy);
+	assert(BothDeathTerrain->Rules[0].Action == TileAction::InstantDeath);
+	assert(BothDeathTerrain->Rules[0].Target == TileTarget::Both);
 	assert(EmptyTerrain != nullptr);
 	assert(SolidTerrain != nullptr);
 	assert(CoinTerrain != nullptr);
