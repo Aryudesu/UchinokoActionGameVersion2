@@ -20,6 +20,12 @@ struct ObjectHitBounds {
 		WorldPosition OtherSize) const;
 };
 
+enum class ObjectLifeState {
+	Active,
+	Dormant,
+	Defeated
+};
+
 struct NativeObjectRuntime {
 	std::string Id;
 	std::string TypeId;
@@ -30,12 +36,15 @@ struct NativeObjectRuntime {
 	WorldPosition HitboxSize;
 	int ContactDamage = 0;
 	int Direction = -1;
+	int InitialDirection = -1;
 	int Variant = 0;
 	float MoveSpeed = 0.0f;
 	float Gravity = 0.5f;
 	float MaxFallSpeed = 12.0f;
 	bool Grounded = false;
 	bool Active = true;
+	ObjectLifeState LifeState = ObjectLifeState::Active;
+	bool RespawnArmed = true;
 
 	ObjectHitBounds HitBounds() const;
 };
@@ -64,6 +73,12 @@ public:
 	const NativeObjectRuntime* Find(const std::string& ObjectId) const;
 	NativeObjectRuntime* Find(const std::string& ObjectId);
 
+	void UpdateLifecycle(
+		WorldPosition CameraPosition,
+		WorldPosition ViewSize,
+		float ActivationMargin = 32.0f,
+		float DormancyMargin = 96.0f);
+
 	void Update(
 		const TileMap& Map,
 		const TileCatalog& Catalog);
@@ -78,6 +93,7 @@ public:
 private:
 	static Result<NativeObjectRuntime> BuildRuntime(
 		const ObjectSpawn& Spawn);
+	static void ResetToSpawn(NativeObjectRuntime& Object);
 	static void UpdateWalkingEnemy(
 		NativeObjectRuntime& Object,
 		const TileMap& Map,
