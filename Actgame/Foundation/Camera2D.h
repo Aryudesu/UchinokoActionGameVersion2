@@ -5,10 +5,15 @@
 namespace uchinoko {
 
 struct PlatformerCameraSettings {
-	// 進行方向側を広く見せるための最大先読み量(world unit)。
-	float HorizontalLookAhead = 64.0f;
-	// 1 frameでLookAhead差分の何割を追うか。0..1。
-	float HorizontalLookAheadRate = 0.05f;
+	// Xは向きが変わっただけでは追従せず、PlayerがTriggerを越えてから
+	// 進行方向側を広く見せるAnchor位置へCameraを寄せる。
+	// 0=左端, 1=右端。
+	float HorizontalRightAnchor = 0.45f;
+	float HorizontalLeftAnchor = 0.55f;
+	float HorizontalRightTrigger = 0.55f;
+	float HorizontalLeftTrigger = 0.45f;
+	// Trigger後、1 frameで目標Camera位置との差分の何割を追うか。0..1。
+	float HorizontalFollowRate = 0.08f;
 
 	// Playerの基準位置。0=上端, 1=下端。
 	float VerticalAnchor = 0.65f;
@@ -27,7 +32,7 @@ public:
 
 	WorldPosition Position() const { return Position_; }
 	WorldPosition ViewSize() const { return ViewSize_; }
-	float LookAheadX() const { return LookAheadX_; }
+	float HorizontalOffsetX() const { return HorizontalOffsetX_; }
 
 	void SetPosition(WorldPosition Position) { Position_ = Position; }
 	void SetViewSize(WorldPosition ViewSize) { ViewSize_ = ViewSize; }
@@ -45,7 +50,7 @@ public:
 	void FollowCentered(WorldPosition Target, WorldPosition WorldSize);
 
 	// 横スクロールアクション向け追従。
-	// Xは進行方向を先読みし、YはDead Zoneを越えた分だけ追従する。
+	// Xは方向別Triggerを越えた後だけAnchorへ追従し、YはDead Zoneを越えた分だけ追従する。
 	// MoveDirectionX: -1=左, 0=停止, +1=右（速度値をそのまま渡してもよい）。
 	void FollowPlatformer(
 		WorldPosition Target,
@@ -58,7 +63,7 @@ private:
 
 	WorldPosition Position_ = {0.0f, 0.0f};
 	WorldPosition ViewSize_ = {512.0f, 320.0f};
-	float LookAheadX_ = 0.0f;
+	float HorizontalOffsetX_ = 0.0f;
 };
 
 } // namespace uchinoko
