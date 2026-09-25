@@ -1484,13 +1484,13 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 
 	float LiftRange = 0.0f;
 	float LiftSpeed = 0.0f;
-	assert(Objects->Objects[3].Properties.at("range").TryGetFloat(LiftRange));
+	assert(Objects->Objects[5].Properties.at("range").TryGetFloat(LiftRange));
 	assert(NearlyEqual(LiftRange, 192.0f));
-	assert(Objects->Objects[3].Properties.at("speed").TryGetFloat(LiftSpeed));
+	assert(Objects->Objects[5].Properties.at("speed").TryGetFloat(LiftSpeed));
 	assert(NearlyEqual(LiftSpeed, 2.0f));
 
 	WorldPosition PathDelta;
-	assert(Objects->Objects[3].Properties.at("pathDelta").TryGetVector2(PathDelta));
+	assert(Objects->Objects[5].Properties.at("pathDelta").TryGetVector2(PathDelta));
 	assert(NearlyEqual(PathDelta.X, 192.0f));
 	assert(NearlyEqual(PathDelta.Y, 0.0f));
 
@@ -1817,7 +1817,7 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	NativeObjectSystem Objects;
 	Result<bool> Reset = Objects.Reset(*Area);
 	assert(Reset.IsSuccess());
-	assert(Objects.Objects().size() == 3);
+	assert(Objects.Objects().size() == 5);
 
 	const NativeObjectRuntime* TurnEnemy =
 		Objects.Find("enemy-cliff-turn");
