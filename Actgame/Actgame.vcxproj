@@ -136,6 +136,7 @@
     <ClCompile Include="Action.cpp" />
     <ClCompile Include="Foundation\AssetPaths.cpp" />
     <ClCompile Include="Foundation\BrickSystem.cpp" />
+    <ClCompile Include="Foundation\Camera2D.cpp" />
     <ClCompile Include="Foundation\CharacterController.cpp" />
     <ClCompile Include="Foundation\CharacterSafety.cpp" />
     <ClCompile Include="Foundation\ConditionalTerrain.cpp" />
@@ -198,6 +199,7 @@
     <ClInclude Include="Action.h" />
     <ClInclude Include="Foundation\AssetPaths.h" />
     <ClInclude Include="Foundation\BrickSystem.h" />
+    <ClInclude Include="Foundation\Camera2D.h" />
     <ClInclude Include="Foundation\DamageReactionState.h" />
     <ClInclude Include="Foundation\PlayerResourceRules.h" />
     <ClInclude Include="Foundation\CharacterController.h" />
