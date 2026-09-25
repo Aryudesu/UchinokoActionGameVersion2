@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "Foundation/BrickSystem.h"
+#include "Foundation/Camera2D.h"
 #include "Foundation/CharacterController.h"
 #include "Foundation/DamageReactionState.h"
 #include "Foundation/GoalState.h"
@@ -65,6 +66,9 @@ private:
 	void DrawObjectLayer(const uchinoko::ObjectLayer& Layer);
 	void DrawRegionLayer(const uchinoko::RegionLayer& Layer);
 	void DrawTransitions();
+	void UpdateCamera();
+	int ScreenX(float WorldX) const;
+	int ScreenY(float WorldY) const;
 	void DrawGeometry(
 		const uchinoko::StageRegionGeometry& Geometry,
 		unsigned int Color,
@@ -76,6 +80,8 @@ private:
 	uchinoko::TileCatalog TerrainCatalog_;
 	uchinoko::TileRuntimeMap TerrainRuntime_;
 	uchinoko::CharacterController Player_;
+	uchinoko::Camera2D Camera_;
+	uchinoko::PlatformerCameraSettings CameraSettings_;
 	uchinoko::ItemSystem Items_;
 	uchinoko::BrickSystem Bricks_;
 	uchinoko::WorldState World_;
