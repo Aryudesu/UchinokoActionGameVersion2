@@ -1250,8 +1250,8 @@ void NativeStageSandboxScene::draw() {
 			StageViewportX + static_cast<int>(Camera_.ViewSize().X) + 16,
 			StageViewportY + 60,
 			GetColor(210, 230, 255),
-			"look %.1f",
-			Camera_.LookAheadX());
+			"offset %.1f",
+			Camera_.HorizontalOffsetX());
 	}
 
 	if (Completion_.Cleared) {
