@@ -16,7 +16,7 @@ void Camera2D::FollowCentered(
 	WorldPosition WorldSize) {
 	Position_.X = Target.X - ViewSize_.X * 0.5f;
 	Position_.Y = Target.Y - ViewSize_.Y * 0.5f;
-	LookAheadX_ = 0.0f;
+	HorizontalOffsetX_ = 0.0f;
 	ClampToWorld(WorldSize);
 }
 
@@ -25,22 +25,48 @@ void Camera2D::FollowPlatformer(
 	float MoveDirectionX,
 	WorldPosition WorldSize,
 	const PlatformerCameraSettings& Settings) {
-	const float Rate = (std::clamp)(
-		Settings.HorizontalLookAheadRate,
+	const float HorizontalRate = (std::clamp)(
+		Settings.HorizontalFollowRate,
+		0.0f,
+		1.0f);
+	const float RightAnchor = (std::clamp)(
+		Settings.HorizontalRightAnchor,
+		0.0f,
+		1.0f);
+	const float LeftAnchor = (std::clamp)(
+		Settings.HorizontalLeftAnchor,
+		0.0f,
+		1.0f);
+	const float RightTrigger = (std::clamp)(
+		Settings.HorizontalRightTrigger,
+		0.0f,
+		1.0f);
+	const float LeftTrigger = (std::clamp)(
+		Settings.HorizontalLeftTrigger,
 		0.0f,
 		1.0f);
 
-	float TargetLookAhead = LookAheadX_;
-	if (MoveDirectionX > 0.0f) {
-		TargetLookAhead = Settings.HorizontalLookAhead;
-	} else if (MoveDirectionX < 0.0f) {
-		TargetLookAhead = -Settings.HorizontalLookAhead;
-	}
-	LookAheadX_ += (TargetLookAhead - LookAheadX_) * Rate;
+	const float TargetViewX = Target.X - Position_.X;
+	bool FollowHorizontal = false;
+	float DesiredX = Position_.X;
 
-	// LookAheadが正ならCameraを右へ送り、Playerを画面左側へ寄せる。
-	Position_.X =
-		Target.X - ViewSize_.X * 0.5f + LookAheadX_;
+	if (MoveDirectionX > 0.0f &&
+		TargetViewX > ViewSize_.X * RightTrigger) {
+		DesiredX = Target.X - ViewSize_.X * RightAnchor;
+		FollowHorizontal = true;
+	} else if (MoveDirectionX < 0.0f &&
+		TargetViewX < ViewSize_.X * LeftTrigger) {
+		DesiredX = Target.X - ViewSize_.X * LeftAnchor;
+		FollowHorizontal = true;
+	}
+
+	if (FollowHorizontal) {
+		Position_.X += (DesiredX - Position_.X) * HorizontalRate;
+	}
+
+	// debug用。中心基準でPlayerがどちら側にいるかをworld unitで保持する。
+	HorizontalOffsetX_ =
+		Target.X - (Position_.X + ViewSize_.X * 0.5f);
 
 	const float Anchor = (std::clamp)(
 		Settings.VerticalAnchor,
