@@ -553,6 +553,69 @@ void NativeObjectSystem::Update(
 			UpdateWalkingEnemy(Object, Map, Catalog);
 		}
 	}
+
+	// WalkingEnemy同士が横からぶつかった場合は、互いに反転させる。
+	// 地形解決後のHitBoundsで判定し、縦方向の重なりがある組だけを対象にする。
+	for (std::size_t LeftIndex = 0; LeftIndex < Objects_.size(); ++LeftIndex) {
+		NativeObjectRuntime& Left = Objects_[LeftIndex];
+		if (!Left.Active || Left.TypeId != "WalkingEnemy") continue;
+
+		for (std::size_t RightIndex = LeftIndex + 1;
+			RightIndex < Objects_.size();
+			++RightIndex) {
+			NativeObjectRuntime& Right = Objects_[RightIndex];
+			if (!Right.Active || Right.TypeId != "WalkingEnemy") continue;
+
+			const ObjectHitBounds LeftBounds = Left.HitBounds();
+			const ObjectHitBounds RightBounds = Right.HitBounds();
+			if (!LeftBounds.Intersects(
+				RightBounds.Position,
+				RightBounds.Size)) {
+				continue;
+			}
+
+			const float LeftCenterY =
+				LeftBounds.Position.Y + LeftBounds.Size.Y * 0.5f;
+			const float RightCenterY =
+				RightBounds.Position.Y + RightBounds.Size.Y * 0.5f;
+			const float VerticalCenterDistance =
+				std::fabs(LeftCenterY - RightCenterY);
+			const float MaxSideContactDistance =
+				(LeftBounds.Size.Y + RightBounds.Size.Y) * 0.25f;
+			if (VerticalCenterDistance > MaxSideContactDistance) {
+				continue;
+			}
+
+			const float LeftCenterX =
+				LeftBounds.Position.X + LeftBounds.Size.X * 0.5f;
+			const float RightCenterX =
+				RightBounds.Position.X + RightBounds.Size.X * 0.5f;
+			const bool LeftIsActuallyLeft = LeftCenterX <= RightCenterX;
+
+			Left.Direction = LeftIsActuallyLeft ? -1 : 1;
+			Right.Direction = LeftIsActuallyLeft ? 1 : -1;
+			Left.Velocity.X =
+				static_cast<float>(Left.Direction) * Left.MoveSpeed;
+			Right.Velocity.X =
+				static_cast<float>(Right.Direction) * Right.MoveSpeed;
+
+			// 同一frameで重なった分を半分ずつ戻して、翌frameの再反転を防ぐ。
+			const float OverlapX = LeftIsActuallyLeft
+				? LeftBounds.Position.X + LeftBounds.Size.X -
+					RightBounds.Position.X
+				: RightBounds.Position.X + RightBounds.Size.X -
+					LeftBounds.Position.X;
+			if (OverlapX > 0.0f) {
+				const float Correction = OverlapX * 0.5f + 0.01f;
+				Left.Position.X += LeftIsActuallyLeft
+					? -Correction
+					: Correction;
+				Right.Position.X += LeftIsActuallyLeft
+					? Correction
+					: -Correction;
+			}
+		}
+	}
 }
 
 std::vector<NativeObjectContact> NativeObjectSystem::FindContacts(

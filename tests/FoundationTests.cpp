@@ -1424,19 +1424,15 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(*Terrain->Map.TryGet({4, 3}) == 8);
 	assert(*Terrain->Map.TryGet({2, 4}) == 4);
 	assert(*Terrain->Map.TryGet({6, 4}) == 9);
-	// #40 cliff comparison fixture:
-	// left platform = variant2 TURN, right platform = variant1 FALL.
-	assert(*Terrain->Map.TryGet({1, 2}) == 2);
-	assert(*Terrain->Map.TryGet({2, 2}) == 2);
-	assert(*Terrain->Map.TryGet({3, 2}) == 0);
-	assert(*Terrain->Map.TryGet({4, 2}) == 2);
-	assert(*Terrain->Map.TryGet({6, 2}) == 2);
-	assert(*Terrain->Map.TryGet({7, 2}) == 0);
+	// 踏みつけ確認のため、旧cliff fixtureの上段ブロックは撤去済み。
+	for (int Column = 0; Column < 8; ++Column) {
+		assert(*Terrain->Map.TryGet({Column, 2}) == 0);
+	}
 	assert(*Foreground->Map.TryGet({7, 4}) == 3);
 
 	const ObjectLayer* Objects = Area->FindObjectLayer("objects");
 	assert(Objects != nullptr);
-	assert(Objects->Objects.size() == 4);
+	assert(Objects->Objects.size() == 6);
 	assert(Objects->Objects[0].TypeId == "PlayerSpawn");
 	assert(NearlyEqual(Objects->Objects[0].Position.X, 32.0f));
 	assert(NearlyEqual(Objects->Objects[0].Position.Y, 128.0f));
@@ -1451,9 +1447,19 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NearlyEqual(Objects->Objects[2].Position.X, 160.0f));
 	assert(NearlyEqual(Objects->Objects[2].Position.Y, 32.0f));
 
-	assert(Objects->Objects[3].TypeId == "HorizontalLift");
-	assert(NearlyEqual(Objects->Objects[3].Position.X, 96.0f));
-	assert(NearlyEqual(Objects->Objects[3].Position.Y, 96.0f));
+	assert(Objects->Objects[3].Id == "enemy-meet-left");
+	assert(Objects->Objects[3].TypeId == "WalkingEnemy");
+	assert(NearlyEqual(Objects->Objects[3].Position.X, 80.0f));
+	assert(NearlyEqual(Objects->Objects[3].Position.Y, 128.0f));
+
+	assert(Objects->Objects[4].Id == "enemy-meet-right");
+	assert(Objects->Objects[4].TypeId == "WalkingEnemy");
+	assert(NearlyEqual(Objects->Objects[4].Position.X, 144.0f));
+	assert(NearlyEqual(Objects->Objects[4].Position.Y, 128.0f));
+
+	assert(Objects->Objects[5].TypeId == "HorizontalLift");
+	assert(NearlyEqual(Objects->Objects[5].Position.X, 96.0f));
+	assert(NearlyEqual(Objects->Objects[5].Position.Y, 96.0f));
 
 	std::string Direction;
 	int Variant = 0;
@@ -1478,13 +1484,13 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 
 	float LiftRange = 0.0f;
 	float LiftSpeed = 0.0f;
-	assert(Objects->Objects[3].Properties.at("range").TryGetFloat(LiftRange));
+	assert(Objects->Objects[5].Properties.at("range").TryGetFloat(LiftRange));
 	assert(NearlyEqual(LiftRange, 192.0f));
-	assert(Objects->Objects[3].Properties.at("speed").TryGetFloat(LiftSpeed));
+	assert(Objects->Objects[5].Properties.at("speed").TryGetFloat(LiftSpeed));
 	assert(NearlyEqual(LiftSpeed, 2.0f));
 
 	WorldPosition PathDelta;
-	assert(Objects->Objects[3].Properties.at("pathDelta").TryGetVector2(PathDelta));
+	assert(Objects->Objects[5].Properties.at("pathDelta").TryGetVector2(PathDelta));
 	assert(NearlyEqual(PathDelta.X, 192.0f));
 	assert(NearlyEqual(PathDelta.Y, 0.0f));
 
@@ -1589,14 +1595,19 @@ void TestNativeStageCharacterControllerUsesTerrainSemantics() {
 	}
 	assert(HitQuestionFromBelow);
 
-	// CharacterController自体のジャンプ確認は、頭上が空いているcol=0で行う。
-	// gameplay fixtureの配置変更でphysics smoke testの意味を変えない。
+	// CharacterController自体のジャンプ確認はgameplay fixtureから分離する。
+	// stage.json側の配置変更でphysics smoke testの意味を変えない。
+	TileMap JumpMap = MakeMap({
+		{0, 0, 0},
+		{0, 0, 0},
+		{2, 2, 2}
+	});
 	CharacterBody JumpBody;
-	JumpBody.Position = {0.0f, 128.0f};
+	JumpBody.Position = {32.0f, 32.0f};
 	JumpBody.Grounded = true;
 	CharacterController JumpPlayer(JumpBody);
-	JumpPlayer.Step(0.0f, true, Terrain->Map, Catalog.Value());
-	assert(JumpPlayer.Body().Position.Y < 128.0f);
+	JumpPlayer.Step(0.0f, true, JumpMap, Catalog.Value());
+	assert(JumpPlayer.Body().Position.Y < 32.0f);
 	assert(!JumpPlayer.Body().Grounded);
 }
 
@@ -1806,7 +1817,7 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	NativeObjectSystem Objects;
 	Result<bool> Reset = Objects.Reset(*Area);
 	assert(Reset.IsSuccess());
-	assert(Objects.Objects().size() == 3);
+	assert(Objects.Objects().size() == 5);
 
 	const NativeObjectRuntime* TurnEnemy =
 		Objects.Find("enemy-cliff-turn");
@@ -1938,7 +1949,11 @@ void TestCharacterSetVelocityKeepsInternalVelocityInSync() {
 	Player.SetVelocity({0.0f, -6.0f});
 	assert(NearlyEqual(Player.Body().Velocity.Y, -6.0f));
 	TileMap Map = MakeMap({{0, 0, 0}, {0, 0, 0}, {0, 0, 0}});
-	TileCatalog Catalog = MakeTerrainCatalog();
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
 	Player.StepWithoutInput(Map, Catalog);
 	assert(Player.Body().Position.Y < 32.0f);
 	assert(NearlyEqual(Player.Body().Velocity.Y, -6.0f));
@@ -2098,6 +2113,52 @@ void TestNativeWalkingEnemyMovesAndTurnsAtWall() {
 	Enemy = Objects.Find("walker");
 	assert(NearlyEqual(Enemy->Position.X, 70.0f));
 	assert(Enemy->Direction == -1);
+}
+
+void TestNativeWalkingEnemiesTurnWhenTheyMeet() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog = MakeNativeObjectMovementCatalog();
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	Layer.Objects.push_back(
+		MakeWalkingEnemySpawn(
+			"left", {48.0f, 32.0f}, "right", 1));
+	Layer.Objects.push_back(
+		MakeWalkingEnemySpawn(
+			"right", {80.0f, 32.0f}, "left", 1));
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	for (int Frame = 0; Frame < 5; ++Frame) {
+		Objects.Update(Map, Catalog);
+	}
+
+	const NativeObjectRuntime* Left = Objects.Find("left");
+	const NativeObjectRuntime* Right = Objects.Find("right");
+	assert(Left != nullptr);
+	assert(Right != nullptr);
+	assert(Left->Direction == -1);
+	assert(Right->Direction == 1);
+	assert(Left->Velocity.X < 0.0f);
+	assert(Right->Velocity.X > 0.0f);
+	assert(!Left->HitBounds().Intersects(
+		Right->HitBounds().Position,
+		Right->HitBounds().Size));
+
+	Objects.Update(Map, Catalog);
+	Left = Objects.Find("left");
+	Right = Objects.Find("right");
+	assert(Left->Position.X < Right->Position.X);
+	assert(Left->Direction == -1);
+	assert(Right->Direction == 1);
 }
 
 void TestNativeWalkingEnemyVariantsDifferAtCliff() {
@@ -5376,6 +5437,7 @@ int main(int argc, char* argv[]) {
 		TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage();
 		TestCharacterSetVelocityKeepsInternalVelocityInSync();
 		TestNativeWalkingEnemyMovesAndTurnsAtWall();
+	TestNativeWalkingEnemiesTurnWhenTheyMeet();
 		TestNativeWalkingEnemyVariantsDifferAtCliff();
 		TestNativeWalkingEnemyStandsOnOneWayFloors();
 		TestNativeObjectRuntimePropertiesOverrideHitbox();
@@ -5436,6 +5498,7 @@ int main(int argc, char* argv[]) {
 	TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage();
 	TestCharacterSetVelocityKeepsInternalVelocityInSync();
 	TestNativeWalkingEnemyMovesAndTurnsAtWall();
+	TestNativeWalkingEnemiesTurnWhenTheyMeet();
 	TestNativeWalkingEnemyVariantsDifferAtCliff();
 	TestNativeWalkingEnemyStandsOnOneWayFloors();
 	TestNativeObjectRuntimePropertiesOverrideHitbox();
