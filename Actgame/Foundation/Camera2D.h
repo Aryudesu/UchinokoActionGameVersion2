@@ -8,7 +8,7 @@ struct PlatformerCameraSettings {
 	// 進行方向側を広く見せるための最大先読み量(world unit)。
 	float HorizontalLookAhead = 64.0f;
 	// 1 frameでLookAhead差分の何割を追うか。0..1。
-	float HorizontalLookAheadRate = 0.10f;
+	float HorizontalLookAheadRate = 0.05f;
 
 	// Playerの基準位置。0=上端, 1=下端。
 	float VerticalAnchor = 0.65f;
