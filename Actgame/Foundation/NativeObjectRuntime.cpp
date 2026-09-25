@@ -553,11 +553,75 @@ void NativeObjectSystem::Update(
 			UpdateWalkingEnemy(Object, Map, Catalog);
 		}
 	}
+
+	// WalkingEnemy同士が横からぶつかった場合は、互いに反転させる。
+	// 地形解決後のHitBoundsで判定し、縦方向の重なりがある組だけを対象にする。
+	for (std::size_t LeftIndex = 0; LeftIndex < Objects_.size(); ++LeftIndex) {
+		NativeObjectRuntime& Left = Objects_[LeftIndex];
+		if (!Left.Active || Left.TypeId != "WalkingEnemy") continue;
+
+		for (std::size_t RightIndex = LeftIndex + 1;
+			RightIndex < Objects_.size();
+			++RightIndex) {
+			NativeObjectRuntime& Right = Objects_[RightIndex];
+			if (!Right.Active || Right.TypeId != "WalkingEnemy") continue;
+
+			const ObjectHitBounds LeftBounds = Left.HitBounds();
+			const ObjectHitBounds RightBounds = Right.HitBounds();
+			if (!LeftBounds.Intersects(
+				RightBounds.Position,
+				RightBounds.Size)) {
+				continue;
+			}
+
+			const float LeftCenterY =
+				LeftBounds.Position.Y + LeftBounds.Size.Y * 0.5f;
+			const float RightCenterY =
+				RightBounds.Position.Y + RightBounds.Size.Y * 0.5f;
+			const float VerticalCenterDistance =
+				std::fabs(LeftCenterY - RightCenterY);
+			const float MaxSideContactDistance =
+				(LeftBounds.Size.Y + RightBounds.Size.Y) * 0.25f;
+			if (VerticalCenterDistance > MaxSideContactDistance) {
+				continue;
+			}
+
+			const float LeftCenterX =
+				LeftBounds.Position.X + LeftBounds.Size.X * 0.5f;
+			const float RightCenterX =
+				RightBounds.Position.X + RightBounds.Size.X * 0.5f;
+			const bool LeftIsActuallyLeft = LeftCenterX <= RightCenterX;
+
+			Left.Direction = LeftIsActuallyLeft ? -1 : 1;
+			Right.Direction = LeftIsActuallyLeft ? 1 : -1;
+			Left.Velocity.X =
+				static_cast<float>(Left.Direction) * Left.MoveSpeed;
+			Right.Velocity.X =
+				static_cast<float>(Right.Direction) * Right.MoveSpeed;
+
+			// 同一frameで重なった分を半分ずつ戻して、翌frameの再反転を防ぐ。
+			const float OverlapX = LeftIsActuallyLeft
+				? LeftBounds.Position.X + LeftBounds.Size.X -
+					RightBounds.Position.X
+				: RightBounds.Position.X + RightBounds.Size.X -
+					LeftBounds.Position.X;
+			if (OverlapX > 0.0f) {
+				const float Correction = OverlapX * 0.5f + 0.01f;
+				Left.Position.X += LeftIsActuallyLeft
+					? -Correction
+					: Correction;
+				Right.Position.X += LeftIsActuallyLeft
+					? Correction
+					: -Correction;
+			}
+		}
+	}
 }
 
 std::vector<NativeObjectContact> NativeObjectSystem::FindContacts(
 	WorldPosition Position,
-	WorldPosition Size) const {
+	WorldPosition Size,
+	float PlayerVerticalVelocity) const {
 	std::vector<NativeObjectContact> Contacts;
 
 	for (std::size_t Index = 0; Index < Objects_.size(); ++Index) {
@@ -572,10 +636,31 @@ std::vector<NativeObjectContact> NativeObjectSystem::FindContacts(
 		Contact.ObjectId = Object.Id;
 		Contact.TypeId = Object.TypeId;
 		Contact.ContactDamage = Object.ContactDamage;
+
+		// WalkingEnemyは上から下降して浅く重なった接触だけを踏みつけとして扱う。
+		// 横/下からの接触は従来どおりTouch（damage候補）のまま。
+		if (Object.TypeId == "WalkingEnemy" && PlayerVerticalVelocity > 0.0f) {
+			const ObjectHitBounds Bounds = Object.HitBounds();
+			const float PlayerBottom = Position.Y + Size.Y;
+			const float OverlapFromTop = PlayerBottom - Bounds.Position.Y;
+			constexpr float StompTolerance = 10.0f;
+			if (OverlapFromTop > 0.0f && OverlapFromTop <= StompTolerance) {
+				Contact.Kind = NativeObjectContactKind::Stomp;
+				Contact.ContactDamage = 0;
+			}
+		}
 		Contacts.push_back(Contact);
 	}
 
 	return Contacts;
+}
+
+bool NativeObjectSystem::Deactivate(const std::string& ObjectId) {
+	NativeObjectRuntime* Object = Find(ObjectId);
+	if (Object == nullptr || !Object->Active) return false;
+	Object->Active = false;
+	Object->Velocity = {0.0f, 0.0f};
+	return true;
 }
 
 } // namespace uchinoko

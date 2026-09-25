@@ -395,13 +395,28 @@ void NativeStageSandboxScene::ApplyObjectContacts() {
 	};
 
 	const std::vector<uchinoko::NativeObjectContact> Contacts =
-		Objects_.FindContacts(PlayerPosition, PlayerSize);
+		Objects_.FindContacts(
+			PlayerPosition,
+			PlayerSize,
+			Player_.Body().Velocity.Y);
 
 	std::vector<std::string> CurrentIds;
 	CurrentIds.reserve(Contacts.size());
 
 	for (const uchinoko::NativeObjectContact& Contact : Contacts) {
 		CurrentIds.push_back(Contact.ObjectId);
+
+		if (Contact.Kind == uchinoko::NativeObjectContactKind::Stomp) {
+			if (Objects_.Deactivate(Contact.ObjectId)) {
+				const uchinoko::WorldPosition Velocity = {
+					Player_.Body().Velocity.X,
+					-6.0f
+				};
+				Player_.SetVelocity(Velocity);
+			}
+			continue;
+		}
+
 		if (Contact.ContactDamage <= 0) continue;
 
 		const uchinoko::NativeObjectRuntime* Object =
