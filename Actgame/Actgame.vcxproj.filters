@@ -353,6 +353,7 @@
   <ItemGroup>
     <ClCompile Include="Foundation\AssetPaths.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\BrickSystem.cpp"><Filter>Foundation</Filter></ClCompile>
+    <ClCompile Include="Foundation\Camera2D.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\CharacterController.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\CharacterSafety.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\ConditionalTerrain.cpp"><Filter>Foundation</Filter></ClCompile>
@@ -380,6 +381,7 @@
   <ItemGroup>
     <ClInclude Include="Foundation\AssetPaths.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\BrickSystem.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\Camera2D.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\DamageReactionState.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\PlayerResourceRules.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\CharacterController.h"><Filter>Foundation</Filter></ClInclude>
