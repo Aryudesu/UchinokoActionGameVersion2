@@ -50,6 +50,7 @@ struct NativeObjectRuntime {
 	int BehaviorTimer = 0;
 	std::string AttackPattern;
 	int AttackIntervalFrames = 101;
+	unsigned int RandomState = 1;
 	ObjectLifeState LifeState = ObjectLifeState::Active;
 	bool RespawnArmed = true;
 
@@ -128,6 +129,11 @@ private:
 		WorldPosition PlayerPosition);
 	void UpdateStationaryShooter(
 		NativeObjectRuntime& Object);
+	void UpdateChikorarashi(
+		NativeObjectRuntime& Object,
+		const TileMap& Map,
+		const TileCatalog& Catalog,
+		WorldPosition PlayerPosition);
 	void EmitStationaryShooterPattern(
 		const NativeObjectRuntime& Object);
 
