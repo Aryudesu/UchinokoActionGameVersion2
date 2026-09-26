@@ -9,6 +9,24 @@ namespace uchinoko {
 
 namespace {
 
+constexpr int CarrotHidden = 0;
+constexpr int CarrotEmerging = 1;
+constexpr int CarrotWalking = 2;
+constexpr float CarrotTriggerDistance = 96.0f;
+constexpr int CarrotTriggerFrames = 30;
+constexpr float CarrotJumpSpeed = 10.0f;
+
+bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
+	return Object.TypeId == "WalkingEnemy" ||
+		Object.TypeId == "CarrotMan";
+}
+
+bool IsWalkingCollisionEnemy(const NativeObjectRuntime& Object) {
+	if (Object.TypeId == "WalkingEnemy") return true;
+	return Object.TypeId == "CarrotMan" &&
+		Object.BehaviorState != CarrotHidden;
+}
+
 bool TryReadVector2(
 	const StagePropertyMap& Properties,
 	const char* Name,
@@ -433,11 +451,27 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.HitboxOffset = {8.0f, 1.0f};
 		Runtime.HitboxSize = {16.0f, 31.0f};
 		Runtime.ContactDamage = 1;
+		Runtime.Stompable = true;
 		Runtime.Direction = -1;
 		Runtime.Variant = 1;
 		Runtime.MoveSpeed = 2.0f;
 		Runtime.Gravity = 0.5f;
 		Runtime.MaxFallSpeed = 12.0f;
+	} else if (Spawn.TypeId == "CarrotMan") {
+		// V1 CarrotMan: 近づくまでは地中待機し、
+		// 31frame目に上へ飛び出してから通常歩行へ移る。
+		Runtime.HitboxOffset = {8.0f, 1.0f};
+		Runtime.HitboxSize = {16.0f, 31.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.ContactEnabled = false;
+		Runtime.Stompable = false;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.MoveSpeed = 2.0f;
+		Runtime.Gravity = 0.5f;
+		Runtime.MaxFallSpeed = 12.0f;
+		Runtime.BehaviorState = CarrotHidden;
+		Runtime.BehaviorTimer = 0;
 	} else if (Spawn.TypeId == "HorizontalLift") {
 		// NativeStageSandboxで従来debug描画していた44x10の足場形状。
 		Runtime.HitboxOffset = {-6.0f, 11.0f};
@@ -594,6 +628,13 @@ void NativeObjectSystem::ResetToSpawn(
 	Object.Direction = Object.InitialDirection;
 	Object.Velocity = {0.0f, 0.0f};
 	Object.Grounded = false;
+
+	if (Object.TypeId == "CarrotMan") {
+		Object.BehaviorState = CarrotHidden;
+		Object.BehaviorTimer = 0;
+		Object.ContactEnabled = false;
+		Object.Stompable = false;
+	}
 }
 
 void NativeObjectSystem::UpdateLifecycle(
@@ -604,7 +645,7 @@ void NativeObjectSystem::UpdateLifecycle(
 	for (NativeObjectRuntime& Object : Objects_) {
 		// 現時点では画面外spawn/despawnの対象はWalkingEnemyのみ。
 		// Lift等はCamera外でも状態を保持して動かし続ける。
-		if (Object.TypeId != "WalkingEnemy") continue;
+		if (!UsesEnemyLifecycle(Object)) continue;
 		if (Object.LifeState == ObjectLifeState::Defeated) continue;
 
 		if (Object.LifeState == ObjectLifeState::Active) {
@@ -689,13 +730,71 @@ void NativeObjectSystem::UpdateWalkingEnemy(
 	}
 }
 
+void NativeObjectSystem::UpdateCarrotMan(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog,
+	WorldPosition PlayerPosition) {
+	if (!Object.Active) return;
+
+	if (Object.BehaviorState == CarrotHidden) {
+		Object.Velocity = {0.0f, 0.0f};
+		Object.Grounded = false;
+		if (std::fabs(PlayerPosition.X - Object.Position.X) <=
+			CarrotTriggerDistance) {
+			++Object.BehaviorTimer;
+			if (Object.BehaviorTimer > CarrotTriggerFrames) {
+				Object.BehaviorState = CarrotEmerging;
+				Object.BehaviorTimer = 0;
+				Object.ContactEnabled = true;
+				Object.Stompable = true;
+				Object.Velocity.Y = -CarrotJumpSpeed;
+			}
+		} else {
+			Object.BehaviorTimer = 0;
+		}
+		return;
+	}
+
+	if (Object.BehaviorState == CarrotEmerging) {
+		ResolveWalkingEnemyVertical(Object, Map, Catalog);
+		if (Object.Grounded) {
+			Object.BehaviorState = CarrotWalking;
+			Object.Direction =
+				PlayerPosition.X > Object.Position.X ? 1 : -1;
+		}
+	} else {
+		Object.Velocity.X =
+			static_cast<float>(Object.Direction) * Object.MoveSpeed;
+		Object.Position.X += Object.Velocity.X;
+
+		const bool HitWall =
+			ResolveWalkingEnemySide(Object, Map, Catalog);
+		if (HitWall) {
+			Object.Velocity.X =
+				static_cast<float>(Object.Direction) * Object.MoveSpeed;
+		}
+
+		ResolveWalkingEnemyVertical(Object, Map, Catalog);
+	}
+
+	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
+		Object.LifeState = ObjectLifeState::Defeated;
+		Object.Active = false;
+		Object.Velocity = {0.0f, 0.0f};
+	}
+}
+
 void NativeObjectSystem::Update(
 	const TileMap& Map,
-	const TileCatalog& Catalog) {
+	const TileCatalog& Catalog,
+	WorldPosition PlayerPosition) {
 	for (NativeObjectRuntime& Object : Objects_) {
 		if (!Object.Active) continue;
 		if (Object.TypeId == "WalkingEnemy") {
 			UpdateWalkingEnemy(Object, Map, Catalog);
+		} else if (Object.TypeId == "CarrotMan") {
+			UpdateCarrotMan(Object, Map, Catalog, PlayerPosition);
 		}
 	}
 
@@ -703,13 +802,13 @@ void NativeObjectSystem::Update(
 	// 地形解決後のHitBoundsで判定し、縦方向の重なりがある組だけを対象にする。
 	for (std::size_t LeftIndex = 0; LeftIndex < Objects_.size(); ++LeftIndex) {
 		NativeObjectRuntime& Left = Objects_[LeftIndex];
-		if (!Left.Active || Left.TypeId != "WalkingEnemy") continue;
+		if (!Left.Active || !IsWalkingCollisionEnemy(Left)) continue;
 
 		for (std::size_t RightIndex = LeftIndex + 1;
 			RightIndex < Objects_.size();
 			++RightIndex) {
 			NativeObjectRuntime& Right = Objects_[RightIndex];
-			if (!Right.Active || Right.TypeId != "WalkingEnemy") continue;
+			if (!Right.Active || !IsWalkingCollisionEnemy(Right)) continue;
 
 			const ObjectHitBounds LeftBounds = Left.HitBounds();
 			const ObjectHitBounds RightBounds = Right.HitBounds();
@@ -772,6 +871,7 @@ std::vector<NativeObjectContact> NativeObjectSystem::FindContacts(
 	for (std::size_t Index = 0; Index < Objects_.size(); ++Index) {
 		const NativeObjectRuntime& Object = Objects_[Index];
 		if (!Object.Active ||
+			!Object.ContactEnabled ||
 			!Object.HitBounds().Intersects(Position, Size)) {
 			continue;
 		}
@@ -784,7 +884,7 @@ std::vector<NativeObjectContact> NativeObjectSystem::FindContacts(
 
 		// WalkingEnemyは上から下降して浅く重なった接触だけを踏みつけとして扱う。
 		// 横/下からの接触は従来どおりTouch（damage候補）のまま。
-		if (Object.TypeId == "WalkingEnemy" && PlayerVerticalVelocity > 0.0f) {
+		if (Object.Stompable && PlayerVerticalVelocity > 0.0f) {
 			const ObjectHitBounds Bounds = Object.HitBounds();
 			const float PlayerBottom = Position.Y + Size.Y;
 			const float OverlapFromTop = PlayerBottom - Bounds.Position.Y;
