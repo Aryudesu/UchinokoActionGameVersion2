@@ -1845,7 +1845,7 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	NativeObjectSystem Objects;
 	Result<bool> Reset = Objects.Reset(*Area);
 	assert(Reset.IsSuccess());
-	assert(Objects.Objects().size() == 6);
+	assert(Objects.Objects().size() == 7);
 
 	const NativeObjectRuntime* TurnEnemy =
 		Objects.Find("enemy-cliff-turn");
@@ -2035,6 +2035,84 @@ void TestNativeWalkingEnemyLifecycleUsesCameraAndKeepsDefeatedState() {
 	Objects.UpdateLifecycle({200.0f, 0.0f}, ViewSize);
 	assert(Objects.Find("walker")->LifeState == ObjectLifeState::Defeated);
 	assert(!Objects.Find("walker")->Active);
+}
+
+void TestNativeCarrotManWaitsEmergesAndStartsWalking() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog = MakeNativeObjectMovementCatalog();
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+
+	ObjectSpawn Carrot;
+	Carrot.Id = "carrot";
+	Carrot.TypeId = "CarrotMan";
+	Carrot.Position = {64.0f, 32.0f};
+	Layer.Objects.push_back(Carrot);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	const NativeObjectRuntime* Enemy = Objects.Find("carrot");
+	assert(Enemy != nullptr);
+	assert(Enemy->BehaviorState == 0);
+	assert(!Enemy->ContactEnabled);
+	assert(!Enemy->Stompable);
+
+	// 96pxより遠い間は待機timerを進めない。
+	for (int Frame = 0; Frame < 40; ++Frame) {
+		Objects.Update(Map, Catalog, {200.0f, 32.0f});
+	}
+	Enemy = Objects.Find("carrot");
+	assert(Enemy->BehaviorState == 0);
+	assert(Enemy->BehaviorTimer == 0);
+	assert(NearlyEqual(Enemy->Position.Y, 32.0f));
+
+	// V1同様、3tile以内に31frameいると上へ飛び出す。
+	for (int Frame = 0; Frame < 31; ++Frame) {
+		Objects.Update(Map, Catalog, {128.0f, 32.0f});
+	}
+	Enemy = Objects.Find("carrot");
+	assert(Enemy->BehaviorState == 1);
+	assert(Enemy->ContactEnabled);
+	assert(Enemy->Stompable);
+	assert(NearlyEqual(Enemy->Velocity.Y, -10.0f));
+
+	// 飛び出し中は上昇し、着地後はPlayer側を向いて通常歩行へ移る。
+	Objects.Update(Map, Catalog, {128.0f, 32.0f});
+	assert(Objects.Find("carrot")->Position.Y < 32.0f);
+
+	for (int Frame = 0;
+		Frame < 120 && Objects.Find("carrot")->BehaviorState != 2;
+		++Frame) {
+		Objects.Update(Map, Catalog, {128.0f, 32.0f});
+	}
+
+	Enemy = Objects.Find("carrot");
+	assert(Enemy->BehaviorState == 2);
+	assert(Enemy->Grounded);
+	assert(Enemy->Direction == 1);
+
+	const float BeforeX = Enemy->Position.X;
+	Objects.Update(Map, Catalog, {128.0f, 32.0f});
+	assert(Objects.Find("carrot")->Position.X > BeforeX);
+
+	// Dormant resetでは再び地中待機へ戻る。
+	NativeObjectRuntime* Mutable = Objects.Find("carrot");
+	assert(Mutable != nullptr);
+	Mutable->Position = {700.0f, 32.0f};
+	Objects.UpdateLifecycle({0.0f, 0.0f}, {512.0f, 320.0f});
+	Enemy = Objects.Find("carrot");
+	assert(Enemy->LifeState == ObjectLifeState::Dormant);
+	assert(Enemy->BehaviorState == 0);
+	assert(!Enemy->ContactEnabled);
+	assert(!Enemy->Stompable);
 }
 
 void TestCharacterSetVelocityKeepsInternalVelocityInSync() {
@@ -5595,6 +5673,7 @@ int main(int argc, char* argv[]) {
 	TestNativeObjectContactComposesWithDamageReaction();
 	TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage();
 	TestNativeWalkingEnemyLifecycleUsesCameraAndKeepsDefeatedState();
+	TestNativeCarrotManWaitsEmergesAndStartsWalking();
 	TestCharacterSetVelocityKeepsInternalVelocityInSync();
 	TestNativeWalkingEnemyMovesAndTurnsAtWall();
 	TestNativeWalkingEnemiesTurnWhenTheyMeet();
