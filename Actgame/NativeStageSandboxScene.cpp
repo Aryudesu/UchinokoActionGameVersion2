@@ -1078,6 +1078,18 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					Object->BehaviorState == 1 ? "S" : "K",
 					GetColor(230, 255, 230));
 			}
+		} else if (Object->TypeId == "Pikachii") {
+			DrawBox(
+				X + 4, Y + 3, X + 28, Y + 29,
+				GetColor(255, 220, 80), FALSE);
+			DrawString(
+				X + 10, Y + 8, "P",
+				GetColor(255, 245, 170));
+			DrawLine(
+				X + 16, Y + 16,
+				X + 16 + Object->Direction * 10,
+				Y + 16,
+				GetColor(255, 245, 170), 2);
 		} else if (Object->TypeId == "StationaryShooter") {
 			DrawBox(
 				X + 4, Y + 4, X + 28, Y + 28,
@@ -1162,6 +1174,24 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					GetColor(210, 220, 255),
 					"vx=%.1f vy=%.1f%s",
 					Object->Velocity.X,
+					Object->Velocity.Y,
+					Object->Grounded ? " G" : "");
+			} else if (Object->TypeId == "Pikachii") {
+				const char* State =
+					Object->BehaviorState == 0 ? "WAIT" :
+					Object->BehaviorState == 1 ? "JUMP" : "FIRED";
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(255, 235, 140),
+					"%s %s t=%d %s",
+					Object->Id.c_str(),
+					State,
+					Object->BehaviorTimer,
+					Object->Direction < 0 ? "<" : ">");
+				DrawFormatString(
+					X, Y + 50,
+					GetColor(210, 220, 255),
+					"vy=%.1f%s",
 					Object->Velocity.Y,
 					Object->Grounded ? " G" : "");
 			} else if (Object->TypeId == "StationaryShooter") {
