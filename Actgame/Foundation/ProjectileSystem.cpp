@@ -51,6 +51,7 @@ void ProjectileSystem::Spawn(
 	Projectile.Motion = Request.Motion;
 	Projectile.Speed = Request.Speed;
 	Projectile.Angle = Request.Angle;
+	Projectile.Gravity = Request.Gravity;
 	Projectile.Damage = Request.Damage;
 	Projectile.LifetimeFrames = Request.LifetimeFrames;
 	Projectile.HitRadius = Request.Radius;
@@ -100,6 +101,10 @@ void ProjectileSystem::Update(
 		}
 
 		if (Projectile.Motion == ProjectileMotion::Straight) {
+			Projectile.Position.X += Projectile.Velocity.X;
+			Projectile.Position.Y += Projectile.Velocity.Y;
+		} else if (Projectile.Motion == ProjectileMotion::Ballistic) {
+			Projectile.Velocity.Y += Projectile.Gravity;
 			Projectile.Position.X += Projectile.Velocity.X;
 			Projectile.Position.Y += Projectile.Velocity.Y;
 		} else {
