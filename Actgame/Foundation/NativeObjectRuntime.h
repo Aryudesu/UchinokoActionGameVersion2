@@ -2,6 +2,7 @@
 
 #include "Coordinates.h"
 #include "Result.h"
+#include "ProjectileSystem.h"
 #include "StageData.h"
 
 #include <cstddef>
@@ -47,6 +48,8 @@ struct NativeObjectRuntime {
 	bool Stompable = false;
 	int BehaviorState = 0;
 	int BehaviorTimer = 0;
+	std::string AttackPattern;
+	int AttackIntervalFrames = 101;
 	ObjectLifeState LifeState = ObjectLifeState::Active;
 	bool RespawnArmed = true;
 
@@ -93,6 +96,8 @@ public:
 		WorldPosition Size,
 		float PlayerVerticalVelocity = 0.0f) const;
 
+	std::vector<ProjectileSpawnRequest> TakeProjectileSpawns();
+
 	bool Deactivate(const std::string& ObjectId);
 	bool HandleStomp(const std::string& ObjectId);
 	bool HandlePlayerTouch(
@@ -116,8 +121,13 @@ private:
 		NativeObjectRuntime& Object,
 		const TileMap& Map,
 		const TileCatalog& Catalog);
+	void UpdateStationaryShooter(
+		NativeObjectRuntime& Object);
+	void EmitStationaryShooterPattern(
+		const NativeObjectRuntime& Object);
 
 	std::vector<NativeObjectRuntime> Objects_;
+	std::vector<ProjectileSpawnRequest> PendingProjectileSpawns_;
 };
 
 } // namespace uchinoko
