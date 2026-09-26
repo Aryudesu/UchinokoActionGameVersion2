@@ -2197,15 +2197,8 @@ void TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery() {
 	assert(Ball->ContactDamage == 0);
 	assert(NearlyEqual(Ball->Velocity.X, 0.0f));
 
-	// 踏みつけ直後はPlayerがまだ重なっていても即Kickしない。
-	assert(!Objects.HandlePlayerTouch("ball", 120.0f));
-	for (int Frame = 0; Frame < 12; ++Frame) {
-		Objects.Update(Map, Catalog);
-	}
-	Ball = Objects.Find("ball");
-	assert(Ball->BehaviorState == 1);
-
-	// 猶予後にShellを右側から触ると、Playerから離れる左向きへKickされる。
+	// Shellへ横から触ると、Playerから離れる左向きへKickされる。
+	// 踏みつけ直後の誤KickはSandbox側のHSP式座標補正で防ぐ。
 	assert(Objects.HandlePlayerTouch("ball", 120.0f));
 	Ball = Objects.Find("ball");
 	assert(Ball->BehaviorState == 2);
@@ -2370,6 +2363,35 @@ void TestNativeKickedBallSlimeDefeatsOtherEnemyAndLifecycleResetsShell() {
 	assert(Ball->BehaviorTimer == 0);
 	assert(Ball->ContactDamage == 1);
 	assert(Ball->Stompable);
+}
+
+void TestStompRepositionMatchesHspOnePixelSeparation() {
+	CharacterBody Body;
+	Body.Position = {100.0f, 73.0f};
+	Body.Velocity = {2.0f, 4.0f};
+	CharacterController Player(Body);
+
+	NativeObjectRuntime Enemy;
+	Enemy.Position = {100.0f, 100.0f};
+	Enemy.HitboxOffset = {8.0f, 1.0f};
+	Enemy.HitboxSize = {16.0f, 31.0f};
+
+	const CharacterBody Before = Player.Body();
+	Player.Reposition({
+		Before.Position.X,
+		Enemy.Position.Y - Before.Height
+	});
+	Player.SetVelocity({Before.Velocity.X, -6.0f});
+
+	const CharacterBody& After = Player.Body();
+	assert(NearlyEqual(After.Position.Y, 68.0f));
+	assert(NearlyEqual(
+		After.Position.Y + After.Height,
+		Enemy.Position.Y));
+	assert(After.Position.Y + After.Height <
+		Enemy.HitBounds().Position.Y);
+	assert(NearlyEqual(After.Velocity.X, 2.0f));
+	assert(NearlyEqual(After.Velocity.Y, -6.0f));
 }
 
 void TestCharacterSetVelocityKeepsInternalVelocityInSync() {
@@ -5871,6 +5893,7 @@ int main(int argc, char* argv[]) {
 		TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery();
 		TestNativeBallSlimeVariant2TurnsAtCliffOnlyWhileWalking();
 		TestNativeKickedBallSlimeDefeatsOtherEnemyAndLifecycleResetsShell();
+		TestStompRepositionMatchesHspOnePixelSeparation();
 		TestCharacterSetVelocityKeepsInternalVelocityInSync();
 		TestNativeWalkingEnemyMovesAndTurnsAtWall();
 	TestNativeWalkingEnemiesTurnWhenTheyMeet();
@@ -5937,6 +5960,7 @@ int main(int argc, char* argv[]) {
 	TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery();
 	TestNativeBallSlimeVariant2TurnsAtCliffOnlyWhileWalking();
 	TestNativeKickedBallSlimeDefeatsOtherEnemyAndLifecycleResetsShell();
+	TestStompRepositionMatchesHspOnePixelSeparation();
 	TestCharacterSetVelocityKeepsInternalVelocityInSync();
 	TestNativeWalkingEnemyMovesAndTurnsAtWall();
 	TestNativeWalkingEnemiesTurnWhenTheyMeet();
