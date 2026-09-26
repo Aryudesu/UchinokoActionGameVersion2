@@ -32,7 +32,8 @@
             { "id": "enemy-meet-left", "type": "WalkingEnemy", "position": [80, 128], "properties": { "direction": "right", "variant": 1, "speed": 2, "aggressive": false } },
             { "id": "enemy-meet-right", "type": "WalkingEnemy", "position": [144, 128], "properties": { "direction": "left", "variant": 1, "speed": 2, "aggressive": false } },
             { "id": "lift-1", "type": "HorizontalLift", "position": [96, 96], "properties": { "range": 192, "speed": 2, "pathDelta": [192, 0] } },
-            { "id": "enemy-lifecycle-check", "type": "WalkingEnemy", "position": [640, 320], "properties": { "direction": "left", "variant": 2, "speed": 2, "aggressive": false } }
+            { "id": "enemy-lifecycle-check", "type": "WalkingEnemy", "position": [640, 320], "properties": { "direction": "left", "variant": 2, "speed": 2, "aggressive": false } },
+            { "id": "carrot-v1", "type": "CarrotMan", "position": [400, 192] }
           ]
         }
       ],
