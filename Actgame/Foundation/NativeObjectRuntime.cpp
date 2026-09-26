@@ -797,6 +797,15 @@ void NativeObjectSystem::UpdateLifecycle(
 				continue;
 			}
 
+			// Pikachiiは大ジャンプ中にCamera上端を大きく越える。
+			// 攻撃cycle中まで通常Enemyのoff-camera dormancyを適用すると、
+			// 頂点へ到達する前にspawnへresetされ「上へ消える」ため、
+			// 着地してWAITへ戻るまでは更新を継続する。
+			if (Object.TypeId == "Pikachii" &&
+				Object.BehaviorState != PikachiiWaiting) {
+				continue;
+			}
+
 			Object.LifeState = ObjectLifeState::Dormant;
 			Object.Active = false;
 			ResetToSpawn(Object);
