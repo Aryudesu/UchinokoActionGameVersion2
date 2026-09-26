@@ -41,13 +41,20 @@ bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 		Object.TypeId == "BallSlime";
 }
 
-bool IsWalkingCollisionEnemy(const NativeObjectRuntime& Object) {
+bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 	if (Object.TypeId == "WalkingEnemy") return true;
 	if (Object.TypeId == "CarrotMan") {
 		return Object.BehaviorState != CarrotHidden;
 	}
-	return IsBallSlime(Object) &&
-		Object.BehaviorState != BallSlimeShell;
+	return IsBallSlime(Object);
+}
+
+bool IsWalkingCollisionEnemy(const NativeObjectRuntime& Object) {
+	if (!IsEnemyCollisionParticipant(Object)) return false;
+	if (IsBallSlime(Object)) {
+		return Object.BehaviorState != BallSlimeShell;
+	}
+	return true;
 }
 
 bool TryReadVector2(
@@ -941,13 +948,13 @@ void NativeObjectSystem::Update(
 	// 地形解決後のHitBoundsで判定し、縦方向の重なりがある組だけを対象にする。
 	for (std::size_t LeftIndex = 0; LeftIndex < Objects_.size(); ++LeftIndex) {
 		NativeObjectRuntime& Left = Objects_[LeftIndex];
-		if (!Left.Active || !IsWalkingCollisionEnemy(Left)) continue;
+		if (!Left.Active || !IsEnemyCollisionParticipant(Left)) continue;
 
 		for (std::size_t RightIndex = LeftIndex + 1;
 			RightIndex < Objects_.size();
 			++RightIndex) {
 			NativeObjectRuntime& Right = Objects_[RightIndex];
-			if (!Right.Active || !IsWalkingCollisionEnemy(Right)) continue;
+			if (!Right.Active || !IsEnemyCollisionParticipant(Right)) continue;
 
 			const ObjectHitBounds LeftBounds = Left.HitBounds();
 			const ObjectHitBounds RightBounds = Right.HitBounds();
@@ -983,6 +990,13 @@ void NativeObjectSystem::Update(
 				Victim.LifeState = ObjectLifeState::Defeated;
 				Victim.Active = false;
 				Victim.Velocity = {0.0f, 0.0f};
+				continue;
+			}
+
+			// 停止Shellは通常の押し返し対象にしない。
+			// Kicked Shellからの攻撃判定だけは上で処理済み。
+			if (!IsWalkingCollisionEnemy(Left) ||
+				!IsWalkingCollisionEnemy(Right)) {
 				continue;
 			}
 
