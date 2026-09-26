@@ -288,3 +288,22 @@ Version2移植時に問題になる主な点:
 - HSP由来の無効コードが正規データ内に残っている
 
 Version2ではこれらを段階的に分離します。
+
+
+---
+
+## Enemy runtime一覧
+
+Version1の `EnemyFactory` が生成する通常Enemyは5種類。
+
+| ID | Class | 概要 |
+|---:|---|---|
+| 1 | WalkingEnemy1 | 通常歩行。崖から落ちる |
+| 2 | WalkingEnemy2 | 通常歩行。崖手前で反転 |
+| 3 | CarrotMan | Player接近後に地面から飛び出し、着地後歩行 |
+| 4 | BallSlime | 踏むと停止状態、接触で高速甲羅状態、時間で復活。崖から落ちる |
+| 5 | BallSlime2 | BallSlime派生。通常状態では崖手前で反転 |
+
+共通のWalkingEnemy系は、画面外へ出ると一旦 `OnField=false` とし、初期位置が画面外になった時点で初期位置へ戻して再配置する仕様を持つ。
+
+Version2ではこの仕組みを直接コピーせず、Camera基準の `Active / Dormant / Defeated` lifecycleとして再構成している。
