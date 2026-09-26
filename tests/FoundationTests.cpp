@@ -2412,13 +2412,15 @@ void TestProjectileSystemMovesCollidesAndExpires() {
 	assert(Projectiles.Deactivate(Contacts[0].ProjectileIndex));
 	assert(!Projectiles.Projectiles()[0].Active);
 
+	// 非Active slotは次のSpawnで再利用する。
 	ProjectileSpawnRequest TerrainHit;
 	TerrainHit.Position = {16.0f, 48.0f};
 	TerrainHit.Velocity = {0.0f, 20.0f};
 	TerrainHit.Motion = ProjectileMotion::Straight;
 	Projectiles.Spawn(TerrainHit);
+	assert(Projectiles.Projectiles().size() == 1);
 	Projectiles.Update(Map, Catalog);
-	assert(!Projectiles.Projectiles()[1].Active);
+	assert(!Projectiles.Projectiles()[0].Active);
 
 	ProjectileSpawnRequest Expiring;
 	Expiring.Position = {80.0f, 16.0f};
@@ -2426,10 +2428,11 @@ void TestProjectileSystemMovesCollidesAndExpires() {
 	Expiring.LifetimeFrames = 1;
 	Expiring.CollidesWithTerrain = false;
 	Projectiles.Spawn(Expiring);
+	assert(Projectiles.Projectiles().size() == 1);
 	Projectiles.Update(Map, Catalog);
-	assert(Projectiles.Projectiles()[2].Active);
+	assert(Projectiles.Projectiles()[0].Active);
 	Projectiles.Update(Map, Catalog);
-	assert(!Projectiles.Projectiles()[2].Active);
+	assert(!Projectiles.Projectiles()[0].Active);
 }
 
 void TestProjectileSystemSpiralMovesAwayFromOrigin() {
