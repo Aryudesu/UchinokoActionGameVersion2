@@ -1,6 +1,6 @@
 # HSP → Version1 → Version2 移植対応表
 
-2026-09-21時点。
+2026-09-26時点。
 
 | 機能 | HSP | Version1 | Version2 |
 |---|---|---|---|
@@ -35,9 +35,16 @@
 | 中間地点 | item 325 | 正規データに値残存、runtimeでは未対応 | 未実装 |
 | 順番1UP | 321..324 | 値残存、runtimeでは未対応 | 未実装 |
 | Star Coin | -79 | 値残存、runtimeでは未対応 | 未実装 |
-| Enemy配置 | 501..600 | map -2..-6 | ObjectSpawn構造へ移行予定 |
-| Enemy runtime | enemy.hsp | ObjectManager | 未移植 |
-| Lift / moving platform | giz | 旧Object/Gimmick | 未移植 |
+| Enemy配置 | 501..600 | map -2..-6 | Native ObjectSpawn実装済み。Legacy変換は未完 |
+| WalkingEnemy | No.1/2相当 | WalkingEnemy1/2 | NativeObjectRuntime実装済み |
+| CarrotMan | 地面飛び出し型あり | CarrotMan | Native BehaviorStateで移植済み |
+| BallSlime / 甲羅 | No.20..25相当 | BallSlime/BallSlime2 | 未移植 |
+| Enemy lifecycle | 画面周辺のみ更新 | OnField / InitInScreen | Active/Dormant/Defeated + Camera基準で実装済み |
+| Enemy踏みつけ | sattack等 | Treaded | Touch/Stomp分離済み |
+| Enemy同士衝突 | 個別処理 | ColliSide2Obj | WalkingEnemy系の横反転実装済み |
+| Enemy damage terrain | yukaattack等 | BlockKilled | Enemy/Both対象TileRuleへ接続済み |
+| Camera | scleft/sctop | Map screen position | Foundation Camera2D + Native Sandbox接続済み |
+| Lift / moving platform | giz | 旧Object/Gimmick | Native Object配置/表示あり、Stand runtimeは未完 |
 | Boss | boss*.hsp | 旧runtime | 未移植 |
 | Player物理 | scharamoving.hsp | Player.cpp | CharacterControllerあり。本編未接続 |
 | Tile効果 | yuka_obj等直書き | Block派生クラス | TileRule/TileEffectへ分離済み |
