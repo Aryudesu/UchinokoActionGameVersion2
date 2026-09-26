@@ -643,7 +643,7 @@ void NativeObjectSystem::UpdateLifecycle(
 	float ActivationMargin,
 	float DormancyMargin) {
 	for (NativeObjectRuntime& Object : Objects_) {
-		// 現時点では画面外spawn/despawnの対象はWalkingEnemyのみ。
+		// EnemyだけをCamera lifecycleの対象にする。
 		// Lift等はCamera外でも状態を保持して動かし続ける。
 		if (!UsesEnemyLifecycle(Object)) continue;
 		if (Object.LifeState == ObjectLifeState::Defeated) continue;
@@ -798,7 +798,7 @@ void NativeObjectSystem::Update(
 		}
 	}
 
-	// WalkingEnemy同士が横からぶつかった場合は、互いに反転させる。
+	// 歩行中Enemy同士が横からぶつかった場合は、互いに反転させる。
 	// 地形解決後のHitBoundsで判定し、縦方向の重なりがある組だけを対象にする。
 	for (std::size_t LeftIndex = 0; LeftIndex < Objects_.size(); ++LeftIndex) {
 		NativeObjectRuntime& Left = Objects_[LeftIndex];
