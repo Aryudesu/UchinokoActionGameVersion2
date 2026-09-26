@@ -16,6 +16,12 @@ enum class ProjectileMotion {
 	Ballistic
 };
 
+enum class ProjectileTerrainResponse {
+	Deactivate,
+	Bounce,
+	Split
+};
+
 struct ProjectileSpawnRequest {
 	WorldPosition Position;
 	WorldPosition Velocity;
@@ -23,6 +29,10 @@ struct ProjectileSpawnRequest {
 	float Speed = 0.0f;
 	float Angle = 0.0f;
 	float Gravity = 0.0f;
+	ProjectileTerrainResponse TerrainResponse =
+		ProjectileTerrainResponse::Deactivate;
+	int SplitCount = 8;
+	float SplitSpeed = 6.0f;
 	int Damage = 1;
 	int LifetimeFrames = 360;
 	float Radius = 5.0f;
@@ -38,6 +48,10 @@ struct ProjectileRuntime {
 	float Angle = 0.0f;
 	float RadiusFromOrigin = 0.0f;
 	float Gravity = 0.0f;
+	ProjectileTerrainResponse TerrainResponse =
+		ProjectileTerrainResponse::Deactivate;
+	int SplitCount = 8;
+	float SplitSpeed = 6.0f;
 	float HitRadius = 5.0f;
 	int Damage = 1;
 	int AgeFrames = 0;
