@@ -710,7 +710,9 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 			Runtime.AttackPattern == "radial12" ||
 			Runtime.AttackPattern == "spiralCW12" ||
 			Runtime.AttackPattern == "spiralCCW12" ||
-			Runtime.AttackPattern == "dualSpiral24";
+			Runtime.AttackPattern == "dualSpiral24" ||
+			Runtime.AttackPattern == "bounce4" ||
+			Runtime.AttackPattern == "splitDown";
 		if (!KnownPattern) {
 			return Result<NativeObjectRuntime>::Failure(
 				"StationaryShooter pattern is invalid: " + Spawn.Id);
@@ -1100,6 +1102,40 @@ void NativeObjectSystem::EmitStationaryShooterPattern(
 	} else if (Object.AttackPattern == "dualSpiral24") {
 		EmitRing(ProjectileMotion::SpiralClockwise, 3.0f);
 		EmitRing(ProjectileMotion::SpiralCounterClockwise, 3.0f);
+	} else if (Object.AttackPattern == "bounce4") {
+		for (int Index = 0; Index < 4; ++Index) {
+			const float Angle =
+				ProjectilePi * 0.25f +
+				ProjectilePi * 0.5f * static_cast<float>(Index);
+			ProjectileSpawnRequest Request;
+			Request.Position = Origin;
+			Request.Velocity = {
+				std::cos(Angle) * 4.0f,
+				std::sin(Angle) * 4.0f
+			};
+			Request.Motion = ProjectileMotion::Straight;
+			Request.TerrainResponse =
+				ProjectileTerrainResponse::Bounce;
+			Request.Damage = 1;
+			Request.LifetimeFrames = 480;
+			Request.Radius = 5.0f;
+			Request.CollidesWithTerrain = true;
+			PendingProjectileSpawns_.push_back(Request);
+		}
+	} else if (Object.AttackPattern == "splitDown") {
+		ProjectileSpawnRequest Request;
+		Request.Position = Origin;
+		Request.Velocity = {0.0f, 5.0f};
+		Request.Motion = ProjectileMotion::Straight;
+		Request.TerrainResponse =
+			ProjectileTerrainResponse::Split;
+		Request.SplitCount = 8;
+		Request.SplitSpeed = 6.0f;
+		Request.Damage = 1;
+		Request.LifetimeFrames = 360;
+		Request.Radius = 5.0f;
+		Request.CollidesWithTerrain = true;
+		PendingProjectileSpawns_.push_back(Request);
 	}
 }
 
