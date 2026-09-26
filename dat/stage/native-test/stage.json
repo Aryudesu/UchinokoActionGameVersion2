@@ -33,13 +33,14 @@
             { "id": "enemy-meet-right", "type": "WalkingEnemy", "position": [144, 128], "properties": { "direction": "left", "variant": 1, "speed": 2, "aggressive": false } },
             { "id": "lift-1", "type": "HorizontalLift", "position": [96, 96], "properties": { "range": 192, "speed": 2, "pathDelta": [192, 0] } },
             { "id": "enemy-lifecycle-check", "type": "WalkingEnemy", "position": [640, 320], "properties": { "direction": "left", "variant": 2, "speed": 2, "aggressive": false } },
-            { "id": "carrot-v1", "type": "CarrotMan", "position": [400, 192] },
-            { "id": "ball-slime-fall", "type": "BallSlime", "position": [576, 288], "properties": { "direction": "left", "variant": 1 } },
-            { "id": "ball-slime-turn", "type": "BallSlime", "position": [672, 320], "properties": { "direction": "left", "variant": 2 } },
-            { "id": "shooter-radial", "type": "StationaryShooter", "position": [288, 96], "properties": { "pattern": "radial12", "intervalFrames": 101 } },
-            { "id": "shooter-cw", "type": "StationaryShooter", "position": [384, 160], "properties": { "pattern": "spiralCW12", "intervalFrames": 101 } },
-            { "id": "shooter-ccw", "type": "StationaryShooter", "position": [480, 224], "properties": { "pattern": "spiralCCW12", "intervalFrames": 101 } },
-            { "id": "shooter-dual", "type": "StationaryShooter", "position": [576, 256], "properties": { "pattern": "dualSpiral24", "intervalFrames": 101 } }
+            { "id": "carrot-v1", "type": "CarrotMan", "position": [400, 448] },
+            { "id": "ball-slime-fall", "type": "BallSlime", "position": [480, 384], "properties": { "direction": "left", "variant": 1 } },
+            { "id": "ball-slime-turn", "type": "BallSlime", "position": [608, 320], "properties": { "direction": "left", "variant": 2 } },
+            { "id": "shooter-radial", "type": "StationaryShooter", "position": [288, 448], "properties": { "pattern": "radial12", "intervalFrames": 101 } },
+            { "id": "shooter-cw", "type": "StationaryShooter", "position": [352, 448], "properties": { "pattern": "spiralCW12", "intervalFrames": 101 } },
+            { "id": "shooter-ccw", "type": "StationaryShooter", "position": [448, 384], "properties": { "pattern": "spiralCCW12", "intervalFrames": 101 } },
+            { "id": "shooter-dual", "type": "StationaryShooter", "position": [576, 320], "properties": { "pattern": "dualSpiral24", "intervalFrames": 101 } },
+            { "id": "pikachii-v1", "type": "Pikachii", "position": [704, 512] }
           ]
         }
       ],
