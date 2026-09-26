@@ -948,10 +948,12 @@ void NativeStageSandboxScene::DrawRuntimeEffects() {
 		const unsigned int Color =
 			Projectile.Motion == uchinoko::ProjectileMotion::Straight
 				? GetColor(255, 120, 120)
-				: Projectile.Motion ==
-					uchinoko::ProjectileMotion::SpiralClockwise
-					? GetColor(140, 190, 255)
-					: GetColor(210, 140, 255);
+				: Projectile.Motion == uchinoko::ProjectileMotion::Ballistic
+					? GetColor(120, 255, 150)
+					: Projectile.Motion ==
+						uchinoko::ProjectileMotion::SpiralClockwise
+						? GetColor(140, 190, 255)
+						: GetColor(210, 140, 255);
 		DrawCircle(
 			X,
 			Y,
@@ -1078,6 +1080,18 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					Object->BehaviorState == 1 ? "S" : "K",
 					GetColor(230, 255, 230));
 			}
+		} else if (Object->TypeId == "Chikorarashi") {
+			DrawBox(
+				X + 4, Y + 4, X + 28, Y + 28,
+				GetColor(120, 235, 150), FALSE);
+			DrawString(
+				X + 9, Y + 8, "C",
+				GetColor(210, 255, 220));
+			DrawLine(
+				X + 16, Y + 16,
+				X + 16 + Object->Direction * 10,
+				Y + 16,
+				GetColor(210, 255, 220), 2);
 		} else if (Object->TypeId == "Pikachii") {
 			DrawBox(
 				X + 4, Y + 3, X + 28, Y + 29,
@@ -1176,6 +1190,14 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					Object->Velocity.X,
 					Object->Velocity.Y,
 					Object->Grounded ? " G" : "");
+			} else if (Object->TypeId == "Chikorarashi") {
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(170, 255, 190),
+					"%s t=%d %s",
+					Object->Id.c_str(),
+					Object->BehaviorTimer,
+					Object->Direction < 0 ? "<" : ">");
 			} else if (Object->TypeId == "Pikachii") {
 				const char* State =
 					Object->BehaviorState == 0 ? "WAIT" :
