@@ -1,6 +1,6 @@
 # Version2仕様
 
-2026-09-21時点の `dev` と、作業中PRを分けて記載します。
+2026-09-26時点の `dev` を基準に記載します。
 
 Version2は **Version1のクラス構造をそのままコピーするのではなく、Foundation層へ意味ごとに分解して再構成する** 方針です。
 
@@ -30,6 +30,8 @@ Foundation
  ├─ GoalState
  ├─ StageProgress
  ├─ LayeredMap
+ ├─ NativeObjectRuntime
+ ├─ Camera2D
  └─ WorldState
 ```
 
@@ -437,6 +439,83 @@ Stage
  └─ Settings
 ```
 
-ただしObjectSpawn/Eventのネイティブ形式はまだ未実装・未確定です。
+ObjectSpawnはNative StageData JSONからruntimeへ接続済みです。Eventの正式なnative runtime設計は引き続き未確定です。
 
 詳細は [Version2 ステージデータ設計案](Stage-Data-Design.md)。
+
+
+---
+
+## 14. Native Object / Enemy runtime
+
+PR #38〜#46でNative Object runtimeを段階的に実装しています。
+
+### Object contact
+
+- Player側は `CharacterController::TouchBounds()` の中央16x32を基本
+- Object側はTypeIdごとの `HitboxOffset / HitboxSize`
+- `Touch / Stomp` を区別
+- WalkingEnemy上面を下降中に浅く踏んだ場合はStomp
+- 横・下・上昇中の接触はTouch
+
+### WalkingEnemy
+
+Version1の2種類を `variant` として保持。
+
+- variant=1: 崖から落ちる
+- variant=2: 崖手前で反転
+- 壁 / World端で反転
+- Enemy同士の横接触でも互いに反転
+- Enemy/Both対象のDamage / InstantDeath地形へ反応
+
+### Enemy lifecycle
+
+```cpp
+enum class ObjectLifeState {
+    Active,
+    Dormant,
+    Defeated
+};
+```
+
+- Cameraから十分離れたEnemyはDormant
+- Dormant時はspawn位置へ状態を戻す
+- spawn地点を一度Activation範囲外へ出してから再接近するとrespawn
+- 踏みつけ等で倒されたEnemyはDefeatedとなり、Camera往復では復活しない
+- LiftはこのEnemy lifecycleの対象外
+
+### CarrotMan
+
+Version1から最初のBehaviorState持ちEnemyとして移植済み。
+
+- 地中待機
+- Playerが横3tile以内に30frame超いると飛び出す
+- 初速Y=-10
+- 飛び出し後に着地するとPlayer側を向いて歩行
+- Dormant reset時は地中待機へ戻る
+- Defeatedは復活しない
+
+---
+
+## 15. Camera2D
+
+PR #44でDxLib非依存の2D CameraをFoundationへ追加。
+
+- `WorldToView / ViewToWorld`
+- World境界Clamp
+- Platformer向けX追従
+- 方向反転だけでは即座にCameraを反転させず、Playerが逆側Triggerを越えてから新方向へ追従
+- YはAnchor + 非対称Dead Zone
+- Native Stage SandboxのTerrain / Object / Player / Region / effect描画をCamera基準へ統一
+
+実機調整後の主な値:
+
+- ViewSize: 512x320
+- HorizontalRightAnchor: 0.45
+- HorizontalLeftAnchor: 0.55
+- HorizontalRightTrigger: 0.55
+- HorizontalLeftTrigger: 0.45
+- HorizontalFollowRate: 0.08
+- VerticalAnchor: 0.55
+- VerticalDeadZoneUp: 64
+- VerticalDeadZoneDown: 16
