@@ -16,15 +16,45 @@ constexpr float CarrotTriggerDistance = 96.0f;
 constexpr int CarrotTriggerFrames = 30;
 constexpr float CarrotJumpSpeed = 10.0f;
 
+constexpr int BallSlimeWalking = 0;
+constexpr int BallSlimeShell = 1;
+constexpr int BallSlimeKicked = 2;
+constexpr int BallSlimeWakeFrames = 60 * 5;
+constexpr int BallSlimeRecoverFrames = 60 * 7;
+constexpr int BallSlimeKickGraceFrames = 30;
+constexpr float BallSlimeWalkSpeed = 2.0f;
+constexpr float BallSlimeKickSpeed = 8.0f;
+constexpr float BallSlimeWakeJumpSpeed = 3.0f;
+
+bool IsBallSlime(const NativeObjectRuntime& Object) {
+	return Object.TypeId == "BallSlime";
+}
+
+bool IsKickedBallSlime(const NativeObjectRuntime& Object) {
+	return IsBallSlime(Object) &&
+		Object.BehaviorState == BallSlimeKicked;
+}
+
 bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 	return Object.TypeId == "WalkingEnemy" ||
-		Object.TypeId == "CarrotMan";
+		Object.TypeId == "CarrotMan" ||
+		Object.TypeId == "BallSlime";
+}
+
+bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
+	if (Object.TypeId == "WalkingEnemy") return true;
+	if (Object.TypeId == "CarrotMan") {
+		return Object.BehaviorState != CarrotHidden;
+	}
+	return IsBallSlime(Object);
 }
 
 bool IsWalkingCollisionEnemy(const NativeObjectRuntime& Object) {
-	if (Object.TypeId == "WalkingEnemy") return true;
-	return Object.TypeId == "CarrotMan" &&
-		Object.BehaviorState != CarrotHidden;
+	if (!IsEnemyCollisionParticipant(Object)) return false;
+	if (IsBallSlime(Object)) {
+		return Object.BehaviorState != BallSlimeShell;
+	}
+	return true;
 }
 
 bool TryReadVector2(
@@ -472,6 +502,21 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.MaxFallSpeed = 12.0f;
 		Runtime.BehaviorState = CarrotHidden;
 		Runtime.BehaviorTimer = 0;
+	} else if (Spawn.TypeId == "BallSlime") {
+		// V1 BallSlime / BallSlime2:
+		// Walking -> Shell -> Kicked の3状態を1 TypeIdで扱う。
+		Runtime.HitboxOffset = {2.0f, 1.0f};
+		Runtime.HitboxSize = {28.0f, 31.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.Stompable = true;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.Variant = 1;
+		Runtime.MoveSpeed = BallSlimeWalkSpeed;
+		Runtime.Gravity = 0.5f;
+		Runtime.MaxFallSpeed = 12.0f;
+		Runtime.BehaviorState = BallSlimeWalking;
+		Runtime.BehaviorTimer = 0;
 	} else if (Spawn.TypeId == "HorizontalLift") {
 		// NativeStageSandboxで従来debug描画していた44x10の足場形状。
 		Runtime.HitboxOffset = {-6.0f, 11.0f};
@@ -510,7 +555,8 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		return Result<NativeObjectRuntime>::Failure(Error);
 	}
 
-	if (Spawn.TypeId == "WalkingEnemy") {
+	if (Spawn.TypeId == "WalkingEnemy" ||
+		Spawn.TypeId == "BallSlime") {
 		std::string Direction =
 			Runtime.Direction < 0 ? "left" : "right";
 		if (!TryReadString(
@@ -527,7 +573,7 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 			Runtime.Direction = 1;
 		} else {
 			return Result<NativeObjectRuntime>::Failure(
-				"WalkingEnemy direction must be left or right: " +
+				Spawn.TypeId + " direction must be left or right: " +
 				Spawn.Id);
 		}
 		Runtime.InitialDirection = Runtime.Direction;
@@ -562,14 +608,14 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		if (Runtime.Variant != 1 &&
 			Runtime.Variant != 2) {
 			return Result<NativeObjectRuntime>::Failure(
-				"WalkingEnemy variant must be 1 or 2: " +
+				Spawn.TypeId + " variant must be 1 or 2: " +
 				Spawn.Id);
 		}
 		if (Runtime.MoveSpeed < 0.0f ||
 			Runtime.Gravity < 0.0f ||
 			Runtime.MaxFallSpeed <= 0.0f) {
 			return Result<NativeObjectRuntime>::Failure(
-				"WalkingEnemy motion values are invalid: " +
+				Spawn.TypeId + " motion values are invalid: " +
 				Spawn.Id);
 		}
 	}
@@ -634,6 +680,13 @@ void NativeObjectSystem::ResetToSpawn(
 		Object.BehaviorTimer = 0;
 		Object.ContactEnabled = false;
 		Object.Stompable = false;
+	} else if (Object.TypeId == "BallSlime") {
+		Object.BehaviorState = BallSlimeWalking;
+		Object.BehaviorTimer = 0;
+		Object.ContactEnabled = true;
+		Object.Stompable = true;
+		Object.ContactDamage = 1;
+		Object.MoveSpeed = BallSlimeWalkSpeed;
 	}
 }
 
@@ -785,6 +838,97 @@ void NativeObjectSystem::UpdateCarrotMan(
 	}
 }
 
+void NativeObjectSystem::UpdateBallSlime(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog) {
+	if (!Object.Active) return;
+
+	if (Object.BehaviorState == BallSlimeShell) {
+		++Object.BehaviorTimer;
+		Object.Velocity.X = 0.0f;
+		Object.ContactDamage = 0;
+
+		if (Object.BehaviorTimer >= BallSlimeWakeFrames) {
+			Object.Stompable = true;
+			if (Object.Grounded &&
+				Object.BehaviorTimer == BallSlimeWakeFrames) {
+				Object.Velocity.Y = -BallSlimeWakeJumpSpeed;
+				Object.Grounded = false;
+			}
+		} else {
+			Object.Stompable = false;
+		}
+
+		ResolveWalkingEnemyVertical(Object, Map, Catalog);
+
+		if (Object.BehaviorTimer >= BallSlimeRecoverFrames) {
+			Object.BehaviorState = BallSlimeWalking;
+			Object.BehaviorTimer = 0;
+			Object.MoveSpeed = BallSlimeWalkSpeed;
+			Object.ContactDamage = 1;
+			Object.Stompable = true;
+		}
+	} else {
+		const bool Kicked =
+			Object.BehaviorState == BallSlimeKicked;
+		if (Kicked) {
+			++Object.BehaviorTimer;
+			Object.MoveSpeed = BallSlimeKickSpeed;
+			Object.ContactDamage =
+				Object.BehaviorTimer >= BallSlimeKickGraceFrames
+					? 1
+					: 0;
+			Object.Stompable =
+				Object.BehaviorTimer >= BallSlimeKickGraceFrames;
+		} else {
+			Object.MoveSpeed = BallSlimeWalkSpeed;
+			Object.ContactDamage = 1;
+			Object.Stompable = true;
+		}
+
+		Object.Velocity.X =
+			static_cast<float>(Object.Direction) * Object.MoveSpeed;
+		Object.Position.X += Object.Velocity.X;
+
+		const bool HitWall =
+			ResolveWalkingEnemySide(Object, Map, Catalog);
+		if (HitWall) {
+			Object.Velocity.X =
+				static_cast<float>(Object.Direction) * Object.MoveSpeed;
+		}
+
+		// BallSlime2相当(variant=2)は通常歩行時だけ崖で反転。
+		// 蹴られた甲羅はvariantに関係なく崖から落ちる。
+		if (!HitWall &&
+			!Kicked &&
+			Object.Variant == 2 &&
+			Object.Grounded &&
+			!HasWalkingEnemyGroundAhead(Object, Map, Catalog)) {
+			Object.Direction *= -1;
+			Object.Velocity.X =
+				static_cast<float>(Object.Direction) * Object.MoveSpeed;
+		}
+
+		ResolveWalkingEnemyVertical(Object, Map, Catalog);
+	}
+
+	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
+		// V1のBallSlimeは通常/高速状態でdamage床に触れると
+		// 即消滅ではなく甲羅状態へ移り、軽く跳ねる。
+		if (Object.BehaviorState != BallSlimeShell) {
+			Object.BehaviorState = BallSlimeShell;
+			Object.BehaviorTimer = 0;
+			Object.MoveSpeed = BallSlimeWalkSpeed;
+			Object.ContactDamage = 0;
+			Object.Stompable = false;
+			Object.Velocity.X = 0.0f;
+			Object.Velocity.Y = -6.0f;
+			Object.Grounded = false;
+		}
+	}
+}
+
 void NativeObjectSystem::Update(
 	const TileMap& Map,
 	const TileCatalog& Catalog,
@@ -795,6 +939,8 @@ void NativeObjectSystem::Update(
 			UpdateWalkingEnemy(Object, Map, Catalog);
 		} else if (Object.TypeId == "CarrotMan") {
 			UpdateCarrotMan(Object, Map, Catalog, PlayerPosition);
+		} else if (Object.TypeId == "BallSlime") {
+			UpdateBallSlime(Object, Map, Catalog);
 		}
 	}
 
@@ -802,13 +948,13 @@ void NativeObjectSystem::Update(
 	// 地形解決後のHitBoundsで判定し、縦方向の重なりがある組だけを対象にする。
 	for (std::size_t LeftIndex = 0; LeftIndex < Objects_.size(); ++LeftIndex) {
 		NativeObjectRuntime& Left = Objects_[LeftIndex];
-		if (!Left.Active || !IsWalkingCollisionEnemy(Left)) continue;
+		if (!Left.Active || !IsEnemyCollisionParticipant(Left)) continue;
 
 		for (std::size_t RightIndex = LeftIndex + 1;
 			RightIndex < Objects_.size();
 			++RightIndex) {
 			NativeObjectRuntime& Right = Objects_[RightIndex];
-			if (!Right.Active || !IsWalkingCollisionEnemy(Right)) continue;
+			if (!Right.Active || !IsEnemyCollisionParticipant(Right)) continue;
 
 			const ObjectHitBounds LeftBounds = Left.HitBounds();
 			const ObjectHitBounds RightBounds = Right.HitBounds();
@@ -835,6 +981,24 @@ void NativeObjectSystem::Update(
 			const float RightCenterX =
 				RightBounds.Position.X + RightBounds.Size.X * 0.5f;
 			const bool LeftIsActuallyLeft = LeftCenterX <= RightCenterX;
+
+			const bool LeftKicked = IsKickedBallSlime(Left);
+			const bool RightKicked = IsKickedBallSlime(Right);
+			if (LeftKicked != RightKicked) {
+				NativeObjectRuntime& Victim =
+					LeftKicked ? Right : Left;
+				Victim.LifeState = ObjectLifeState::Defeated;
+				Victim.Active = false;
+				Victim.Velocity = {0.0f, 0.0f};
+				continue;
+			}
+
+			// 停止Shellは通常の押し返し対象にしない。
+			// Kicked Shellからの攻撃判定だけは上で処理済み。
+			if (!IsWalkingCollisionEnemy(Left) ||
+				!IsWalkingCollisionEnemy(Right)) {
+				continue;
+			}
 
 			Left.Direction = LeftIsActuallyLeft ? -1 : 1;
 			Right.Direction = LeftIsActuallyLeft ? 1 : -1;
@@ -898,6 +1062,71 @@ std::vector<NativeObjectContact> NativeObjectSystem::FindContacts(
 	}
 
 	return Contacts;
+}
+
+bool NativeObjectSystem::HandleStomp(
+	const std::string& ObjectId) {
+	NativeObjectRuntime* Object = Find(ObjectId);
+	if (Object == nullptr || !Object->Active) return false;
+
+	if (Object->TypeId != "BallSlime") {
+		return Deactivate(ObjectId);
+	}
+
+	if (Object->BehaviorState == BallSlimeShell) {
+		// V1では復活直前(5秒以降)なら再度踏んでtimerを戻せる。
+		if (Object->BehaviorTimer >= BallSlimeWakeFrames) {
+			Object->BehaviorTimer = 0;
+			Object->Stompable = false;
+		}
+		return true;
+	}
+
+	Object->BehaviorState = BallSlimeShell;
+	Object->BehaviorTimer = 0;
+	Object->MoveSpeed = BallSlimeWalkSpeed;
+	Object->Velocity.X = 0.0f;
+	Object->ContactDamage = 0;
+	Object->Stompable = false;
+	return true;
+}
+
+bool NativeObjectSystem::HandlePlayerTouch(
+	const std::string& ObjectId,
+	float PlayerCenterX) {
+	NativeObjectRuntime* Object = Find(ObjectId);
+	if (Object == nullptr ||
+		!Object->Active ||
+		Object->TypeId != "BallSlime") {
+		return false;
+	}
+
+	const ObjectHitBounds Bounds = Object->HitBounds();
+	const float ObjectCenterX =
+		Bounds.Position.X + Bounds.Size.X * 0.5f;
+
+	if (Object->BehaviorState == BallSlimeWalking) {
+		// V1では通常歩行中にPlayerへ横接触すると進行方向を反転する。
+		if ((PlayerCenterX > ObjectCenterX && Object->Direction > 0) ||
+			(PlayerCenterX <= ObjectCenterX && Object->Direction < 0)) {
+			Object->Direction *= -1;
+		}
+		return false;
+	}
+	if (Object->BehaviorState != BallSlimeShell) {
+		return false;
+	}
+
+	Object->Direction =
+		PlayerCenterX > ObjectCenterX ? -1 : 1;
+	Object->BehaviorState = BallSlimeKicked;
+	Object->BehaviorTimer = 0;
+	Object->MoveSpeed = BallSlimeKickSpeed;
+	Object->Velocity.X =
+		static_cast<float>(Object->Direction) * Object->MoveSpeed;
+	Object->ContactDamage = 0;
+	Object->Stompable = false;
+	return true;
 }
 
 bool NativeObjectSystem::Deactivate(const std::string& ObjectId) {

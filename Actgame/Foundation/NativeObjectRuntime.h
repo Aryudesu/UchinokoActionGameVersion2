@@ -94,6 +94,10 @@ public:
 		float PlayerVerticalVelocity = 0.0f) const;
 
 	bool Deactivate(const std::string& ObjectId);
+	bool HandleStomp(const std::string& ObjectId);
+	bool HandlePlayerTouch(
+		const std::string& ObjectId,
+		float PlayerCenterX);
 
 private:
 	static Result<NativeObjectRuntime> BuildRuntime(
@@ -108,6 +112,10 @@ private:
 		const TileMap& Map,
 		const TileCatalog& Catalog,
 		WorldPosition PlayerPosition);
+	static void UpdateBallSlime(
+		NativeObjectRuntime& Object,
+		const TileMap& Map,
+		const TileCatalog& Catalog);
 
 	std::vector<NativeObjectRuntime> Objects_;
 };

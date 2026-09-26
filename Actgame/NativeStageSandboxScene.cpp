@@ -433,13 +433,31 @@ void NativeStageSandboxScene::ApplyObjectContacts() {
 		CurrentIds.push_back(Contact.ObjectId);
 
 		if (Contact.Kind == uchinoko::NativeObjectContactKind::Stomp) {
-			if (Objects_.Deactivate(Contact.ObjectId)) {
-				const uchinoko::WorldPosition Velocity = {
-					Player_.Body().Velocity.X,
+			const uchinoko::NativeObjectRuntime* Object =
+				Objects_.Find(Contact.ObjectId);
+			if (Object != nullptr && Objects_.HandleStomp(Contact.ObjectId)) {
+				// HSP版と同じく、踏んだ瞬間にPlayerをEnemyの真上へ
+				// 座標補正してから上方向へ跳ね返す。
+				// Player bottom == Object.Position.Y となるため、
+				// HitBounds(offsetY=1)とは1px離れ、次frameのTouchへ残らない。
+				const uchinoko::CharacterBody Body = Player_.Body();
+				Player_.Reposition({
+					Body.Position.X,
+					Object->Position.Y - Body.Height
+				});
+				Player_.SetVelocity({
+					Body.Velocity.X,
 					-6.0f
-				};
-				Player_.SetVelocity(Velocity);
+				});
 			}
+			continue;
+		}
+
+		const float PlayerCenterX =
+			Player_.Body().Position.X + Player_.Body().Width * 0.5f;
+		if (Objects_.HandlePlayerTouch(
+			Contact.ObjectId,
+			PlayerCenterX)) {
 			continue;
 		}
 
@@ -996,6 +1014,24 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					GetColor(255, 160, 70), FALSE);
 				DrawString(X + 10, Y + 8, "C", GetColor(255, 220, 170));
 			}
+		} else if (Object->TypeId == "BallSlime") {
+			if (Object->BehaviorState == 0) {
+				DrawBox(
+					X + 3, Y + 3, X + 29, Y + 29,
+					GetColor(120, 220, 150), FALSE);
+				DrawString(X + 10, Y + 8, "B", GetColor(180, 255, 200));
+			} else {
+				DrawCircle(
+					X + 16, Y + 19, 12,
+					Object->BehaviorState == 1
+						? GetColor(120, 220, 150)
+						: GetColor(255, 180, 70),
+					FALSE);
+				DrawString(
+					X + 11, Y + 12,
+					Object->BehaviorState == 1 ? "S" : "K",
+					GetColor(230, 255, 230));
+			}
 		} else if (Object->TypeId == "HorizontalLift") {
 			DrawBox(
 				X - 6, Y + 11, X + 38, Y + 21,
@@ -1054,6 +1090,25 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					X, Y + 50,
 					GetColor(210, 220, 255),
 					"vy=%.1f%s",
+					Object->Velocity.Y,
+					Object->Grounded ? " G" : "");
+			} else if (Object->TypeId == "BallSlime") {
+				const char* State =
+					Object->BehaviorState == 0 ? "WALK" :
+					Object->BehaviorState == 1 ? "SHELL" : "KICK";
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(180, 255, 200),
+					"%s %s v%d t=%d",
+					Object->Id.c_str(),
+					State,
+					Object->Variant,
+					Object->BehaviorTimer);
+				DrawFormatString(
+					X, Y + 50,
+					GetColor(210, 220, 255),
+					"vx=%.1f vy=%.1f%s",
+					Object->Velocity.X,
 					Object->Velocity.Y,
 					Object->Grounded ? " G" : "");
 			} else {
