@@ -121,6 +121,11 @@ private:
 		NativeObjectRuntime& Object,
 		const TileMap& Map,
 		const TileCatalog& Catalog);
+	void UpdatePikachii(
+		NativeObjectRuntime& Object,
+		const TileMap& Map,
+		const TileCatalog& Catalog,
+		WorldPosition PlayerPosition);
 	void UpdateStationaryShooter(
 		NativeObjectRuntime& Object);
 	void EmitStationaryShooterPattern(
