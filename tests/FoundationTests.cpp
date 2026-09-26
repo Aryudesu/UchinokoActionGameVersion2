@@ -1460,7 +1460,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 
 	const ObjectLayer* Objects = Area->FindObjectLayer("objects");
 	assert(Objects != nullptr);
-	assert(Objects->Objects.size() == 14);
+	assert(Objects->Objects.size() == 15);
 	assert(Objects->Objects[0].TypeId == "PlayerSpawn");
 	assert(NearlyEqual(Objects->Objects[0].Position.X, 32.0f));
 	assert(NearlyEqual(Objects->Objects[0].Position.Y, 128.0f));
@@ -1845,7 +1845,7 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	NativeObjectSystem Objects;
 	Result<bool> Reset = Objects.Reset(*Area);
 	assert(Reset.IsSuccess());
-	assert(Objects.Objects().size() == 13);
+	assert(Objects.Objects().size() == 14);
 
 	const NativeObjectRuntime* TurnEnemy =
 		Objects.Find("enemy-cliff-turn");
@@ -1857,6 +1857,7 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	const NativeObjectRuntime* BallTurn = Objects.Find("ball-slime-turn");
 	const NativeObjectRuntime* ShooterRadial = Objects.Find("shooter-radial");
 	const NativeObjectRuntime* ShooterDual = Objects.Find("shooter-dual");
+	const NativeObjectRuntime* Pikachii = Objects.Find("pikachii-v1");
 	assert(TurnEnemy != nullptr);
 	assert(FallEnemy != nullptr);
 	assert(Lift != nullptr);
@@ -1865,6 +1866,7 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	assert(BallTurn != nullptr);
 	assert(ShooterRadial != nullptr);
 	assert(ShooterDual != nullptr);
+	assert(Pikachii != nullptr);
 
 	assert(FallEnemy->TypeId == "WalkingEnemy");
 	assert(NearlyEqual(FallEnemy->Position.X, 160.0f));
@@ -1924,6 +1926,14 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	assert(ShooterRadial->Stompable);
 	assert(ShooterRadial->ContactDamage == 1);
 	assert(ShooterDual->AttackPattern == "dualSpiral24");
+
+	assert(Pikachii->TypeId == "Pikachii");
+	assert(Pikachii->BehaviorState == 0);
+	assert(Pikachii->BehaviorTimer == 0);
+	assert(Pikachii->Stompable);
+	assert(Pikachii->ContactDamage == 1);
+	assert(NearlyEqual(Pikachii->Gravity, 0.4f));
+	assert(NearlyEqual(Pikachii->MaxFallSpeed, 9.0f));
 }
 
 void TestNativeObjectRuntimeUsesPlayerCentralTouchBounds() {
@@ -2546,6 +2556,79 @@ void TestStationaryShooterRejectsUnknownPattern() {
 	const Result<bool> Reset = Objects.Reset(Area);
 	assert(Reset.IsFailure());
 	assert(Reset.Error().find("pattern is invalid") != std::string::npos);
+}
+
+void TestPikachiiChargesJumpsAndFiresAimedProjectile() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "pikachii";
+	Spawn.TypeId = "Pikachii";
+	Spawn.Position = {64.0f, 32.0f};
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	// HSP版の8tile以内トリガー。20Fを越えると離れても行動を継続する。
+	for (int Frame = 0; Frame < 21; ++Frame) {
+		Objects.Update(Map, Catalog, {128.0f, 32.0f});
+	}
+	const NativeObjectRuntime* Enemy = Objects.Find("pikachii");
+	assert(Enemy != nullptr);
+	assert(Enemy->BehaviorTimer == 21);
+	assert(Enemy->BehaviorState == 0);
+	assert(Enemy->Direction == 1);
+
+	for (int Frame = 21; Frame < 75; ++Frame) {
+		Objects.Update(Map, Catalog, {1000.0f, 32.0f});
+	}
+	Enemy = Objects.Find("pikachii");
+	assert(Enemy->BehaviorTimer == 75);
+	assert(Enemy->BehaviorState == 1);
+	assert(Enemy->Velocity.Y < 0.0f);
+
+	// 狙い撃ち確認用にPlayerを右側へ戻し、頂点付近まで進める。
+	std::vector<ProjectileSpawnRequest> Shot;
+	for (int Frame = 0; Frame < 80 && Shot.empty(); ++Frame) {
+		Objects.Update(Map, Catalog, {160.0f, 32.0f});
+		Shot = Objects.TakeProjectileSpawns();
+	}
+	assert(Shot.size() == 1);
+	assert(Shot[0].Motion == ProjectileMotion::Straight);
+	assert(NearlyEqual(Shot[0].Speed, 5.0f));
+	assert(Shot[0].Velocity.X > 0.0f);
+	assert(Shot[0].Velocity.Y > 0.0f);
+
+	Enemy = Objects.Find("pikachii");
+	assert(Enemy->BehaviorState == 2);
+
+	for (int Frame = 0; Frame < 120; ++Frame) {
+		Objects.Update(Map, Catalog, {160.0f, 32.0f});
+		Objects.TakeProjectileSpawns();
+		if (Objects.Find("pikachii")->BehaviorTimer == 0) break;
+	}
+	Enemy = Objects.Find("pikachii");
+	assert(Enemy->Grounded);
+	assert(Enemy->BehaviorState == 0);
+	assert(Enemy->BehaviorTimer == 0);
 }
 
 void TestStompRepositionMatchesHspOnePixelSeparation() {
@@ -6080,6 +6163,7 @@ int main(int argc, char* argv[]) {
 		TestProjectileSystemSpiralMovesAwayFromOrigin();
 		TestStationaryShooterEmitsHspPatterns();
 		TestStationaryShooterRejectsUnknownPattern();
+		TestPikachiiChargesJumpsAndFiresAimedProjectile();
 		TestStompRepositionMatchesHspOnePixelSeparation();
 		TestCharacterSetVelocityKeepsInternalVelocityInSync();
 		TestNativeWalkingEnemyMovesAndTurnsAtWall();
@@ -6151,6 +6235,7 @@ int main(int argc, char* argv[]) {
 	TestProjectileSystemSpiralMovesAwayFromOrigin();
 	TestStationaryShooterEmitsHspPatterns();
 	TestStationaryShooterRejectsUnknownPattern();
+	TestPikachiiChargesJumpsAndFiresAimedProjectile();
 	TestStompRepositionMatchesHspOnePixelSeparation();
 	TestCharacterSetVelocityKeepsInternalVelocityInSync();
 	TestNativeWalkingEnemyMovesAndTurnsAtWall();
