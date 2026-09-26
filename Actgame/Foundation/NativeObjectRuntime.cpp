@@ -43,6 +43,13 @@ constexpr int PikachiiJumpFrame = 75;
 constexpr float PikachiiJumpSpeed = 9.4f;
 constexpr float PikachiiProjectileSpeed = 5.0f;
 
+constexpr float ChikorarashiTriggerDistance = 32.0f * 10.0f;
+constexpr int ChikorarashiCycleFrames = 150;
+constexpr int ChikorarashiFirstShotAfter = 50;
+constexpr int ChikorarashiShotModulo = 25;
+constexpr int ChikorarashiShotRemainder = 24;
+constexpr float ChikorarashiProjectileGravity = 0.4f / 3.0f;
+
 bool IsBallSlime(const NativeObjectRuntime& Object) {
 	return Object.TypeId == "BallSlime";
 }
@@ -57,13 +64,15 @@ bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 		Object.TypeId == "CarrotMan" ||
 		Object.TypeId == "BallSlime" ||
 		Object.TypeId == "StationaryShooter" ||
-		Object.TypeId == "Pikachii";
+		Object.TypeId == "Pikachii" ||
+		Object.TypeId == "Chikorarashi";
 }
 
 bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 	if (Object.TypeId == "WalkingEnemy" ||
 		Object.TypeId == "StationaryShooter" ||
-		Object.TypeId == "Pikachii") {
+		Object.TypeId == "Pikachii" ||
+		Object.TypeId == "Chikorarashi") {
 		return true;
 	}
 	if (Object.TypeId == "CarrotMan") {
@@ -554,6 +563,20 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.MaxFallSpeed = 9.0f;
 		Runtime.BehaviorState = PikachiiWaiting;
 		Runtime.BehaviorTimer = 0;
+	} else if (Spawn.TypeId == "Chikorarashi") {
+		Runtime.HitboxOffset = {8.0f, 1.0f};
+		Runtime.HitboxSize = {16.0f, 31.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.Stompable = true;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.BehaviorTimer = 0;
+		unsigned int Seed = 2166136261u;
+		for (const char Ch : Spawn.Id) {
+			Seed ^= static_cast<unsigned char>(Ch);
+			Seed *= 16777619u;
+		}
+		Runtime.RandomState = Seed == 0u ? 1u : Seed;
 	} else if (Spawn.TypeId == "StationaryShooter") {
 		Runtime.HitboxOffset = {8.0f, 1.0f};
 		Runtime.HitboxSize = {16.0f, 31.0f};
@@ -774,6 +797,11 @@ void NativeObjectSystem::ResetToSpawn(
 		Object.ContactDamage = 1;
 	} else if (Object.TypeId == "Pikachii") {
 		Object.BehaviorState = PikachiiWaiting;
+		Object.BehaviorTimer = 0;
+		Object.ContactEnabled = true;
+		Object.Stompable = true;
+		Object.ContactDamage = 1;
+	} else if (Object.TypeId == "Chikorarashi") {
 		Object.BehaviorTimer = 0;
 		Object.ContactEnabled = true;
 		Object.Stompable = true;
@@ -1157,6 +1185,65 @@ void NativeObjectSystem::UpdatePikachii(
 	}
 }
 
+void NativeObjectSystem::UpdateChikorarashi(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog,
+	WorldPosition PlayerPosition) {
+	if (!Object.Active) return;
+
+	Object.Direction =
+		PlayerPosition.X >= Object.Position.X ? 1 : -1;
+
+	if (std::fabs(PlayerPosition.X - Object.Position.X) <
+		ChikorarashiTriggerDistance) {
+		++Object.BehaviorTimer;
+	}
+	if (Object.BehaviorTimer > ChikorarashiCycleFrames) {
+		Object.BehaviorTimer = 0;
+	}
+
+	if (Object.BehaviorTimer > ChikorarashiFirstShotAfter &&
+		Object.BehaviorTimer % ChikorarashiShotModulo ==
+			ChikorarashiShotRemainder) {
+		auto NextRandom = [&Object]() {
+			unsigned int X = Object.RandomState;
+			X ^= X << 13;
+			X ^= X >> 17;
+			X ^= X << 5;
+			Object.RandomState = X == 0u ? 1u : X;
+			return Object.RandomState;
+		};
+
+		const float SpeedX =
+			static_cast<float>(NextRandom() % 3u + 1u) *
+			static_cast<float>(Object.Direction);
+		const float SpeedY =
+			-static_cast<float>(NextRandom() % 4u + 4u);
+
+		ProjectileSpawnRequest Request;
+		Request.Position = {
+			Object.Position.X + 16.0f,
+			Object.Position.Y + 16.0f
+		};
+		Request.Velocity = {SpeedX, SpeedY};
+		Request.Motion = ProjectileMotion::Ballistic;
+		Request.Gravity = ChikorarashiProjectileGravity;
+		Request.Damage = 1;
+		Request.LifetimeFrames = 480;
+		Request.Radius = 6.0f;
+		// HSP eshootf=8 はterrain判定を持たず、地面を貫通する。
+		Request.CollidesWithTerrain = false;
+		PendingProjectileSpawns_.push_back(Request);
+	}
+
+	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
+		Object.LifeState = ObjectLifeState::Defeated;
+		Object.Active = false;
+		Object.Velocity = {0.0f, 0.0f};
+	}
+}
+
 void NativeObjectSystem::UpdateStationaryShooter(
 	NativeObjectRuntime& Object) {
 	if (!Object.Active) return;
@@ -1192,6 +1279,9 @@ void NativeObjectSystem::Update(
 			UpdatePikachii(Object, Map, Catalog, PlayerPosition);
 		} else if (Object.TypeId == "StationaryShooter") {
 			UpdateStationaryShooter(Object);
+		} else if (Object.TypeId == "Chikorarashi") {
+			UpdateChikorarashi(
+				Object, Map, Catalog, PlayerPosition);
 		}
 	}
 
