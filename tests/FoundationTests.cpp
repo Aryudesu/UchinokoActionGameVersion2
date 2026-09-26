@@ -2043,7 +2043,15 @@ void TestNativeCarrotManWaitsEmergesAndStartsWalking() {
 		{0, 0, 0, 0, 0, 0, 0, 0},
 		{1, 1, 1, 1, 1, 1, 1, 1}
 	});
-	TileCatalog Catalog = MakeNativeObjectMovementCatalog();
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
 
 	StageArea Area;
 	ObjectLayer Layer;
