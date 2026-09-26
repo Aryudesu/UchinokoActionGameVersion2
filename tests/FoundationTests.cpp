@@ -2603,14 +2603,23 @@ void TestPikachiiChargesJumpsAndFiresAimedProjectile() {
 	Enemy = Objects.Find("pikachii");
 	assert(Enemy->BehaviorTimer == 75);
 	assert(Enemy->BehaviorState == 1);
-	assert(Enemy->Velocity.Y < 0.0f);
+	// HSPでは -jump*2(-18) を設定した同frameに maxVspeed=9 でclampされる。
+	assert(NearlyEqual(Enemy->Velocity.Y, -9.0f));
 
+	const float JumpStartY = Enemy->Position.Y;
+	float HighestY = JumpStartY;
 	// 狙い撃ち確認用にPlayerを右側へ戻し、頂点付近まで進める。
 	std::vector<ProjectileSpawnRequest> Shot;
 	for (int Frame = 0; Frame < 80 && Shot.empty(); ++Frame) {
 		Objects.Update(Map, Catalog, {160.0f, 32.0f});
+		const NativeObjectRuntime* Current = Objects.Find("pikachii");
+		HighestY = (std::min)(HighestY, Current->Position.Y);
 		Shot = Objects.TakeProjectileSpawns();
 	}
+	// 9px/frame, gravity 0.4 のHSP相当なので、上昇量は約3block。
+	const float Rise = JumpStartY - HighestY;
+	assert(Rise > 80.0f);
+	assert(Rise < 120.0f);
 	assert(Shot.size() == 1);
 	assert(Shot[0].Motion == ProjectileMotion::Straight);
 	assert(NearlyEqual(Shot[0].Speed, 5.0f));
