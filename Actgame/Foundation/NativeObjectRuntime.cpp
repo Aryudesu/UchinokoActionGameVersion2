@@ -36,7 +36,11 @@ constexpr int PikachiiFired = 2;
 constexpr float PikachiiTriggerDistance = 32.0f * 8.0f;
 constexpr int PikachiiContinueTriggerFrames = 20;
 constexpr int PikachiiJumpFrame = 75;
-constexpr float PikachiiJumpSpeed = 18.0f;
+// HSP版は -jump*2 (-18) を設定した直後に gravity(+0.4) を加え、
+// abs(vy)>maxVspeed(9) なら -9 へclampする。
+// V2共通vertical resolverは上昇側をclampしないため、同じ1frame目の
+// 結果(-9.0)になるよう、gravity適用前のseedを -9.4 とする。
+constexpr float PikachiiJumpSpeed = 9.4f;
 constexpr float PikachiiProjectileSpeed = 5.0f;
 
 bool IsBallSlime(const NativeObjectRuntime& Object) {
