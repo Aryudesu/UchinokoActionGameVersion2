@@ -1460,7 +1460,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 
 	const ObjectLayer* Objects = Area->FindObjectLayer("objects");
 	assert(Objects != nullptr);
-	assert(Objects->Objects.size() == 10);
+	assert(Objects->Objects.size() == 15);
 	assert(Objects->Objects[0].TypeId == "PlayerSpawn");
 	assert(NearlyEqual(Objects->Objects[0].Position.X, 32.0f));
 	assert(NearlyEqual(Objects->Objects[0].Position.Y, 128.0f));
@@ -1845,7 +1845,7 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	NativeObjectSystem Objects;
 	Result<bool> Reset = Objects.Reset(*Area);
 	assert(Reset.IsSuccess());
-	assert(Objects.Objects().size() == 9);
+	assert(Objects.Objects().size() == 14);
 
 	const NativeObjectRuntime* TurnEnemy =
 		Objects.Find("enemy-cliff-turn");
@@ -1855,12 +1855,18 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	const NativeObjectRuntime* Carrot = Objects.Find("carrot-v1");
 	const NativeObjectRuntime* BallFall = Objects.Find("ball-slime-fall");
 	const NativeObjectRuntime* BallTurn = Objects.Find("ball-slime-turn");
+	const NativeObjectRuntime* ShooterRadial = Objects.Find("shooter-radial");
+	const NativeObjectRuntime* ShooterDual = Objects.Find("shooter-dual");
+	const NativeObjectRuntime* Pikachii = Objects.Find("pikachii-v1");
 	assert(TurnEnemy != nullptr);
 	assert(FallEnemy != nullptr);
 	assert(Lift != nullptr);
 	assert(Carrot != nullptr);
 	assert(BallFall != nullptr);
 	assert(BallTurn != nullptr);
+	assert(ShooterRadial != nullptr);
+	assert(ShooterDual != nullptr);
+	assert(Pikachii != nullptr);
 
 	assert(FallEnemy->TypeId == "WalkingEnemy");
 	assert(NearlyEqual(FallEnemy->Position.X, 160.0f));
@@ -1913,6 +1919,21 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 
 	assert(BallTurn->TypeId == "BallSlime");
 	assert(BallTurn->Variant == 2);
+
+	assert(ShooterRadial->TypeId == "StationaryShooter");
+	assert(ShooterRadial->AttackPattern == "radial12");
+	assert(ShooterRadial->AttackIntervalFrames == 101);
+	assert(ShooterRadial->Stompable);
+	assert(ShooterRadial->ContactDamage == 1);
+	assert(ShooterDual->AttackPattern == "dualSpiral24");
+
+	assert(Pikachii->TypeId == "Pikachii");
+	assert(Pikachii->BehaviorState == 0);
+	assert(Pikachii->BehaviorTimer == 0);
+	assert(Pikachii->Stompable);
+	assert(Pikachii->ContactDamage == 1);
+	assert(NearlyEqual(Pikachii->Gravity, 0.4f));
+	assert(NearlyEqual(Pikachii->MaxFallSpeed, 9.0f));
 }
 
 void TestNativeObjectRuntimeUsesPlayerCentralTouchBounds() {
@@ -2363,6 +2384,308 @@ void TestNativeKickedBallSlimeDefeatsOtherEnemyAndLifecycleResetsShell() {
 	assert(Ball->BehaviorTimer == 0);
 	assert(Ball->ContactDamage == 1);
 	assert(Ball->Stompable);
+}
+
+void TestProjectileSystemMovesCollidesAndExpires() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	ProjectileSystem Projectiles;
+	ProjectileSpawnRequest Straight;
+	Straight.Position = {16.0f, 16.0f};
+	Straight.Velocity = {5.0f, 0.0f};
+	Straight.Motion = ProjectileMotion::Straight;
+	Straight.LifetimeFrames = 2;
+	Projectiles.Spawn(Straight);
+
+	Projectiles.Update(Map, Catalog);
+	assert(Projectiles.Projectiles().size() == 1);
+	assert(Projectiles.Projectiles()[0].Active);
+	assert(NearlyEqual(Projectiles.Projectiles()[0].Position.X, 21.0f));
+
+	const std::vector<ProjectileContact> Contacts =
+		Projectiles.FindContacts({16.0f, 8.0f}, {16.0f, 32.0f});
+	assert(Contacts.size() == 1);
+	assert(Contacts[0].Damage == 1);
+	assert(Projectiles.Deactivate(Contacts[0].ProjectileIndex));
+	assert(!Projectiles.Projectiles()[0].Active);
+
+	// 非Active slotは次のSpawnで再利用する。
+	ProjectileSpawnRequest TerrainHit;
+	TerrainHit.Position = {16.0f, 48.0f};
+	TerrainHit.Velocity = {0.0f, 20.0f};
+	TerrainHit.Motion = ProjectileMotion::Straight;
+	Projectiles.Spawn(TerrainHit);
+	assert(Projectiles.Projectiles().size() == 1);
+	Projectiles.Update(Map, Catalog);
+	assert(!Projectiles.Projectiles()[0].Active);
+
+	ProjectileSpawnRequest Expiring;
+	Expiring.Position = {80.0f, 16.0f};
+	Expiring.Velocity = {0.0f, 0.0f};
+	Expiring.LifetimeFrames = 1;
+	Expiring.CollidesWithTerrain = false;
+	Projectiles.Spawn(Expiring);
+	assert(Projectiles.Projectiles().size() == 1);
+	Projectiles.Update(Map, Catalog);
+	assert(Projectiles.Projectiles()[0].Active);
+	Projectiles.Update(Map, Catalog);
+	assert(!Projectiles.Projectiles()[0].Active);
+}
+
+void TestProjectileSystemSpiralMovesAwayFromOrigin() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	ProjectileSystem Projectiles;
+	ProjectileSpawnRequest Request;
+	Request.Position = {64.0f, 32.0f};
+	Request.Motion = ProjectileMotion::SpiralClockwise;
+	Request.Speed = 3.0f;
+	Request.Angle = 0.0f;
+	Request.CollidesWithTerrain = false;
+	Projectiles.Spawn(Request);
+
+	Projectiles.Update(Map, Catalog);
+	const ProjectileRuntime& Projectile = Projectiles.Projectiles()[0];
+	assert(Projectile.Active);
+	assert(NearlyEqual(Projectile.RadiusFromOrigin, 3.0f));
+	assert(Projectile.Angle > 0.0f);
+	assert(Projectile.Position.X > Projectile.Origin.X);
+	assert(Projectile.Position.Y < Projectile.Origin.Y);
+}
+
+void TestStationaryShooterEmitsHspPatterns() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+
+	const char* Patterns[] = {
+		"radial12",
+		"spiralCW12",
+		"spiralCCW12",
+		"dualSpiral24"
+	};
+	for (int Index = 0; Index < 4; ++Index) {
+		ObjectSpawn Spawn;
+		Spawn.Id = std::string("shooter-") + std::to_string(Index);
+		Spawn.TypeId = "StationaryShooter";
+		Spawn.Position = {64.0f + Index * 64.0f, 32.0f};
+		Spawn.Properties["pattern"] =
+			StagePropertyValue::String(Patterns[Index]);
+		Spawn.Properties["intervalFrames"] =
+			StagePropertyValue::Integer(1);
+		Layer.Objects.push_back(Spawn);
+	}
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	Objects.Update(Map, Catalog);
+	assert(Objects.TakeProjectileSpawns().empty());
+
+	Objects.Update(Map, Catalog);
+	const std::vector<ProjectileSpawnRequest> Spawns =
+		Objects.TakeProjectileSpawns();
+	assert(Spawns.size() == 60);
+
+	int StraightCount = 0;
+	int ClockwiseCount = 0;
+	int CounterClockwiseCount = 0;
+	for (const ProjectileSpawnRequest& Spawn : Spawns) {
+		if (Spawn.Motion == ProjectileMotion::Straight) {
+			++StraightCount;
+		} else if (Spawn.Motion == ProjectileMotion::SpiralClockwise) {
+			++ClockwiseCount;
+		} else if (Spawn.Motion == ProjectileMotion::SpiralCounterClockwise) {
+			++CounterClockwiseCount;
+		}
+	}
+	assert(StraightCount == 12);
+	assert(ClockwiseCount == 24);
+	assert(CounterClockwiseCount == 24);
+
+	// Takeはmove-outなので同じSpawn requestを二重処理しない。
+	assert(Objects.TakeProjectileSpawns().empty());
+}
+
+void TestStationaryShooterRejectsUnknownPattern() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "bad-shooter";
+	Spawn.TypeId = "StationaryShooter";
+	Spawn.Properties["pattern"] =
+		StagePropertyValue::String("unknown");
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	const Result<bool> Reset = Objects.Reset(Area);
+	assert(Reset.IsFailure());
+	assert(Reset.Error().find("pattern is invalid") != std::string::npos);
+}
+
+void TestPikachiiChargesJumpsAndFiresAimedProjectile() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "pikachii";
+	Spawn.TypeId = "Pikachii";
+	Spawn.Position = {64.0f, 32.0f};
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	// HSP版の8tile以内トリガー。20Fを越えると離れても行動を継続する。
+	for (int Frame = 0; Frame < 21; ++Frame) {
+		Objects.Update(Map, Catalog, {128.0f, 32.0f});
+	}
+	const NativeObjectRuntime* Enemy = Objects.Find("pikachii");
+	assert(Enemy != nullptr);
+	assert(Enemy->BehaviorTimer == 21);
+	assert(Enemy->BehaviorState == 0);
+	assert(Enemy->Direction == 1);
+
+	for (int Frame = 21; Frame < 75; ++Frame) {
+		Objects.Update(Map, Catalog, {1000.0f, 32.0f});
+	}
+	Enemy = Objects.Find("pikachii");
+	assert(Enemy->BehaviorTimer == 75);
+	assert(Enemy->BehaviorState == 1);
+	// HSPでは -jump*2(-18) を設定した同frameに maxVspeed=9 でclampされる。
+	assert(NearlyEqual(Enemy->Velocity.Y, -9.0f));
+
+	const float JumpStartY = Enemy->Position.Y;
+	float HighestY = JumpStartY;
+	// 狙い撃ち確認用にPlayerを右側へ戻し、頂点付近まで進める。
+	std::vector<ProjectileSpawnRequest> Shot;
+	for (int Frame = 0; Frame < 80 && Shot.empty(); ++Frame) {
+		Objects.Update(Map, Catalog, {160.0f, 32.0f});
+		const NativeObjectRuntime* Current = Objects.Find("pikachii");
+		HighestY = (std::min)(HighestY, Current->Position.Y);
+		Shot = Objects.TakeProjectileSpawns();
+	}
+	// 9px/frame, gravity 0.4 のHSP相当なので、上昇量は約3block。
+	const float Rise = JumpStartY - HighestY;
+	assert(Rise > 80.0f);
+	assert(Rise < 120.0f);
+	assert(Shot.size() == 1);
+	assert(Shot[0].Motion == ProjectileMotion::Straight);
+	assert(NearlyEqual(Shot[0].Speed, 5.0f));
+	assert(Shot[0].Velocity.X > 0.0f);
+	assert(Shot[0].Velocity.Y > 0.0f);
+
+	Enemy = Objects.Find("pikachii");
+	assert(Enemy->BehaviorState == 2);
+
+	for (int Frame = 0; Frame < 120; ++Frame) {
+		Objects.Update(Map, Catalog, {160.0f, 32.0f});
+		Objects.TakeProjectileSpawns();
+		if (Objects.Find("pikachii")->BehaviorTimer == 0) break;
+	}
+	Enemy = Objects.Find("pikachii");
+	assert(Enemy->Grounded);
+	assert(Enemy->BehaviorState == 0);
+	assert(Enemy->BehaviorTimer == 0);
+}
+
+void TestPikachiiKeepsAttackCycleOutsideCameraUntilLanding() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "pikachii";
+	Spawn.TypeId = "Pikachii";
+	Spawn.Position = {64.0f, 32.0f};
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	// 75Fまで進めて大ジャンプ開始。
+	for (int Frame = 0; Frame < 75; ++Frame) {
+		Objects.Update(Map, Catalog, {96.0f, 32.0f});
+	}
+	NativeObjectRuntime* Enemy = Objects.Find("pikachii");
+	assert(Enemy != nullptr);
+	assert(Enemy->BehaviorState == 1);
+
+	// Cameraの上側へ大きく出ても、攻撃cycle中はDormant化しない。
+	Enemy->Position.Y = -300.0f;
+	Objects.UpdateLifecycle(
+		{0.0f, 0.0f},
+		{512.0f, 320.0f});
+	Enemy = Objects.Find("pikachii");
+	assert(Enemy->LifeState == ObjectLifeState::Active);
+	assert(Enemy->Active);
+	assert(Enemy->BehaviorState == 1);
 }
 
 void TestStompRepositionMatchesHspOnePixelSeparation() {
@@ -5893,6 +6216,12 @@ int main(int argc, char* argv[]) {
 		TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery();
 		TestNativeBallSlimeVariant2TurnsAtCliffOnlyWhileWalking();
 		TestNativeKickedBallSlimeDefeatsOtherEnemyAndLifecycleResetsShell();
+		TestProjectileSystemMovesCollidesAndExpires();
+		TestProjectileSystemSpiralMovesAwayFromOrigin();
+		TestStationaryShooterEmitsHspPatterns();
+		TestStationaryShooterRejectsUnknownPattern();
+		TestPikachiiChargesJumpsAndFiresAimedProjectile();
+		TestPikachiiKeepsAttackCycleOutsideCameraUntilLanding();
 		TestStompRepositionMatchesHspOnePixelSeparation();
 		TestCharacterSetVelocityKeepsInternalVelocityInSync();
 		TestNativeWalkingEnemyMovesAndTurnsAtWall();
@@ -5960,6 +6289,12 @@ int main(int argc, char* argv[]) {
 	TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery();
 	TestNativeBallSlimeVariant2TurnsAtCliffOnlyWhileWalking();
 	TestNativeKickedBallSlimeDefeatsOtherEnemyAndLifecycleResetsShell();
+	TestProjectileSystemMovesCollidesAndExpires();
+	TestProjectileSystemSpiralMovesAwayFromOrigin();
+	TestStationaryShooterEmitsHspPatterns();
+	TestStationaryShooterRejectsUnknownPattern();
+	TestPikachiiChargesJumpsAndFiresAimedProjectile();
+	TestPikachiiKeepsAttackCycleOutsideCameraUntilLanding();
 	TestStompRepositionMatchesHspOnePixelSeparation();
 	TestCharacterSetVelocityKeepsInternalVelocityInSync();
 	TestNativeWalkingEnemyMovesAndTurnsAtWall();

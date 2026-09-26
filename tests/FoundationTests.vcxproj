@@ -45,6 +45,7 @@
     <ClCompile Include="..\Actgame\Foundation\ItemSystem.cpp" />
     <ClCompile Include="..\Actgame\Foundation\LayeredMap.cpp" />
     <ClCompile Include="..\Actgame\Foundation\NativeObjectRuntime.cpp" />
+    <ClCompile Include="..\Actgame\Foundation\ProjectileSystem.cpp" />
     <ClCompile Include="..\Actgame\Foundation\NativeStageDataLoader.cpp" />
     <ClCompile Include="..\Actgame\Foundation\PipeTransport.cpp" />
     <ClCompile Include="..\Actgame\Foundation\StageProgress.cpp" />

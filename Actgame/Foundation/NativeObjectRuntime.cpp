@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace uchinoko {
 
@@ -26,6 +27,22 @@ constexpr float BallSlimeWalkSpeed = 2.0f;
 constexpr float BallSlimeKickSpeed = 8.0f;
 constexpr float BallSlimeWakeJumpSpeed = 3.0f;
 
+constexpr float ProjectilePi = 3.14159265358979323846f;
+constexpr int HspShooterDefaultIntervalFrames = 101;
+
+constexpr int PikachiiWaiting = 0;
+constexpr int PikachiiJumping = 1;
+constexpr int PikachiiFired = 2;
+constexpr float PikachiiTriggerDistance = 32.0f * 8.0f;
+constexpr int PikachiiContinueTriggerFrames = 20;
+constexpr int PikachiiJumpFrame = 75;
+// HSP版は -jump*2 (-18) を設定した直後に gravity(+0.4) を加え、
+// abs(vy)>maxVspeed(9) なら -9 へclampする。
+// V2共通vertical resolverは上昇側をclampしないため、同じ1frame目の
+// 結果(-9.0)になるよう、gravity適用前のseedを -9.4 とする。
+constexpr float PikachiiJumpSpeed = 9.4f;
+constexpr float PikachiiProjectileSpeed = 5.0f;
+
 bool IsBallSlime(const NativeObjectRuntime& Object) {
 	return Object.TypeId == "BallSlime";
 }
@@ -38,11 +55,17 @@ bool IsKickedBallSlime(const NativeObjectRuntime& Object) {
 bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 	return Object.TypeId == "WalkingEnemy" ||
 		Object.TypeId == "CarrotMan" ||
-		Object.TypeId == "BallSlime";
+		Object.TypeId == "BallSlime" ||
+		Object.TypeId == "StationaryShooter" ||
+		Object.TypeId == "Pikachii";
 }
 
 bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
-	if (Object.TypeId == "WalkingEnemy") return true;
+	if (Object.TypeId == "WalkingEnemy" ||
+		Object.TypeId == "StationaryShooter" ||
+		Object.TypeId == "Pikachii") {
+		return true;
+	}
 	if (Object.TypeId == "CarrotMan") {
 		return Object.BehaviorState != CarrotHidden;
 	}
@@ -50,11 +73,14 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 }
 
 bool IsWalkingCollisionEnemy(const NativeObjectRuntime& Object) {
-	if (!IsEnemyCollisionParticipant(Object)) return false;
+	if (Object.TypeId == "WalkingEnemy") return true;
+	if (Object.TypeId == "CarrotMan") {
+		return Object.BehaviorState != CarrotHidden;
+	}
 	if (IsBallSlime(Object)) {
 		return Object.BehaviorState != BallSlimeShell;
 	}
-	return true;
+	return false;
 }
 
 bool TryReadVector2(
@@ -517,6 +543,27 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.MaxFallSpeed = 12.0f;
 		Runtime.BehaviorState = BallSlimeWalking;
 		Runtime.BehaviorTimer = 0;
+	} else if (Spawn.TypeId == "Pikachii") {
+		Runtime.HitboxOffset = {8.0f, 1.0f};
+		Runtime.HitboxSize = {16.0f, 31.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.Stompable = true;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.Gravity = 0.4f;
+		Runtime.MaxFallSpeed = 9.0f;
+		Runtime.BehaviorState = PikachiiWaiting;
+		Runtime.BehaviorTimer = 0;
+	} else if (Spawn.TypeId == "StationaryShooter") {
+		Runtime.HitboxOffset = {8.0f, 1.0f};
+		Runtime.HitboxSize = {16.0f, 31.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.Stompable = true;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.AttackPattern = "radial12";
+		Runtime.AttackIntervalFrames = HspShooterDefaultIntervalFrames;
+		Runtime.BehaviorTimer = 0;
 	} else if (Spawn.TypeId == "HorizontalLift") {
 		// NativeStageSandboxで従来debug描画していた44x10の足場形状。
 		Runtime.HitboxOffset = {-6.0f, 11.0f};
@@ -620,6 +667,38 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		}
 	}
 
+	if (Spawn.TypeId == "StationaryShooter") {
+		if (!TryReadString(
+			Spawn.Properties,
+			"pattern",
+			Runtime.AttackPattern,
+			Error,
+			Spawn.Id) ||
+			!TryReadInteger(
+				Spawn.Properties,
+				"intervalFrames",
+				Runtime.AttackIntervalFrames,
+				Error,
+				Spawn.Id)) {
+			return Result<NativeObjectRuntime>::Failure(Error);
+		}
+
+		const bool KnownPattern =
+			Runtime.AttackPattern == "radial12" ||
+			Runtime.AttackPattern == "spiralCW12" ||
+			Runtime.AttackPattern == "spiralCCW12" ||
+			Runtime.AttackPattern == "dualSpiral24";
+		if (!KnownPattern) {
+			return Result<NativeObjectRuntime>::Failure(
+				"StationaryShooter pattern is invalid: " + Spawn.Id);
+		}
+		if (Runtime.AttackIntervalFrames <= 0) {
+			return Result<NativeObjectRuntime>::Failure(
+				"StationaryShooter intervalFrames must be positive: " +
+				Spawn.Id);
+		}
+	}
+
 	if (Runtime.HitboxSize.X <= 0.0f ||
 		Runtime.HitboxSize.Y <= 0.0f) {
 		return Result<NativeObjectRuntime>::Failure(
@@ -635,6 +714,7 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 
 Result<bool> NativeObjectSystem::Reset(const StageArea& Area) {
 	Objects_.clear();
+	PendingProjectileSpawns_.clear();
 
 	for (const ObjectLayer& Layer : Area.ObjectLayers) {
 		for (const ObjectSpawn& Spawn : Layer.Objects) {
@@ -687,6 +767,17 @@ void NativeObjectSystem::ResetToSpawn(
 		Object.Stompable = true;
 		Object.ContactDamage = 1;
 		Object.MoveSpeed = BallSlimeWalkSpeed;
+	} else if (Object.TypeId == "StationaryShooter") {
+		Object.BehaviorTimer = 0;
+		Object.ContactEnabled = true;
+		Object.Stompable = true;
+		Object.ContactDamage = 1;
+	} else if (Object.TypeId == "Pikachii") {
+		Object.BehaviorState = PikachiiWaiting;
+		Object.BehaviorTimer = 0;
+		Object.ContactEnabled = true;
+		Object.Stompable = true;
+		Object.ContactDamage = 1;
 	}
 }
 
@@ -707,6 +798,15 @@ void NativeObjectSystem::UpdateLifecycle(
 				CameraPosition,
 				ViewSize,
 				DormancyMargin)) {
+				continue;
+			}
+
+			// Pikachiiは大ジャンプ中にCamera上端を大きく越える。
+			// 攻撃cycle中まで通常Enemyのoff-camera dormancyを適用すると、
+			// 頂点へ到達する前にspawnへresetされ「上へ消える」ため、
+			// 着地してWAITへ戻るまでは更新を継続する。
+			if (Object.TypeId == "Pikachii" &&
+				Object.BehaviorState != PikachiiWaiting) {
 				continue;
 			}
 
@@ -929,6 +1029,153 @@ void NativeObjectSystem::UpdateBallSlime(
 	}
 }
 
+void NativeObjectSystem::EmitStationaryShooterPattern(
+	const NativeObjectRuntime& Object) {
+	const WorldPosition Origin = {
+		Object.Position.X + 16.0f,
+		Object.Position.Y + 16.0f
+	};
+
+	const auto EmitRing = [this, Origin](
+		ProjectileMotion Motion,
+		float Speed) {
+		for (int Index = 0; Index < 12; ++Index) {
+			const float Angle =
+				ProjectilePi * 2.0f *
+				static_cast<float>(Index) / 12.0f;
+			ProjectileSpawnRequest Request;
+			Request.Position = Origin;
+			Request.Motion = Motion;
+			Request.Speed = Speed;
+			Request.Angle = Angle;
+			Request.Damage = 1;
+			Request.LifetimeFrames = 360;
+			Request.Radius = 5.0f;
+			Request.CollidesWithTerrain = true;
+
+			if (Motion == ProjectileMotion::Straight) {
+				Request.Velocity = {
+					std::cos(Angle) * Speed,
+					std::sin(Angle) * Speed
+				};
+			}
+			PendingProjectileSpawns_.push_back(Request);
+		}
+	};
+
+	if (Object.AttackPattern == "radial12") {
+		EmitRing(ProjectileMotion::Straight, 5.0f);
+	} else if (Object.AttackPattern == "spiralCW12") {
+		EmitRing(ProjectileMotion::SpiralClockwise, 3.0f);
+	} else if (Object.AttackPattern == "spiralCCW12") {
+		EmitRing(ProjectileMotion::SpiralCounterClockwise, 3.0f);
+	} else if (Object.AttackPattern == "dualSpiral24") {
+		EmitRing(ProjectileMotion::SpiralClockwise, 3.0f);
+		EmitRing(ProjectileMotion::SpiralCounterClockwise, 3.0f);
+	}
+}
+
+void NativeObjectSystem::UpdatePikachii(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog,
+	WorldPosition PlayerPosition) {
+	if (!Object.Active) return;
+
+	// HSP enemyf=31/32 は左右向きを別IDで表していたが、
+	// V2ではDirectionだけで保持する。
+	Object.Direction =
+		PlayerPosition.X >= Object.Position.X ? 1 : -1;
+
+	const bool Triggered =
+		std::fabs(PlayerPosition.X - Object.Position.X) <
+			PikachiiTriggerDistance ||
+		Object.BehaviorTimer > PikachiiContinueTriggerFrames;
+	if (Triggered) {
+		++Object.BehaviorTimer;
+	}
+
+	if (Object.BehaviorState == PikachiiWaiting &&
+		Object.BehaviorTimer == PikachiiJumpFrame) {
+		Object.BehaviorState = PikachiiJumping;
+		Object.Velocity.Y = -PikachiiJumpSpeed;
+		Object.Grounded = false;
+	}
+
+	ResolveWalkingEnemyVertical(Object, Map, Catalog);
+
+	if (Object.BehaviorState == PikachiiJumping &&
+		std::fabs(Object.Velocity.Y) < 0.21f &&
+		Object.BehaviorTimer > PikachiiJumpFrame) {
+		const WorldPosition Origin = {
+			Object.Position.X + 16.0f,
+			Object.Position.Y + 16.0f
+		};
+		const WorldPosition Target = {
+			PlayerPosition.X + 16.0f,
+			PlayerPosition.Y + 16.0f
+		};
+		const float DX = Target.X - Origin.X;
+		const float DY = Target.Y - Origin.Y;
+		const float Length = std::sqrt(DX * DX + DY * DY);
+
+		ProjectileSpawnRequest Request;
+		Request.Position = Origin;
+		Request.Motion = ProjectileMotion::Straight;
+		Request.Speed = PikachiiProjectileSpeed;
+		Request.Damage = 1;
+		Request.LifetimeFrames = 360;
+		Request.Radius = 5.0f;
+		Request.CollidesWithTerrain = true;
+		if (Length > 0.001f) {
+			Request.Velocity = {
+				DX / Length * PikachiiProjectileSpeed,
+				DY / Length * PikachiiProjectileSpeed
+			};
+		} else {
+			Request.Velocity = {
+				static_cast<float>(Object.Direction) *
+					PikachiiProjectileSpeed,
+				0.0f
+			};
+		}
+		PendingProjectileSpawns_.push_back(Request);
+		Object.BehaviorState = PikachiiFired;
+	}
+
+	if (Object.Grounded &&
+		Object.BehaviorTimer > PikachiiJumpFrame) {
+		Object.BehaviorState = PikachiiWaiting;
+		Object.BehaviorTimer = 0;
+		Object.Velocity.Y = 0.0f;
+	}
+
+	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
+		Object.LifeState = ObjectLifeState::Defeated;
+		Object.Active = false;
+		Object.Velocity = {0.0f, 0.0f};
+	}
+}
+
+void NativeObjectSystem::UpdateStationaryShooter(
+	NativeObjectRuntime& Object) {
+	if (!Object.Active) return;
+
+	++Object.BehaviorTimer;
+	if (Object.BehaviorTimer <= Object.AttackIntervalFrames) return;
+
+	Object.BehaviorTimer = 0;
+	EmitStationaryShooterPattern(Object);
+}
+
+std::vector<ProjectileSpawnRequest>
+NativeObjectSystem::TakeProjectileSpawns() {
+	std::vector<ProjectileSpawnRequest> Result =
+		std::move(PendingProjectileSpawns_);
+	PendingProjectileSpawns_.clear();
+	return Result;
+}
+
 void NativeObjectSystem::Update(
 	const TileMap& Map,
 	const TileCatalog& Catalog,
@@ -941,6 +1188,10 @@ void NativeObjectSystem::Update(
 			UpdateCarrotMan(Object, Map, Catalog, PlayerPosition);
 		} else if (Object.TypeId == "BallSlime") {
 			UpdateBallSlime(Object, Map, Catalog);
+		} else if (Object.TypeId == "Pikachii") {
+			UpdatePikachii(Object, Map, Catalog, PlayerPosition);
+		} else if (Object.TypeId == "StationaryShooter") {
+			UpdateStationaryShooter(Object);
 		}
 	}
 
