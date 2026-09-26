@@ -1,6 +1,6 @@
 # 残件・未移植・設計判断
 
-2026-09-21時点。
+2026-09-26時点。
 
 ---
 
@@ -25,26 +25,25 @@ PR #28は現時点で未マージ。
 
 ## 2. 次の優先残件
 
+PR #40〜#46までで、Native Sandbox上のWalkingEnemy / Camera / lifecycle / CarrotManまで実装済み。
+
 推奨順:
 
-1. PR #40のNative WalkingEnemy移動AI / Terrain衝突をレビュー・マージ
-2. Enemy踏みつけ / Player damage判定を役割分離
-3. Enemy同士の側面衝突 / Damage terrain反応 / lifecycleを整理
-4. external Stage transition / Stage loader責務を設計
-5. PR #28を旧ARY parser / converter入力として整理
-6. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
-7. V1 Block ID 0..45 → V2 native Tile定義への変換mapping
-8. 旧Stage 5をV2 native形式へ実際に変換するfixtureを作る
-9. `Action` をV2 native StageDataから動かす
-10. Foundation Effect → Player/GameData/SE adapter
-11. PlayerをCharacterControllerへ段階移行
+1. Version1 `BallSlime / BallSlime2` をBehaviorStateベースで移植
+2. Enemy死亡演出 / Score / SEをruntime effectへ分離
+3. HSP由来の飛行Enemy・ジャンプEnemyをNative Enemy型として整理
+4. Projectile基盤を作り、固定砲台 / ピカチー等の射撃Enemyへ展開
+5. Lift Stand判定 / moving platform runtimeを完成
+6. external Stage transition / Stage loader責務を設計
+7. PR #28を旧ARY parser / converter入力として整理
+8. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
+9. V1 Block ID 0..45 → V2 native Tile定義への変換mapping
+10. 旧Stage 5をV2 native形式へ実際に変換するfixtureを作る
+11. `Action` をV2 native StageDataから動かす
 12. Legacy Enemy `-2..-6` → ObjectSpawn変換
-13. Pipe / stage transitionを本編へ接続
-14. Goal / StageProgress → GameData / Save / WorldMap
-15. Lift / moving platform
-16. Enemy runtime
-17. Boss / Event
-18. 旧Map / Block runtime撤去
+13. Goal / StageProgress → GameData / Save / WorldMap
+14. Boss / Event
+15. 旧Map / Block runtime撤去
 
 ---
 
@@ -70,7 +69,7 @@ PR #28は現時点で未マージ。
 
 ### Version1現役機能
 
-- Enemy / ObjectManager
+- Enemy: WalkingEnemy1/2とCarrotManはNative化済み。BallSlime系・HSP特殊Enemyは未移植
 - Lift / moving object
 - Boss
 - presentation effect
@@ -125,7 +124,7 @@ Terrain / Visual / Object / Eventを分ける。
 
 ## 6. ステージデータの未決事項
 
-PR #30〜#39はdevへマージ済み。PR #40でWalkingEnemy1/2の歩行・重力・壁/崖判定をNativeObjectRuntimeへ接続中。
+PR #30〜#46はdevへマージ済み。WalkingEnemy1/2、踏みつけ、Enemy同士衝突、Enemy対象Damage terrain、Camera lifecycle、CarrotManまでNativeObjectRuntimeへ接続済み。
 
 - JSON + CSVをauthoring/native v1として採用済み。将来binary/export formatを追加するか
 - TileLayer CSVを将来full grid / sparse / chunkedへ最適化するか
