@@ -1852,9 +1852,11 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	const NativeObjectRuntime* FallEnemy =
 		Objects.Find("enemy-cliff-fall");
 	const NativeObjectRuntime* Lift = Objects.Find("lift-1");
+	const NativeObjectRuntime* Carrot = Objects.Find("carrot-v1");
 	assert(TurnEnemy != nullptr);
 	assert(FallEnemy != nullptr);
 	assert(Lift != nullptr);
+	assert(Carrot != nullptr);
 
 	assert(FallEnemy->TypeId == "WalkingEnemy");
 	assert(NearlyEqual(FallEnemy->Position.X, 160.0f));
@@ -1888,6 +1890,11 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	assert(NearlyEqual(Lift->HitboxSize.X, 44.0f));
 	assert(NearlyEqual(Lift->HitboxSize.Y, 10.0f));
 	assert(Lift->ContactDamage == 0);
+
+	assert(Carrot->TypeId == "CarrotMan");
+	assert(!Carrot->ContactEnabled);
+	assert(!Carrot->Stompable);
+	assert(Carrot->BehaviorState == 0);
 }
 
 void TestNativeObjectRuntimeUsesPlayerCentralTouchBounds() {
