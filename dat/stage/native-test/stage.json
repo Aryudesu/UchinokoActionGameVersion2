@@ -40,7 +40,8 @@
             { "id": "shooter-cw", "type": "StationaryShooter", "position": [352, 448], "properties": { "pattern": "spiralCW12", "intervalFrames": 101 } },
             { "id": "shooter-ccw", "type": "StationaryShooter", "position": [448, 384], "properties": { "pattern": "spiralCCW12", "intervalFrames": 101 } },
             { "id": "shooter-dual", "type": "StationaryShooter", "position": [576, 320], "properties": { "pattern": "dualSpiral24", "intervalFrames": 101 } },
-            { "id": "pikachii-v1", "type": "Pikachii", "position": [704, 512] }
+            { "id": "pikachii-v1", "type": "Pikachii", "position": [704, 512] },
+            { "id": "chikorarashi-hsp", "type": "Chikorarashi", "position": [640, 512] }
           ]
         }
       ],
