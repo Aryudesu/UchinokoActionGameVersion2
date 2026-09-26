@@ -58,11 +58,14 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 }
 
 bool IsWalkingCollisionEnemy(const NativeObjectRuntime& Object) {
-	if (!IsEnemyCollisionParticipant(Object)) return false;
+	if (Object.TypeId == "WalkingEnemy") return true;
+	if (Object.TypeId == "CarrotMan") {
+		return Object.BehaviorState != CarrotHidden;
+	}
 	if (IsBallSlime(Object)) {
 		return Object.BehaviorState != BallSlimeShell;
 	}
-	return true;
+	return false;
 }
 
 bool TryReadVector2(
