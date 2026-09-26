@@ -193,6 +193,7 @@ bool NativeStageSandboxScene::ActivateArea(const std::string& AreaId) {
 	World_.Synchronize(TerrainLayer_->Map, TerrainCatalog_);
 	TerrainRuntime_.Reset(TerrainLayer_->Map);
 
+	Projectiles_.Reset();
 	uchinoko::Result<bool> ObjectResult = Objects_.Reset(*Area_);
 	if (ObjectResult.IsFailure()) {
 		LoadError_ = ObjectResult.Error();
@@ -479,6 +480,26 @@ void NativeStageSandboxScene::ApplyObjectContacts() {
 	ActiveObjectContacts_ = std::move(CurrentIds);
 }
 
+void NativeStageSandboxScene::UpdateProjectilesAndContacts() {
+	Projectiles_.SpawnAll(Objects_.TakeProjectileSpawns());
+	Projectiles_.Update(TerrainLayer_->Map, TerrainCatalog_);
+
+	const uchinoko::CharacterTouchBounds Touch = Player_.TouchBounds();
+	const uchinoko::WorldPosition Position = {Touch.Left, Touch.Top};
+	const uchinoko::WorldPosition Size = {
+		Touch.Right - Touch.Left,
+		Touch.Bottom - Touch.Top
+	};
+
+	const std::vector<uchinoko::ProjectileContact> Contacts =
+		Projectiles_.FindContacts(Position, Size);
+	for (const uchinoko::ProjectileContact& Contact : Contacts) {
+		Projectiles_.Deactivate(Contact.ProjectileIndex);
+		BeginPlayerDamage(Contact.Damage, Contact.SourceCenterX);
+		if (Dead_) return;
+	}
+}
+
 void NativeStageSandboxScene::CheckGoalRegions() {
 	if (Area_ == nullptr || Completion_.Cleared) return;
 
@@ -583,6 +604,7 @@ void NativeStageSandboxScene::Reload() {
 	PlayerReady_ = false;
 	Items_.Reset();
 	Bricks_.Reset();
+	Projectiles_.Reset();
 	DamageReaction_.Reset();
 	Pipe_.Reset();
 	Completion_.Reset();
@@ -680,6 +702,8 @@ void NativeStageSandboxScene::update() {
 			TerrainLayer_->Map,
 			TerrainCatalog_,
 			Player_.Body().Position);
+		UpdateProjectilesAndContacts();
+		if (Dead_) return;
 		ApplyObjectContacts();
 		if (Dead_) return;
 		CheckGoalRegions();
@@ -709,6 +733,8 @@ void NativeStageSandboxScene::update() {
 		TerrainLayer_->Map,
 		TerrainCatalog_,
 		Player_.Body().Position);
+	UpdateProjectilesAndContacts();
+	if (Dead_) return;
 	ApplyObjectContacts();
 	if (Dead_) return;
 	CheckGoalRegions();
@@ -914,6 +940,26 @@ void NativeStageSandboxScene::DrawRuntimeEffects() {
 		}
 	}
 
+	for (const uchinoko::ProjectileRuntime& Projectile :
+		Projectiles_.Projectiles()) {
+		if (!Projectile.Active) continue;
+		const int X = ScreenX(Projectile.Position.X);
+		const int Y = ScreenY(Projectile.Position.Y);
+		const unsigned int Color =
+			Projectile.Motion == uchinoko::ProjectileMotion::Straight
+				? GetColor(255, 120, 120)
+				: Projectile.Motion ==
+					uchinoko::ProjectileMotion::SpiralClockwise
+					? GetColor(140, 190, 255)
+					: GetColor(210, 140, 255);
+		DrawCircle(
+			X,
+			Y,
+			static_cast<int>(Projectile.HitRadius),
+			Color,
+			TRUE);
+	}
+
 	for (const uchinoko::BrickFragment& Fragment : Bricks_.Fragments()) {
 		const int X = ScreenX(Fragment.Position.X);
 		const int Y = ScreenY(Fragment.Position.Y);
@@ -1032,6 +1078,13 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					Object->BehaviorState == 1 ? "S" : "K",
 					GetColor(230, 255, 230));
 			}
+		} else if (Object->TypeId == "StationaryShooter") {
+			DrawBox(
+				X + 4, Y + 4, X + 28, Y + 28,
+				GetColor(210, 120, 255), FALSE);
+			DrawCircle(
+				X + 16, Y + 16, 5,
+				GetColor(255, 220, 255), TRUE);
 		} else if (Object->TypeId == "HorizontalLift") {
 			DrawBox(
 				X - 6, Y + 11, X + 38, Y + 21,
@@ -1111,6 +1164,15 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					Object->Velocity.X,
 					Object->Velocity.Y,
 					Object->Grounded ? " G" : "");
+			} else if (Object->TypeId == "StationaryShooter") {
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(235, 190, 255),
+					"%s %s t=%d/%d",
+					Object->Id.c_str(),
+					Object->AttackPattern.c_str(),
+					Object->BehaviorTimer,
+					Object->AttackIntervalFrames);
 			} else {
 				DrawFormatString(
 					X, Y + 34,
