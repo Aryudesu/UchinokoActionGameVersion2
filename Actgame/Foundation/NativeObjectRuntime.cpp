@@ -22,6 +22,7 @@ constexpr int BallSlimeKicked = 2;
 constexpr int BallSlimeWakeFrames = 60 * 5;
 constexpr int BallSlimeRecoverFrames = 60 * 7;
 constexpr int BallSlimeKickGraceFrames = 30;
+constexpr int BallSlimeShellTouchGraceFrames = 12;
 constexpr float BallSlimeWalkSpeed = 2.0f;
 constexpr float BallSlimeKickSpeed = 8.0f;
 constexpr float BallSlimeWakeJumpSpeed = 3.0f;
@@ -1114,6 +1115,12 @@ bool NativeObjectSystem::HandlePlayerTouch(
 		return false;
 	}
 	if (Object->BehaviorState != BallSlimeShell) {
+		return false;
+	}
+
+	// 踏みつけ直後はPlayerがまだHitBoundsへ重なっているため、
+	// その接触を「横から蹴った」と誤認しないよう短い猶予を置く。
+	if (Object->BehaviorTimer < BallSlimeShellTouchGraceFrames) {
 		return false;
 	}
 
