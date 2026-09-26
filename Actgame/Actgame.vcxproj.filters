@@ -366,6 +366,7 @@
     <ClCompile Include="Foundation\ItemSystem.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\LayeredMap.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\NativeObjectRuntime.cpp"><Filter>Foundation</Filter></ClCompile>
+    <ClCompile Include="Foundation\ProjectileSystem.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\NativeStageDataLoader.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\PipeTransport.cpp"><Filter>Foundation</Filter></ClCompile>
     <ClCompile Include="Foundation\StageProgress.cpp"><Filter>Foundation</Filter></ClCompile>
@@ -397,6 +398,7 @@
     <ClInclude Include="Foundation\ItemSystem.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\LayeredMap.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\NativeObjectRuntime.h"><Filter>Foundation</Filter></ClInclude>
+    <ClInclude Include="Foundation\ProjectileSystem.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\NativeStageDataLoader.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\PipeTransport.h"><Filter>Foundation</Filter></ClInclude>
     <ClInclude Include="Foundation\GoalState.h"><Filter>Foundation</Filter></ClInclude>
