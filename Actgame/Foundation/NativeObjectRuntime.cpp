@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace uchinoko {
 
@@ -46,7 +47,10 @@ bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 }
 
 bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
-	if (Object.TypeId == "WalkingEnemy") return true;
+	if (Object.TypeId == "WalkingEnemy" ||
+		Object.TypeId == "StationaryShooter") {
+		return true;
+	}
 	if (Object.TypeId == "CarrotMan") {
 		return Object.BehaviorState != CarrotHidden;
 	}
@@ -734,6 +738,11 @@ void NativeObjectSystem::ResetToSpawn(
 		Object.Stompable = true;
 		Object.ContactDamage = 1;
 		Object.MoveSpeed = BallSlimeWalkSpeed;
+	} else if (Object.TypeId == "StationaryShooter") {
+		Object.BehaviorTimer = 0;
+		Object.ContactEnabled = true;
+		Object.Stompable = true;
+		Object.ContactDamage = 1;
 	}
 }
 
