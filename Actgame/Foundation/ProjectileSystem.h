@@ -12,7 +12,8 @@ namespace uchinoko {
 enum class ProjectileMotion {
 	Straight,
 	SpiralClockwise,
-	SpiralCounterClockwise
+	SpiralCounterClockwise,
+	Ballistic
 };
 
 struct ProjectileSpawnRequest {
@@ -21,6 +22,7 @@ struct ProjectileSpawnRequest {
 	ProjectileMotion Motion = ProjectileMotion::Straight;
 	float Speed = 0.0f;
 	float Angle = 0.0f;
+	float Gravity = 0.0f;
 	int Damage = 1;
 	int LifetimeFrames = 360;
 	float Radius = 5.0f;
@@ -35,6 +37,7 @@ struct ProjectileRuntime {
 	float Speed = 0.0f;
 	float Angle = 0.0f;
 	float RadiusFromOrigin = 0.0f;
+	float Gravity = 0.0f;
 	float HitRadius = 5.0f;
 	int Damage = 1;
 	int AgeFrames = 0;
