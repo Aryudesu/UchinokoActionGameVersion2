@@ -41,7 +41,9 @@
             { "id": "shooter-ccw", "type": "StationaryShooter", "position": [448, 384], "properties": { "pattern": "spiralCCW12", "intervalFrames": 101 } },
             { "id": "shooter-dual", "type": "StationaryShooter", "position": [576, 320], "properties": { "pattern": "dualSpiral24", "intervalFrames": 101 } },
             { "id": "pikachii-v1", "type": "Pikachii", "position": [704, 512] },
-            { "id": "chikorarashi-hsp", "type": "Chikorarashi", "position": [640, 512] }
+            { "id": "chikorarashi-hsp", "type": "Chikorarashi", "position": [640, 512] },
+            { "id": "shooter-bounce", "type": "StationaryShooter", "position": [256, 288], "properties": { "pattern": "bounce4", "intervalFrames": 120 } },
+            { "id": "shooter-split", "type": "StationaryShooter", "position": [352, 288], "properties": { "pattern": "splitDown", "intervalFrames": 120 } }
           ]
         }
       ],
