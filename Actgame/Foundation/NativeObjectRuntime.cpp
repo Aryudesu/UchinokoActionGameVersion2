@@ -1083,14 +1083,26 @@ bool NativeObjectSystem::HandlePlayerTouch(
 	NativeObjectRuntime* Object = Find(ObjectId);
 	if (Object == nullptr ||
 		!Object->Active ||
-		Object->TypeId != "BallSlime" ||
-		Object->BehaviorState != BallSlimeShell) {
+		Object->TypeId != "BallSlime") {
 		return false;
 	}
 
 	const ObjectHitBounds Bounds = Object->HitBounds();
 	const float ObjectCenterX =
 		Bounds.Position.X + Bounds.Size.X * 0.5f;
+
+	if (Object->BehaviorState == BallSlimeWalking) {
+		// V1では通常歩行中にPlayerへ横接触すると進行方向を反転する。
+		if ((PlayerCenterX > ObjectCenterX && Object->Direction > 0) ||
+			(PlayerCenterX <= ObjectCenterX && Object->Direction < 0)) {
+			Object->Direction *= -1;
+		}
+		return false;
+	}
+	if (Object->BehaviorState != BallSlimeShell) {
+		return false;
+	}
+
 	Object->Direction =
 		PlayerCenterX > ObjectCenterX ? -1 : 1;
 	Object->BehaviorState = BallSlimeKicked;
