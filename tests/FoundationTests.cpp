@@ -1460,7 +1460,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 
 	const ObjectLayer* Objects = Area->FindObjectLayer("objects");
 	assert(Objects != nullptr);
-	assert(Objects->Objects.size() == 15);
+	assert(Objects->Objects.size() == 16);
 	assert(Objects->Objects[0].TypeId == "PlayerSpawn");
 	assert(NearlyEqual(Objects->Objects[0].Position.X, 32.0f));
 	assert(NearlyEqual(Objects->Objects[0].Position.Y, 128.0f));
@@ -1845,7 +1845,7 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	NativeObjectSystem Objects;
 	Result<bool> Reset = Objects.Reset(*Area);
 	assert(Reset.IsSuccess());
-	assert(Objects.Objects().size() == 14);
+	assert(Objects.Objects().size() == 15);
 
 	const NativeObjectRuntime* TurnEnemy =
 		Objects.Find("enemy-cliff-turn");
@@ -2686,6 +2686,90 @@ void TestPikachiiKeepsAttackCycleOutsideCameraUntilLanding() {
 	assert(Enemy->LifeState == ObjectLifeState::Active);
 	assert(Enemy->Active);
 	assert(Enemy->BehaviorState == 1);
+}
+
+void TestBallisticProjectileAppliesGravityAndIgnoresTerrain() {
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{1, 1, 1},
+		{0, 0, 0}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	ProjectileSystem Projectiles;
+	ProjectileSpawnRequest Request;
+	Request.Position = {48.0f, 20.0f};
+	Request.Velocity = {2.0f, 10.0f};
+	Request.Motion = ProjectileMotion::Ballistic;
+	Request.Gravity = 0.5f;
+	Request.CollidesWithTerrain = false;
+	Projectiles.Spawn(Request);
+
+	Projectiles.Update(Map, Catalog);
+	const ProjectileRuntime& P = Projectiles.Projectiles()[0];
+	assert(P.Active);
+	assert(NearlyEqual(P.Velocity.Y, 10.5f));
+	assert(NearlyEqual(P.Position.X, 50.0f));
+	assert(NearlyEqual(P.Position.Y, 30.5f));
+
+	// 次frameでsolid rowへ入ってもterrain無視なので生存する。
+	Projectiles.Update(Map, Catalog);
+	assert(Projectiles.Projectiles()[0].Active);
+	assert(Projectiles.Projectiles()[0].Position.Y > 32.0f);
+}
+
+void TestChikorarashiEmitsHspGravityShots() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "chiko";
+	Spawn.TypeId = "Chikorarashi";
+	Spawn.Position = {64.0f, 32.0f};
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	std::vector<ProjectileSpawnRequest> Shots;
+	for (int Frame = 0; Frame < 74; ++Frame) {
+		Objects.Update(Map, Catalog, {128.0f, 32.0f});
+		const auto NewShots = Objects.TakeProjectileSpawns();
+		Shots.insert(Shots.end(), NewShots.begin(), NewShots.end());
+	}
+	assert(Shots.size() == 1);
+	const ProjectileSpawnRequest& Shot = Shots[0];
+	assert(Shot.Motion == ProjectileMotion::Ballistic);
+	assert(!Shot.CollidesWithTerrain);
+	assert(NearlyEqual(Shot.Gravity, 0.4f / 3.0f));
+	assert(std::fabs(Shot.Velocity.X) >= 1.0f);
+	assert(std::fabs(Shot.Velocity.X) <= 3.0f);
+	assert(Shot.Velocity.Y <= -4.0f);
+	assert(Shot.Velocity.Y >= -7.0f);
 }
 
 void TestStompRepositionMatchesHspOnePixelSeparation() {
@@ -6222,6 +6306,8 @@ int main(int argc, char* argv[]) {
 		TestStationaryShooterRejectsUnknownPattern();
 		TestPikachiiChargesJumpsAndFiresAimedProjectile();
 		TestPikachiiKeepsAttackCycleOutsideCameraUntilLanding();
+		TestBallisticProjectileAppliesGravityAndIgnoresTerrain();
+		TestChikorarashiEmitsHspGravityShots();
 		TestStompRepositionMatchesHspOnePixelSeparation();
 		TestCharacterSetVelocityKeepsInternalVelocityInSync();
 		TestNativeWalkingEnemyMovesAndTurnsAtWall();
@@ -6295,6 +6381,8 @@ int main(int argc, char* argv[]) {
 	TestStationaryShooterRejectsUnknownPattern();
 	TestPikachiiChargesJumpsAndFiresAimedProjectile();
 	TestPikachiiKeepsAttackCycleOutsideCameraUntilLanding();
+	TestBallisticProjectileAppliesGravityAndIgnoresTerrain();
+	TestChikorarashiEmitsHspGravityShots();
 	TestStompRepositionMatchesHspOnePixelSeparation();
 	TestCharacterSetVelocityKeepsInternalVelocityInSync();
 	TestNativeWalkingEnemyMovesAndTurnsAtWall();
