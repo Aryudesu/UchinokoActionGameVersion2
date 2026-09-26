@@ -2197,7 +2197,15 @@ void TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery() {
 	assert(Ball->ContactDamage == 0);
 	assert(NearlyEqual(Ball->Velocity.X, 0.0f));
 
-	// Shellを右側から触ると、Playerから離れる左向きへKickされる。
+	// 踏みつけ直後はPlayerがまだ重なっていても即Kickしない。
+	assert(!Objects.HandlePlayerTouch("ball", 120.0f));
+	for (int Frame = 0; Frame < 12; ++Frame) {
+		Objects.Update(Map, Catalog);
+	}
+	Ball = Objects.Find("ball");
+	assert(Ball->BehaviorState == 1);
+
+	// 猶予後にShellを右側から触ると、Playerから離れる左向きへKickされる。
 	assert(Objects.HandlePlayerTouch("ball", 120.0f));
 	Ball = Objects.Find("ball");
 	assert(Ball->BehaviorState == 2);
