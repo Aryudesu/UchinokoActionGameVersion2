@@ -43,6 +43,10 @@ struct NativeObjectRuntime {
 	float MaxFallSpeed = 12.0f;
 	bool Grounded = false;
 	bool Active = true;
+	bool ContactEnabled = true;
+	bool Stompable = false;
+	int BehaviorState = 0;
+	int BehaviorTimer = 0;
 	ObjectLifeState LifeState = ObjectLifeState::Active;
 	bool RespawnArmed = true;
 
@@ -81,7 +85,8 @@ public:
 
 	void Update(
 		const TileMap& Map,
-		const TileCatalog& Catalog);
+		const TileCatalog& Catalog,
+		WorldPosition PlayerPosition = {0.0f, 0.0f});
 
 	std::vector<NativeObjectContact> FindContacts(
 		WorldPosition Position,
@@ -98,6 +103,11 @@ private:
 		NativeObjectRuntime& Object,
 		const TileMap& Map,
 		const TileCatalog& Catalog);
+	static void UpdateCarrotMan(
+		NativeObjectRuntime& Object,
+		const TileMap& Map,
+		const TileCatalog& Catalog,
+		WorldPosition PlayerPosition);
 
 	std::vector<NativeObjectRuntime> Objects_;
 };
