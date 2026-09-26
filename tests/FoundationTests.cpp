@@ -2631,6 +2631,54 @@ void TestPikachiiChargesJumpsAndFiresAimedProjectile() {
 	assert(Enemy->BehaviorTimer == 0);
 }
 
+void TestPikachiiKeepsAttackCycleOutsideCameraUntilLanding() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "pikachii";
+	Spawn.TypeId = "Pikachii";
+	Spawn.Position = {64.0f, 32.0f};
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	// 75Fまで進めて大ジャンプ開始。
+	for (int Frame = 0; Frame < 75; ++Frame) {
+		Objects.Update(Map, Catalog, {96.0f, 32.0f});
+	}
+	NativeObjectRuntime* Enemy = Objects.Find("pikachii");
+	assert(Enemy != nullptr);
+	assert(Enemy->BehaviorState == 1);
+
+	// Cameraの上側へ大きく出ても、攻撃cycle中はDormant化しない。
+	Enemy->Position.Y = -300.0f;
+	Objects.UpdateLifecycle(
+		{0.0f, 0.0f},
+		{512.0f, 320.0f});
+	Enemy = Objects.Find("pikachii");
+	assert(Enemy->LifeState == ObjectLifeState::Active);
+	assert(Enemy->Active);
+	assert(Enemy->BehaviorState == 1);
+}
+
 void TestStompRepositionMatchesHspOnePixelSeparation() {
 	CharacterBody Body;
 	Body.Position = {100.0f, 73.0f};
@@ -6164,6 +6212,7 @@ int main(int argc, char* argv[]) {
 		TestStationaryShooterEmitsHspPatterns();
 		TestStationaryShooterRejectsUnknownPattern();
 		TestPikachiiChargesJumpsAndFiresAimedProjectile();
+		TestPikachiiKeepsAttackCycleOutsideCameraUntilLanding();
 		TestStompRepositionMatchesHspOnePixelSeparation();
 		TestCharacterSetVelocityKeepsInternalVelocityInSync();
 		TestNativeWalkingEnemyMovesAndTurnsAtWall();
@@ -6236,6 +6285,7 @@ int main(int argc, char* argv[]) {
 	TestStationaryShooterEmitsHspPatterns();
 	TestStationaryShooterRejectsUnknownPattern();
 	TestPikachiiChargesJumpsAndFiresAimedProjectile();
+	TestPikachiiKeepsAttackCycleOutsideCameraUntilLanding();
 	TestStompRepositionMatchesHspOnePixelSeparation();
 	TestCharacterSetVelocityKeepsInternalVelocityInSync();
 	TestNativeWalkingEnemyMovesAndTurnsAtWall();
