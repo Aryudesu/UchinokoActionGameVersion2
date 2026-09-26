@@ -55,6 +55,12 @@ void ProjectileSystem::Spawn(
 	Projectile.LifetimeFrames = Request.LifetimeFrames;
 	Projectile.HitRadius = Request.Radius;
 	Projectile.CollidesWithTerrain = Request.CollidesWithTerrain;
+
+	for (ProjectileRuntime& Existing : Projectiles_) {
+		if (Existing.Active) continue;
+		Existing = Projectile;
+		return;
+	}
 	Projectiles_.push_back(Projectile);
 }
 
