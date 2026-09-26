@@ -433,12 +433,22 @@ void NativeStageSandboxScene::ApplyObjectContacts() {
 		CurrentIds.push_back(Contact.ObjectId);
 
 		if (Contact.Kind == uchinoko::NativeObjectContactKind::Stomp) {
-			if (Objects_.HandleStomp(Contact.ObjectId)) {
-				const uchinoko::WorldPosition Velocity = {
-					Player_.Body().Velocity.X,
+			const uchinoko::NativeObjectRuntime* Object =
+				Objects_.Find(Contact.ObjectId);
+			if (Object != nullptr && Objects_.HandleStomp(Contact.ObjectId)) {
+				// HSP版と同じく、踏んだ瞬間にPlayerをEnemyの真上へ
+				// 座標補正してから上方向へ跳ね返す。
+				// Player bottom == Object.Position.Y となるため、
+				// HitBounds(offsetY=1)とは1px離れ、次frameのTouchへ残らない。
+				const uchinoko::CharacterBody Body = Player_.Body();
+				Player_.Reposition({
+					Body.Position.X,
+					Object->Position.Y - Body.Height
+				});
+				Player_.SetVelocity({
+					Body.Velocity.X,
 					-6.0f
-				};
-				Player_.SetVelocity(Velocity);
+				});
 			}
 			continue;
 		}
