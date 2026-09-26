@@ -52,6 +52,9 @@ void ProjectileSystem::Spawn(
 	Projectile.Speed = Request.Speed;
 	Projectile.Angle = Request.Angle;
 	Projectile.Gravity = Request.Gravity;
+	Projectile.TerrainResponse = Request.TerrainResponse;
+	Projectile.SplitCount = Request.SplitCount;
+	Projectile.SplitSpeed = Request.SplitSpeed;
 	Projectile.Damage = Request.Damage;
 	Projectile.LifetimeFrames = Request.LifetimeFrames;
 	Projectile.HitRadius = Request.Radius;
@@ -91,6 +94,8 @@ bool ProjectileSystem::TouchesTerrain(
 void ProjectileSystem::Update(
 	const TileMap& Map,
 	const TileCatalog& Catalog) {
+	std::vector<ProjectileSpawnRequest> DeferredSpawns;
+
 	for (ProjectileRuntime& Projectile : Projectiles_) {
 		if (!Projectile.Active) continue;
 
@@ -100,13 +105,32 @@ void ProjectileSystem::Update(
 			continue;
 		}
 
-		if (Projectile.Motion == ProjectileMotion::Straight) {
-			Projectile.Position.X += Projectile.Velocity.X;
-			Projectile.Position.Y += Projectile.Velocity.Y;
-		} else if (Projectile.Motion == ProjectileMotion::Ballistic) {
-			Projectile.Velocity.Y += Projectile.Gravity;
-			Projectile.Position.X += Projectile.Velocity.X;
-			Projectile.Position.Y += Projectile.Velocity.Y;
+		if (Projectile.Motion == ProjectileMotion::Straight ||
+			Projectile.Motion == ProjectileMotion::Ballistic) {
+			if (Projectile.Motion == ProjectileMotion::Ballistic) {
+				Projectile.Velocity.Y += Projectile.Gravity;
+			}
+
+			const WorldPosition Previous = Projectile.Position;
+
+			if (Projectile.CollidesWithTerrain &&
+				Projectile.TerrainResponse ==
+					ProjectileTerrainResponse::Bounce) {
+				Projectile.Position.X += Projectile.Velocity.X;
+				if (TouchesTerrain(Projectile, Map, Catalog)) {
+					Projectile.Position.X = Previous.X;
+					Projectile.Velocity.X *= -1.0f;
+				}
+
+				Projectile.Position.Y += Projectile.Velocity.Y;
+				if (TouchesTerrain(Projectile, Map, Catalog)) {
+					Projectile.Position.Y = Previous.Y;
+					Projectile.Velocity.Y *= -1.0f;
+				}
+			} else {
+				Projectile.Position.X += Projectile.Velocity.X;
+				Projectile.Position.Y += Projectile.Velocity.Y;
+			}
 		} else {
 			const float AngularDelta =
 				Projectile.Motion == ProjectileMotion::SpiralClockwise
@@ -141,11 +165,42 @@ void ProjectileSystem::Update(
 			continue;
 		}
 
-		if (Projectile.CollidesWithTerrain &&
-			TouchesTerrain(Projectile, Map, Catalog)) {
-			Projectile.Active = false;
+		if (!Projectile.CollidesWithTerrain ||
+			Projectile.TerrainResponse ==
+				ProjectileTerrainResponse::Bounce) {
+			continue;
 		}
+
+		if (!TouchesTerrain(Projectile, Map, Catalog)) continue;
+
+		if (Projectile.TerrainResponse ==
+			ProjectileTerrainResponse::Split) {
+			const int Count = (std::max)(1, Projectile.SplitCount);
+			for (int Index = 0; Index < Count; ++Index) {
+				const float Angle =
+					Pi * 2.0f * static_cast<float>(Index) /
+					static_cast<float>(Count);
+
+				ProjectileSpawnRequest Child;
+				Child.Position = Projectile.Position;
+				Child.Velocity = {
+					std::cos(Angle) * Projectile.SplitSpeed,
+					std::sin(Angle) * Projectile.SplitSpeed
+				};
+				Child.Motion = ProjectileMotion::Straight;
+				Child.Damage = Projectile.Damage;
+				Child.LifetimeFrames = Projectile.LifetimeFrames;
+				Child.Radius = Projectile.HitRadius;
+				// HSP eshootf=6相当。分裂後はterrainを無視して直進。
+				Child.CollidesWithTerrain = false;
+				DeferredSpawns.push_back(Child);
+			}
+		}
+
+		Projectile.Active = false;
 	}
+
+	SpawnAll(DeferredSpawns);
 }
 
 std::vector<ProjectileContact> ProjectileSystem::FindContacts(
