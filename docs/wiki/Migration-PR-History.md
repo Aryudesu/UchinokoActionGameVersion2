@@ -40,7 +40,13 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #37 | Native SpawnItem / Brick / WorldState gameplay adapter | merged |
 | #38 | Native ObjectRuntime + TypeId別HitBounds接触基盤 | merged |
 | #39 | Native Enemy接触 + DamageReaction / knockback | merged |
-| #40 | Native WalkingEnemy移動AI + Terrain衝突 | open |
+| #40 | Native WalkingEnemy移動AI + Terrain衝突 | merged |
+| #41 | WalkingEnemy踏みつけ / Touch damage分離 | merged |
+| #42 | WalkingEnemy同士の横衝突・反転 | merged |
+| #43 | Enemy対象Damage / InstantDeath地形 | merged |
+| #44 | Platformer向けCamera2D / Native Sandbox接続 | merged |
+| #45 | Enemy Active / Dormant / Defeated lifecycle | merged |
+| #46 | Version1 CarrotMan移植 | merged |
 
 ## 読み方
 
@@ -97,8 +103,20 @@ Native ObjectRuntime / HitBounds / Player contact
 #39
 Native Enemy contact / DamageReaction / knockback
 
-#40-
+#40
 Native WalkingEnemy movement / Terrain collision
+
+#41-43
+Enemy stomp / Enemy同士衝突 / Enemy damage terrain
+
+#44
+Camera2D / Platformer camera / world-view変換
+
+#45
+Enemy camera lifecycle / Dormant / respawn / Defeated
+
+#46
+Version1 CarrotMan / behavior state
 ```
 
 という流れです。
