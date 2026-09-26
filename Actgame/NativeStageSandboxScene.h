@@ -8,6 +8,7 @@
 #include "Foundation/ItemSystem.h"
 #include "Foundation/NativeObjectRuntime.h"
 #include "Foundation/PipeTransport.h"
+#include "Foundation/ProjectileSystem.h"
 #include "Foundation/StageData.h"
 #include "Foundation/WorldState.h"
 #include "Scene.h"
@@ -57,6 +58,7 @@ private:
 	bool BeginPlayerDamage(int Damage, float SourceCenterX);
 	void ApplyTerrainEffects();
 	void ApplyObjectContacts();
+	void UpdateProjectilesAndContacts();
 	void CheckGoalRegions();
 	bool TryBeginTransition(const uchinoko::CharacterInput& Input);
 	void UpdateTransition();
@@ -86,6 +88,7 @@ private:
 	uchinoko::BrickSystem Bricks_;
 	uchinoko::WorldState World_;
 	uchinoko::NativeObjectSystem Objects_;
+	uchinoko::ProjectileSystem Projectiles_;
 	uchinoko::DamageReactionState DamageReaction_;
 	uchinoko::PipeTransport Pipe_;
 	uchinoko::StageCompletionState Completion_;
