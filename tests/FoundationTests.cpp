@@ -1460,7 +1460,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 
 	const ObjectLayer* Objects = Area->FindObjectLayer("objects");
 	assert(Objects != nullptr);
-	assert(Objects->Objects.size() == 6);
+	assert(Objects->Objects.size() == 10);
 	assert(Objects->Objects[0].TypeId == "PlayerSpawn");
 	assert(NearlyEqual(Objects->Objects[0].Position.X, 32.0f));
 	assert(NearlyEqual(Objects->Objects[0].Position.Y, 128.0f));
@@ -1845,7 +1845,7 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	NativeObjectSystem Objects;
 	Result<bool> Reset = Objects.Reset(*Area);
 	assert(Reset.IsSuccess());
-	assert(Objects.Objects().size() == 7);
+	assert(Objects.Objects().size() == 9);
 
 	const NativeObjectRuntime* TurnEnemy =
 		Objects.Find("enemy-cliff-turn");
@@ -1853,10 +1853,14 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 		Objects.Find("enemy-cliff-fall");
 	const NativeObjectRuntime* Lift = Objects.Find("lift-1");
 	const NativeObjectRuntime* Carrot = Objects.Find("carrot-v1");
+	const NativeObjectRuntime* BallFall = Objects.Find("ball-slime-fall");
+	const NativeObjectRuntime* BallTurn = Objects.Find("ball-slime-turn");
 	assert(TurnEnemy != nullptr);
 	assert(FallEnemy != nullptr);
 	assert(Lift != nullptr);
 	assert(Carrot != nullptr);
+	assert(BallFall != nullptr);
+	assert(BallTurn != nullptr);
 
 	assert(FallEnemy->TypeId == "WalkingEnemy");
 	assert(NearlyEqual(FallEnemy->Position.X, 160.0f));
@@ -1895,6 +1899,20 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	assert(!Carrot->ContactEnabled);
 	assert(!Carrot->Stompable);
 	assert(Carrot->BehaviorState == 0);
+
+	assert(BallFall->TypeId == "BallSlime");
+	assert(BallFall->Variant == 1);
+	assert(BallFall->Direction == -1);
+	assert(NearlyEqual(BallFall->HitboxOffset.X, 2.0f));
+	assert(NearlyEqual(BallFall->HitboxOffset.Y, 1.0f));
+	assert(NearlyEqual(BallFall->HitboxSize.X, 28.0f));
+	assert(NearlyEqual(BallFall->HitboxSize.Y, 31.0f));
+	assert(BallFall->BehaviorState == 0);
+	assert(BallFall->Stompable);
+	assert(BallFall->ContactDamage == 1);
+
+	assert(BallTurn->TypeId == "BallSlime");
+	assert(BallTurn->Variant == 2);
 }
 
 void TestNativeObjectRuntimeUsesPlayerCentralTouchBounds() {
@@ -2128,6 +2146,222 @@ void TestNativeCarrotManWaitsEmergesAndStartsWalking() {
 	assert(Enemy->BehaviorState == 0);
 	assert(!Enemy->ContactEnabled);
 	assert(!Enemy->Stompable);
+}
+
+void TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "ball";
+	Spawn.TypeId = "BallSlime";
+	Spawn.Position = {64.0f, 32.0f};
+	Spawn.Properties["direction"] =
+		StagePropertyValue::String("right");
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(1);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	const NativeObjectRuntime* Ball = Objects.Find("ball");
+	assert(Ball != nullptr);
+	assert(Ball->BehaviorState == 0);
+	assert(Ball->Stompable);
+	assert(Ball->ContactDamage == 1);
+
+	// 通常状態を踏むと倒れず、停止したShell状態へ移る。
+	assert(Objects.HandleStomp("ball"));
+	Ball = Objects.Find("ball");
+	assert(Ball->Active);
+	assert(Ball->LifeState == ObjectLifeState::Active);
+	assert(Ball->BehaviorState == 1);
+	assert(!Ball->Stompable);
+	assert(Ball->ContactDamage == 0);
+	assert(NearlyEqual(Ball->Velocity.X, 0.0f));
+
+	// Shellを右側から触ると、Playerから離れる左向きへKickされる。
+	assert(Objects.HandlePlayerTouch("ball", 120.0f));
+	Ball = Objects.Find("ball");
+	assert(Ball->BehaviorState == 2);
+	assert(Ball->Direction == -1);
+	assert(NearlyEqual(Ball->MoveSpeed, 8.0f));
+	assert(Ball->ContactDamage == 0);
+
+	for (int Frame = 0; Frame < 29; ++Frame) {
+		Objects.Update(Map, Catalog);
+	}
+	Ball = Objects.Find("ball");
+	assert(Ball->BehaviorState == 2);
+	assert(Ball->BehaviorTimer == 29);
+	assert(!Ball->Stompable);
+	assert(Ball->ContactDamage == 0);
+
+	Objects.Update(Map, Catalog);
+	Ball = Objects.Find("ball");
+	assert(Ball->BehaviorTimer == 30);
+	assert(Ball->Stompable);
+	assert(Ball->ContactDamage == 1);
+
+	// 高速甲羅を踏むと再び停止Shellへ戻る。
+	assert(Objects.HandleStomp("ball"));
+	Ball = Objects.Find("ball");
+	assert(Ball->BehaviorState == 1);
+	assert(Ball->BehaviorTimer == 0);
+	assert(Ball->ContactDamage == 0);
+
+	// 5秒で復活予告の小ジャンプ、7秒で通常歩行へ戻る。
+	for (int Frame = 0; Frame < 300; ++Frame) {
+		Objects.Update(Map, Catalog);
+	}
+	Ball = Objects.Find("ball");
+	assert(Ball->BehaviorState == 1);
+	assert(Ball->BehaviorTimer == 300);
+	assert(Ball->Stompable);
+	assert(Ball->Velocity.Y < 0.0f);
+
+	for (int Frame = 0; Frame < 120; ++Frame) {
+		Objects.Update(Map, Catalog);
+	}
+	Ball = Objects.Find("ball");
+	assert(Ball->BehaviorState == 0);
+	assert(Ball->BehaviorTimer == 0);
+	assert(Ball->Stompable);
+	assert(Ball->ContactDamage == 1);
+	assert(NearlyEqual(Ball->MoveSpeed, 2.0f));
+}
+
+void TestNativeBallSlimeVariant2TurnsAtCliffOnlyWhileWalking() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0},
+		{1, 1, 1, 0, 0},
+		{0, 0, 0, 0, 0}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "ball";
+	Spawn.TypeId = "BallSlime";
+	Spawn.Position = {64.0f, 32.0f};
+	Spawn.Properties["direction"] =
+		StagePropertyValue::String("right");
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(2);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	for (int Frame = 0; Frame < 10; ++Frame) {
+		Objects.Update(Map, Catalog);
+	}
+
+	const NativeObjectRuntime* Ball = Objects.Find("ball");
+	assert(Ball != nullptr);
+	assert(Ball->BehaviorState == 0);
+	assert(Ball->Grounded);
+	assert(Ball->Direction == -1);
+
+	// Kick後はvariant=2でも崖回避を行わず、甲羅として落下できる。
+	assert(Objects.HandleStomp("ball"));
+	assert(Objects.HandlePlayerTouch("ball", 0.0f));
+	for (int Frame = 0; Frame < 10; ++Frame) {
+		Objects.Update(Map, Catalog);
+	}
+	Ball = Objects.Find("ball");
+	assert(Ball->BehaviorState == 2);
+	assert(!Ball->Grounded);
+	assert(Ball->Position.Y > 32.0f);
+}
+
+void TestNativeKickedBallSlimeDefeatsOtherEnemyAndLifecycleResetsShell() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+
+	ObjectSpawn BallSpawn;
+	BallSpawn.Id = "ball";
+	BallSpawn.TypeId = "BallSlime";
+	BallSpawn.Position = {32.0f, 32.0f};
+	BallSpawn.Properties["direction"] =
+		StagePropertyValue::String("right");
+	Layer.Objects.push_back(BallSpawn);
+
+	ObjectSpawn Walker;
+	Walker.Id = "walker";
+	Walker.TypeId = "WalkingEnemy";
+	Walker.Position = {60.0f, 32.0f};
+	Walker.Properties["direction"] =
+		StagePropertyValue::String("left");
+	Layer.Objects.push_back(Walker);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	assert(Objects.HandleStomp("ball"));
+	assert(Objects.HandlePlayerTouch("ball", 0.0f));
+
+	Objects.Update(Map, Catalog);
+	const NativeObjectRuntime* WalkerRuntime = Objects.Find("walker");
+	assert(WalkerRuntime != nullptr);
+	assert(!WalkerRuntime->Active);
+	assert(WalkerRuntime->LifeState == ObjectLifeState::Defeated);
+
+	// Camera外へ出たBallSlimeはspawnへ戻り、通常歩行状態へresetされる。
+	NativeObjectRuntime* Ball = Objects.Find("ball");
+	assert(Ball != nullptr);
+	Ball->Position = {700.0f, 32.0f};
+	Objects.UpdateLifecycle({0.0f, 0.0f}, {512.0f, 320.0f});
+	Ball = Objects.Find("ball");
+	assert(Ball->LifeState == ObjectLifeState::Dormant);
+	assert(Ball->BehaviorState == 0);
+	assert(Ball->BehaviorTimer == 0);
+	assert(Ball->ContactDamage == 1);
+	assert(Ball->Stompable);
 }
 
 void TestCharacterSetVelocityKeepsInternalVelocityInSync() {
@@ -5626,6 +5860,9 @@ int main(int argc, char* argv[]) {
 		TestNativeObjectRuntimeUsesPlayerCentralTouchBounds();
 		TestNativeObjectContactComposesWithDamageReaction();
 		TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage();
+		TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery();
+		TestNativeBallSlimeVariant2TurnsAtCliffOnlyWhileWalking();
+		TestNativeKickedBallSlimeDefeatsOtherEnemyAndLifecycleResetsShell();
 		TestCharacterSetVelocityKeepsInternalVelocityInSync();
 		TestNativeWalkingEnemyMovesAndTurnsAtWall();
 	TestNativeWalkingEnemiesTurnWhenTheyMeet();
@@ -5689,6 +5926,9 @@ int main(int argc, char* argv[]) {
 	TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage();
 	TestNativeWalkingEnemyLifecycleUsesCameraAndKeepsDefeatedState();
 	TestNativeCarrotManWaitsEmergesAndStartsWalking();
+	TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery();
+	TestNativeBallSlimeVariant2TurnsAtCliffOnlyWhileWalking();
+	TestNativeKickedBallSlimeDefeatsOtherEnemyAndLifecycleResetsShell();
 	TestCharacterSetVelocityKeepsInternalVelocityInSync();
 	TestNativeWalkingEnemyMovesAndTurnsAtWall();
 	TestNativeWalkingEnemiesTurnWhenTheyMeet();
