@@ -467,8 +467,7 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 	Runtime.Position = Spawn.Position;
 	Runtime.InitialPosition = Spawn.Position;
 
-	if (Spawn.TypeId == "WalkingEnemy" ||
-		Spawn.TypeId == "BallSlime") {
+	if (Spawn.TypeId == "WalkingEnemy") {
 		// V1 WalkingEnemy1:
 		// 32x32 sprite, gap.x=8 / gap.y=1
 		// => contact rectangle is approximately 16x31.
@@ -549,7 +548,8 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		return Result<NativeObjectRuntime>::Failure(Error);
 	}
 
-	if (Spawn.TypeId == "WalkingEnemy") {
+	if (Spawn.TypeId == "WalkingEnemy" ||
+		Spawn.TypeId == "BallSlime") {
 		std::string Direction =
 			Runtime.Direction < 0 ? "left" : "right";
 		if (!TryReadString(
