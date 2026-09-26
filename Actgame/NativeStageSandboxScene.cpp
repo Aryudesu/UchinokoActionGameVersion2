@@ -658,7 +658,10 @@ void NativeStageSandboxScene::update() {
 		ApplyTerrainEffects();
 		if (Dead_) return;
 		Objects_.UpdateLifecycle(Camera_.Position(), Camera_.ViewSize());
-		Objects_.Update(TerrainLayer_->Map, TerrainCatalog_);
+		Objects_.Update(
+			TerrainLayer_->Map,
+			TerrainCatalog_,
+			Player_.Body().Position);
 		ApplyObjectContacts();
 		if (Dead_) return;
 		CheckGoalRegions();
@@ -684,7 +687,10 @@ void NativeStageSandboxScene::update() {
 	ApplyTerrainEffects();
 	if (Dead_) return;
 	Objects_.UpdateLifecycle(Camera_.Position(), Camera_.ViewSize());
-	Objects_.Update(TerrainLayer_->Map, TerrainCatalog_);
+	Objects_.Update(
+		TerrainLayer_->Map,
+		TerrainCatalog_,
+		Player_.Body().Position);
 	ApplyObjectContacts();
 	if (Dead_) return;
 	CheckGoalRegions();
@@ -976,6 +982,20 @@ void NativeStageSandboxScene::DrawObjectLayer(
 				X + 2, Y + 2, X + 30, Y + 30,
 				GetColor(240, 90, 90), FALSE);
 			DrawString(X + 10, Y + 8, "E", GetColor(255, 170, 170));
+		} else if (Object->TypeId == "CarrotMan") {
+			if (Object->BehaviorState == 0) {
+				DrawBox(
+					X + 8, Y + 22, X + 24, Y + 30,
+					GetColor(255, 160, 70), TRUE);
+				DrawLine(
+					X + 16, Y + 22, X + 16, Y + 14,
+					GetColor(100, 220, 100), 2);
+			} else {
+				DrawBox(
+					X + 4, Y + 2, X + 28, Y + 30,
+					GetColor(255, 160, 70), FALSE);
+				DrawString(X + 10, Y + 8, "C", GetColor(255, 220, 170));
+			}
 		} else if (Object->TypeId == "HorizontalLift") {
 			DrawBox(
 				X - 6, Y + 11, X + 38, Y + 21,
@@ -1013,6 +1033,23 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					Object->Direction < 0 ? "<" : ">",
 					Object->MoveSpeed,
 					Touching ? " CONTACT" : "");
+				DrawFormatString(
+					X, Y + 50,
+					GetColor(210, 220, 255),
+					"vy=%.1f%s",
+					Object->Velocity.Y,
+					Object->Grounded ? " G" : "");
+			} else if (Object->TypeId == "CarrotMan") {
+				const char* State =
+					Object->BehaviorState == 0 ? "HIDDEN" :
+					Object->BehaviorState == 1 ? "EMERGE" : "WALK";
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(255, 205, 150),
+					"%s %s t=%d",
+					Object->Id.c_str(),
+					State,
+					Object->BehaviorTimer);
 				DrawFormatString(
 					X, Y + 50,
 					GetColor(210, 220, 255),
