@@ -1460,7 +1460,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 
 	const ObjectLayer* Objects = Area->FindObjectLayer("objects");
 	assert(Objects != nullptr);
-	assert(Objects->Objects.size() == 16);
+	assert(Objects->Objects.size() == 18);
 	assert(Objects->Objects[0].TypeId == "PlayerSpawn");
 	assert(NearlyEqual(Objects->Objects[0].Position.X, 32.0f));
 	assert(NearlyEqual(Objects->Objects[0].Position.Y, 128.0f));
@@ -1845,7 +1845,7 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	NativeObjectSystem Objects;
 	Result<bool> Reset = Objects.Reset(*Area);
 	assert(Reset.IsSuccess());
-	assert(Objects.Objects().size() == 15);
+	assert(Objects.Objects().size() == 17);
 
 	const NativeObjectRuntime* TurnEnemy =
 		Objects.Find("enemy-cliff-turn");
@@ -2770,6 +2770,143 @@ void TestChikorarashiEmitsHspGravityShots() {
 	assert(std::fabs(Shot.Velocity.X) <= 3.0f);
 	assert(Shot.Velocity.Y <= -4.0f);
 	assert(Shot.Velocity.Y >= -7.0f);
+}
+
+void TestProjectileBouncesOnTerrain() {
+	TileMap Map = MakeMap({
+		{0, 0, 1},
+		{0, 0, 1},
+		{0, 0, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	ProjectileSystem Projectiles;
+	ProjectileSpawnRequest Request;
+	Request.Position = {60.0f, 48.0f};
+	Request.Velocity = {6.0f, 2.0f};
+	Request.Motion = ProjectileMotion::Straight;
+	Request.CollidesWithTerrain = true;
+	Request.TerrainResponse = ProjectileTerrainResponse::Bounce;
+	Projectiles.Spawn(Request);
+
+	Projectiles.Update(Map, Catalog);
+	const ProjectileRuntime& P = Projectiles.Projectiles()[0];
+	assert(P.Active);
+	assert(NearlyEqual(P.Position.X, 60.0f));
+	assert(NearlyEqual(P.Velocity.X, -6.0f));
+	assert(NearlyEqual(P.Position.Y, 50.0f));
+	assert(NearlyEqual(P.Velocity.Y, 2.0f));
+}
+
+void TestProjectileSplitsIntoEightStraightShotsOnTerrain() {
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{1, 1, 1},
+		{0, 0, 0}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	ProjectileSystem Projectiles;
+	ProjectileSpawnRequest Request;
+	Request.Position = {48.0f, 28.0f};
+	Request.Velocity = {0.0f, 5.0f};
+	Request.Motion = ProjectileMotion::Straight;
+	Request.CollidesWithTerrain = true;
+	Request.TerrainResponse = ProjectileTerrainResponse::Split;
+	Request.SplitCount = 8;
+	Request.SplitSpeed = 6.0f;
+	Projectiles.Spawn(Request);
+
+	Projectiles.Update(Map, Catalog);
+
+	int ActiveCount = 0;
+	for (const ProjectileRuntime& P : Projectiles.Projectiles()) {
+		if (!P.Active) continue;
+		++ActiveCount;
+		assert(P.Motion == ProjectileMotion::Straight);
+		assert(!P.CollidesWithTerrain);
+		const float Speed =
+			std::sqrt(
+				P.Velocity.X * P.Velocity.X +
+				P.Velocity.Y * P.Velocity.Y);
+		assert(NearlyEqual(Speed, 6.0f));
+	}
+	assert(ActiveCount == 8);
+}
+
+void TestStationaryShooterEmitsBounceAndSplitPatterns() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+
+	ObjectSpawn Bounce;
+	Bounce.Id = "bounce";
+	Bounce.TypeId = "StationaryShooter";
+	Bounce.Properties["pattern"] =
+		StagePropertyValue::String("bounce4");
+	Bounce.Properties["intervalFrames"] =
+		StagePropertyValue::Integer(1);
+	Layer.Objects.push_back(Bounce);
+
+	ObjectSpawn Split;
+	Split.Id = "split";
+	Split.TypeId = "StationaryShooter";
+	Split.Properties["pattern"] =
+		StagePropertyValue::String("splitDown");
+	Split.Properties["intervalFrames"] =
+		StagePropertyValue::Integer(1);
+	Layer.Objects.push_back(Split);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	TileMap Map = MakeMap({{0, 0}, {0, 0}});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	Objects.Update(Map, Catalog);
+	assert(Objects.TakeProjectileSpawns().empty());
+	Objects.Update(Map, Catalog);
+	const std::vector<ProjectileSpawnRequest> Spawns =
+		Objects.TakeProjectileSpawns();
+	assert(Spawns.size() == 5);
+
+	int BounceCount = 0;
+	int SplitCount = 0;
+	for (const ProjectileSpawnRequest& Spawn : Spawns) {
+		if (Spawn.TerrainResponse ==
+			ProjectileTerrainResponse::Bounce) {
+			++BounceCount;
+		}
+		if (Spawn.TerrainResponse ==
+			ProjectileTerrainResponse::Split) {
+			++SplitCount;
+			assert(Spawn.SplitCount == 8);
+			assert(NearlyEqual(Spawn.SplitSpeed, 6.0f));
+		}
+	}
+	assert(BounceCount == 4);
+	assert(SplitCount == 1);
 }
 
 void TestStompRepositionMatchesHspOnePixelSeparation() {
@@ -6308,6 +6445,9 @@ int main(int argc, char* argv[]) {
 		TestPikachiiKeepsAttackCycleOutsideCameraUntilLanding();
 		TestBallisticProjectileAppliesGravityAndIgnoresTerrain();
 		TestChikorarashiEmitsHspGravityShots();
+		TestProjectileBouncesOnTerrain();
+		TestProjectileSplitsIntoEightStraightShotsOnTerrain();
+		TestStationaryShooterEmitsBounceAndSplitPatterns();
 		TestStompRepositionMatchesHspOnePixelSeparation();
 		TestCharacterSetVelocityKeepsInternalVelocityInSync();
 		TestNativeWalkingEnemyMovesAndTurnsAtWall();
@@ -6383,6 +6523,9 @@ int main(int argc, char* argv[]) {
 	TestPikachiiKeepsAttackCycleOutsideCameraUntilLanding();
 	TestBallisticProjectileAppliesGravityAndIgnoresTerrain();
 	TestChikorarashiEmitsHspGravityShots();
+	TestProjectileBouncesOnTerrain();
+	TestProjectileSplitsIntoEightStraightShotsOnTerrain();
+	TestStationaryShooterEmitsBounceAndSplitPatterns();
 	TestStompRepositionMatchesHspOnePixelSeparation();
 	TestCharacterSetVelocityKeepsInternalVelocityInSync();
 	TestNativeWalkingEnemyMovesAndTurnsAtWall();
