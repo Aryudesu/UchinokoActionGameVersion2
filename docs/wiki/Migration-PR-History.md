@@ -60,7 +60,8 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #57 | HSPイソギンチャク40/41をSeaAnemone化 | merged |
 | #58 | HSPマリリ34をMaririとしてNative化 | merged |
 | #59 | HSP26/27の一回踏むと変化する敵をTransformingWalker化 | merged / 実機確認済み |
-| #60 | HSP28の踏めない崖反転EnemyをUnstompableWalker化 | open / 実機確認済み |
+| #60 | HSP28の踏めない崖反転EnemyをUnstompableWalker化 | merged / 実機確認済み |
+| #61 | HSP3のキラー的な直進EnemyをBulletEnemy化 | open / 実機確認済み |
 
 ## 読み方
 
@@ -152,7 +153,10 @@ FishEnemy / WallCrawler / SeaAnemone / Mariri
 TransformingWalker 26/27（merged / 実機確認済み）
 
 #60
-UnstompableWalker 28（open / 実機確認済み）
+UnstompableWalker 28（merged / 実機確認済み）
+
+#61
+BulletEnemy 3（open / 実機確認済み）
 ```
 
 という流れです。
@@ -208,4 +212,6 @@ Version1/HSPのEnemyを個別TypeId + variant + BehaviorStateへ整理するフ�
 
 PR #59のTransformingWalkerはdevへマージ済み。variant 1の崖落下、variant 2の崖手前反転、1回目stompで変化、2回目stompで撃破まで実機確認済み。
 
-PR #60のUnstompableWalkerはopenで、HSP28相当の崖手前反転・踏みつけ不可・接触damageまで実機確認済み。
+PR #60のUnstompableWalkerはdevへマージ済み。HSP28相当の崖手前反転・踏みつけ不可・接触damageまで実機確認済み。
+
+PR #61のBulletEnemyはopenで、HSP3相当の水平直進・重力なし・Solid貫通・踏みつけ撃破・接触damageまで実機確認済み。
