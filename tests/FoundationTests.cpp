@@ -1417,7 +1417,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
 	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
-	assert(Data.Areas.size() == 7);
+	assert(Data.Areas.size() == 10);
 
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
@@ -1704,8 +1704,72 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NearlyEqual(KameenTests->Objects[0].Position.X, 320.0f));
 	assert(NearlyEqual(KameenTests->Objects[0].Position.Y, 96.0f));
 	assert(KameenArea->Transitions.size() == 1);
-	assert(KameenArea->Transitions[0].Id == "pipe-kameen-main");
-	assert(KameenArea->Transitions[0].TargetAreaId == "main");
+	assert(KameenArea->Transitions[0].Id ==
+		"pipe-kameen-fish-horizontal");
+	assert(KameenArea->Transitions[0].TargetAreaId ==
+		"fish-horizontal");
+
+	const StageArea* FishHorizontal =
+		Data.FindArea("fish-horizontal");
+	assert(FishHorizontal != nullptr);
+	assert(FishHorizontal->Width == 16);
+	assert(FishHorizontal->Height == 8);
+	assert(FishHorizontal->TerrainLayer() != nullptr);
+	assert(*FishHorizontal->TerrainLayer()->Map.TryGet({12, 3}) == 2);
+	assert(*FishHorizontal->TerrainLayer()->Map.TryGet({12, 6}) == 0);
+	const ObjectLayer* FishHorizontalObjects =
+		FishHorizontal->FindObjectLayer("objects");
+	assert(FishHorizontalObjects != nullptr);
+	assert(FishHorizontalObjects->Objects.size() == 1);
+	assert(FishHorizontalObjects->Objects[0].Id == "fish-horizontal");
+	assert(FishHorizontalObjects->Objects[0].TypeId == "FishEnemy");
+	int FishVariant = 0;
+	assert(FishHorizontalObjects->Objects[0]
+		.Properties.at("variant")
+		.TryGetInteger(FishVariant));
+	assert(FishVariant == 1);
+	assert(FishHorizontal->Transitions.size() == 1);
+	assert(FishHorizontal->Transitions[0].Id ==
+		"pipe-fish-horizontal-range");
+	assert(FishHorizontal->Transitions[0].TargetAreaId == "fish-range");
+
+	const StageArea* FishRange = Data.FindArea("fish-range");
+	assert(FishRange != nullptr);
+	const ObjectLayer* FishRangeObjects =
+		FishRange->FindObjectLayer("objects");
+	assert(FishRangeObjects != nullptr);
+	assert(FishRangeObjects->Objects.size() == 1);
+	assert(FishRangeObjects->Objects[0].Id ==
+		"fish-horizontal-range");
+	assert(FishRangeObjects->Objects[0].TypeId == "FishEnemy");
+	assert(FishRangeObjects->Objects[0]
+		.Properties.at("variant")
+		.TryGetInteger(FishVariant));
+	assert(FishVariant == 2);
+	assert(FishRange->Transitions.size() == 1);
+	assert(FishRange->Transitions[0].Id ==
+		"pipe-fish-range-vertical");
+	assert(FishRange->Transitions[0].TargetAreaId ==
+		"fish-vertical");
+
+	const StageArea* FishVertical =
+		Data.FindArea("fish-vertical");
+	assert(FishVertical != nullptr);
+	const ObjectLayer* FishVerticalObjects =
+		FishVertical->FindObjectLayer("objects");
+	assert(FishVerticalObjects != nullptr);
+	assert(FishVerticalObjects->Objects.size() == 1);
+	assert(FishVerticalObjects->Objects[0].Id ==
+		"fish-vertical-range");
+	assert(FishVerticalObjects->Objects[0].TypeId == "FishEnemy");
+	assert(FishVerticalObjects->Objects[0]
+		.Properties.at("variant")
+		.TryGetInteger(FishVariant));
+	assert(FishVariant == 3);
+	assert(FishVertical->Transitions.size() == 1);
+	assert(FishVertical->Transitions[0].Id ==
+		"pipe-fish-vertical-main");
+	assert(FishVertical->Transitions[0].TargetAreaId == "main");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -2471,6 +2535,182 @@ void TestNativeFlyingEnemyVerticalOscillationMatchesHspMotion() {
 	assert(NearlyEqual(Enemy->BehaviorPhase, 0.0f));
 	assert(NearlyEqual(Enemy->Position.X, 256.0f));
 	assert(NearlyEqual(Enemy->Position.Y, 128.0f));
+}
+
+void TestNativeFishEnemyHorizontalTurnsAtWall() {
+	TileMap Map = MakeMap({
+		{1, 1, 1, 1, 1, 1},
+		{1, 0, 0, 0, 1, 1},
+		{1, 0, 0, 0, 1, 1},
+		{1, 0, 0, 0, 1, 1},
+		{1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "fish";
+	Spawn.TypeId = "FishEnemy";
+	Spawn.Position = {64.0f, 64.0f};
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(1);
+	Spawn.Properties["direction"] =
+		StagePropertyValue::String("right");
+	Spawn.Properties["speed"] =
+		StagePropertyValue::Float(1.0f);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	const NativeObjectRuntime* Fish = Objects.Find("fish");
+	assert(Fish != nullptr);
+	assert(Fish->Variant == 1);
+	assert(!Fish->Stompable);
+	assert(Fish->Direction == 1);
+
+	for (int Frame = 0;
+		Frame < 100 && Objects.Find("fish")->Direction > 0;
+		++Frame) {
+		Objects.Update(Map, Catalog, {0.0f, 0.0f});
+	}
+	Fish = Objects.Find("fish");
+	assert(Fish->Direction == -1);
+	assert(Fish->Velocity.X < 0.0f);
+	assert(NearlyEqual(Fish->Velocity.Y, 0.0f));
+
+	const std::vector<NativeObjectContact> Touch =
+		Objects.FindContacts(
+			Fish->Position,
+			{16.0f, 32.0f},
+			4.0f);
+	assert(Touch.size() == 1);
+	assert(Touch[0].Kind == NativeObjectContactKind::Touch);
+	assert(Touch[0].ContactDamage == 1);
+}
+
+void TestNativeFishEnemyHorizontalRangeTurnsAtThreeTiles() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "fish-range";
+	Spawn.TypeId = "FishEnemy";
+	Spawn.Position = {128.0f, 64.0f};
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(2);
+	Spawn.Properties["direction"] =
+		StagePropertyValue::String("right");
+	Spawn.Properties["speed"] =
+		StagePropertyValue::Float(1.0f);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	for (int Frame = 0; Frame < 96; ++Frame) {
+		Objects.Update(Map, Catalog, {0.0f, 0.0f});
+	}
+	const NativeObjectRuntime* Fish = Objects.Find("fish-range");
+	assert(Fish->Direction == 1);
+	assert(NearlyEqual(Fish->Position.X, 224.0f));
+
+	// HSPは abs(x-initial) > 96 で反転するため97frame目。
+	Objects.Update(Map, Catalog, {0.0f, 0.0f});
+	Fish = Objects.Find("fish-range");
+	assert(NearlyEqual(Fish->Position.X, 225.0f));
+	assert(Fish->Direction == -1);
+	assert(Fish->Velocity.X < 0.0f);
+}
+
+void TestNativeFishEnemyVerticalRangeMovesFacesPlayerAndTurns() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "fish-vertical";
+	Spawn.TypeId = "FishEnemy";
+	Spawn.Position = {128.0f, 64.0f};
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(3);
+	Spawn.Properties["direction"] =
+		StagePropertyValue::String("down");
+	Spawn.Properties["speed"] =
+		StagePropertyValue::Float(1.0f);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	Objects.Update(Map, Catalog, {300.0f, 64.0f});
+	const NativeObjectRuntime* Fish =
+		Objects.Find("fish-vertical");
+	assert(Fish->Position.Y > 64.0f);
+	assert(NearlyEqual(Fish->Position.X, 128.0f));
+	assert(Fish->Velocity.Y > 0.0f);
+	assert(Fish->Direction == 1);
+
+	for (int Frame = 1; Frame < 97; ++Frame) {
+		Objects.Update(Map, Catalog, {0.0f, 64.0f});
+	}
+	Fish = Objects.Find("fish-vertical");
+	assert(NearlyEqual(Fish->Position.Y, 161.0f));
+	assert(Fish->BehaviorState == -1);
+	assert(Fish->Velocity.Y < 0.0f);
+	assert(Fish->Direction == -1);
+
+	// lifecycle resetでspawn位置と縦移動方向も復元。
+	NativeObjectRuntime* Mutable =
+		Objects.Find("fish-vertical");
+	assert(Mutable != nullptr);
+	Mutable->Position = {900.0f, 900.0f};
+	Mutable->BehaviorState = -1;
+	Objects.UpdateLifecycle({0.0f, 0.0f}, {512.0f, 320.0f});
+	Fish = Objects.Find("fish-vertical");
+	assert(Fish->LifeState == ObjectLifeState::Dormant);
+	assert(NearlyEqual(Fish->Position.X, 128.0f));
+	assert(NearlyEqual(Fish->Position.Y, 64.0f));
+	assert(Fish->BehaviorState == 1);
 }
 
 void TestNativeKameenWaitsThenAcceleratesTowardPlayer() {
@@ -7076,6 +7316,9 @@ int main(int argc, char* argv[]) {
 	TestNativeFlyingEnemyMovesVerticallyAndTurnsAtFloorCeiling();
 	TestNativeFlyingEnemyVerticalOscillationMatchesHspMotion();
 	TestNativeKameenWaitsThenAcceleratesTowardPlayer();
+	TestNativeFishEnemyHorizontalTurnsAtWall();
+	TestNativeFishEnemyHorizontalRangeTurnsAtThreeTiles();
+	TestNativeFishEnemyVerticalRangeMovesFacesPlayerAndTurns();
 	TestNativeFlyingEnemyRejectsWrongDirectionForVariant();
 		TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery();
 		TestNativeBallSlimeVariant2TurnsAtCliffOnlyWhileWalking();
@@ -7158,6 +7401,9 @@ int main(int argc, char* argv[]) {
 	TestNativeFlyingEnemyMovesVerticallyAndTurnsAtFloorCeiling();
 	TestNativeFlyingEnemyVerticalOscillationMatchesHspMotion();
 	TestNativeKameenWaitsThenAcceleratesTowardPlayer();
+	TestNativeFishEnemyHorizontalTurnsAtWall();
+	TestNativeFishEnemyHorizontalRangeTurnsAtThreeTiles();
+	TestNativeFishEnemyVerticalRangeMovesFacesPlayerAndTurns();
 	TestNativeFlyingEnemyRejectsWrongDirectionForVariant();
 	TestNativeWalkingEnemyLifecycleUsesCameraAndKeepsDefeatedState();
 	TestNativeCarrotManWaitsEmergesAndStartsWalking();

@@ -1069,6 +1069,17 @@ void NativeStageSandboxScene::DrawObjectLayer(
 			DrawString(
 				X + 10, Y + 8, "F",
 				GetColor(200, 250, 255));
+		} else if (Object->TypeId == "FishEnemy") {
+			DrawBox(
+				X + 2, Y + 8, X + 30, Y + 24,
+				GetColor(90, 200, 255), FALSE);
+			DrawLine(
+				X + 4, Y + 16,
+				X - Object->Direction * 6, Y + 10,
+				GetColor(150, 230, 255), 2);
+			DrawString(
+				X + 10, Y + 8, "F",
+				GetColor(210, 250, 255));
 		} else if (Object->TypeId == "Kameen") {
 			DrawCircle(
 				X + 16, Y + 16, 14,
@@ -1231,6 +1242,28 @@ void NativeStageSandboxScene::DrawObjectLayer(
 							"phase=%.2f",
 							Object->BehaviorPhase);
 					}
+				}
+			} else if (Object->TypeId == "FishEnemy") {
+				const char* Variant =
+					Object->Variant == 1 ? "H-FISH" :
+					Object->Variant == 2 ? "H-RANGE" :
+					"V-RANGE";
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(170, 240, 255),
+					"%s %s %s v=(%.1f,%.1f)",
+					Object->Id.c_str(),
+					Variant,
+					Object->Direction < 0 ? "<" : ">",
+					Object->Velocity.X,
+					Object->Velocity.Y);
+				if (Object->Variant >= 2) {
+					DrawFormatString(
+						X, Y + 50,
+						GetColor(170, 240, 255),
+						"d=(%.0f,%.0f)",
+						Object->Position.X - Object->InitialPosition.X,
+						Object->Position.Y - Object->InitialPosition.Y);
 				}
 			} else if (Object->TypeId == "Kameen") {
 				DrawFormatString(

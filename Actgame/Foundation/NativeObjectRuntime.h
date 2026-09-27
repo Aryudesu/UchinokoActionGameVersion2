@@ -120,6 +120,11 @@ private:
 		const TileMap& Map,
 		const TileCatalog& Catalog,
 		WorldPosition PlayerPosition);
+	static void UpdateFishEnemy(
+		NativeObjectRuntime& Object,
+		const TileMap& Map,
+		const TileCatalog& Catalog,
+		WorldPosition PlayerPosition);
 	static void UpdateKameen(
 		NativeObjectRuntime& Object,
 		WorldPosition PlayerPosition);

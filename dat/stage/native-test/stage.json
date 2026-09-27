@@ -216,7 +216,91 @@
       ],
       "regionLayers": [],
       "transitions": [
-        { "id": "pipe-kameen-main", "type": "Pipe", "entry": { "shape": "point", "position": [448, 192] }, "targetArea": "main", "exitPosition": [192, 128], "enterDirection": "down", "exitDirection": "up" }
+        { "id": "pipe-kameen-fish-horizontal", "type": "Pipe", "entry": { "shape": "point", "position": [448, 192] }, "targetArea": "fish-horizontal", "exitPosition": [32, 192], "enterDirection": "down", "exitDirection": "up" }
+      ]
+    },
+    {
+      "id": "fish-horizontal",
+      "size": [16, 8],
+      "tileSize": [32, 32],
+      "settings": {
+        "timeLimitSeconds": 0,
+        "bgm": "test-fish-horizontal-bgm",
+        "background": "test-fish-horizontal-water",
+        "properties": { "cameraMode": "follow" }
+      },
+      "tileLayers": [
+        { "id": "background", "name": "Background", "role": "visual", "zOrder": -10, "source": "fish-horizontal/background.csv", "tileSet": "native-test" },
+        { "id": "terrain", "name": "Terrain", "role": "terrain", "zOrder": 0, "source": "fish-horizontal/terrain.csv", "tileSet": "native-test" },
+        { "id": "foreground", "name": "Foreground", "role": "visual", "zOrder": 20, "source": "fish-horizontal/foreground.csv", "tileSet": "native-test" }
+      ],
+      "objectLayers": [
+        {
+          "id": "objects", "name": "Horizontal Fish Test Objects", "zOrder": 10,
+          "objects": [
+            { "id": "fish-horizontal", "type": "FishEnemy", "position": [192, 128], "properties": { "variant": 1, "direction": "right", "speed": 1 } }
+          ]
+        }
+      ],
+      "regionLayers": [],
+      "transitions": [
+        { "id": "pipe-fish-horizontal-range", "type": "Pipe", "entry": { "shape": "point", "position": [448, 192] }, "targetArea": "fish-range", "exitPosition": [32, 192], "enterDirection": "down", "exitDirection": "up" }
+      ]
+    },
+    {
+      "id": "fish-range",
+      "size": [16, 8],
+      "tileSize": [32, 32],
+      "settings": {
+        "timeLimitSeconds": 0,
+        "bgm": "test-fish-range-bgm",
+        "background": "test-fish-range-water",
+        "properties": { "cameraMode": "follow" }
+      },
+      "tileLayers": [
+        { "id": "background", "name": "Background", "role": "visual", "zOrder": -10, "source": "fish-range/background.csv", "tileSet": "native-test" },
+        { "id": "terrain", "name": "Terrain", "role": "terrain", "zOrder": 0, "source": "fish-range/terrain.csv", "tileSet": "native-test" },
+        { "id": "foreground", "name": "Foreground", "role": "visual", "zOrder": 20, "source": "fish-range/foreground.csv", "tileSet": "native-test" }
+      ],
+      "objectLayers": [
+        {
+          "id": "objects", "name": "Ranged Horizontal Fish Test Objects", "zOrder": 10,
+          "objects": [
+            { "id": "fish-horizontal-range", "type": "FishEnemy", "position": [256, 128], "properties": { "variant": 2, "direction": "right", "speed": 1 } }
+          ]
+        }
+      ],
+      "regionLayers": [],
+      "transitions": [
+        { "id": "pipe-fish-range-vertical", "type": "Pipe", "entry": { "shape": "point", "position": [448, 192] }, "targetArea": "fish-vertical", "exitPosition": [32, 192], "enterDirection": "down", "exitDirection": "up" }
+      ]
+    },
+    {
+      "id": "fish-vertical",
+      "size": [16, 8],
+      "tileSize": [32, 32],
+      "settings": {
+        "timeLimitSeconds": 0,
+        "bgm": "test-fish-vertical-bgm",
+        "background": "test-fish-vertical-water",
+        "properties": { "cameraMode": "follow" }
+      },
+      "tileLayers": [
+        { "id": "background", "name": "Background", "role": "visual", "zOrder": -10, "source": "fish-vertical/background.csv", "tileSet": "native-test" },
+        { "id": "terrain", "name": "Terrain", "role": "terrain", "zOrder": 0, "source": "fish-vertical/terrain.csv", "tileSet": "native-test" },
+        { "id": "foreground", "name": "Foreground", "role": "visual", "zOrder": 20, "source": "fish-vertical/foreground.csv", "tileSet": "native-test" }
+      ],
+      "objectLayers": [
+        {
+          "id": "objects", "name": "Vertical Fish Test Objects", "zOrder": 10,
+          "objects": [
+            { "id": "fish-vertical-range", "type": "FishEnemy", "position": [256, 96], "properties": { "variant": 3, "direction": "down", "speed": 1 } }
+          ]
+        }
+      ],
+      "regionLayers": [],
+      "transitions": [
+        { "id": "pipe-fish-vertical-main", "type": "Pipe", "entry": { "shape": "point", "position": [448, 192] }, "targetArea": "main", "exitPosition": [192, 128], "enterDirection": "down", "exitDirection": "up" }
       ]
     }
   ],
