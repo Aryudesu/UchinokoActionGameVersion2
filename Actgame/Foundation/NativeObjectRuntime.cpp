@@ -64,6 +64,12 @@ constexpr float KameenTriggerDistance = 32.0f * 8.0f;
 constexpr float KameenAcceleration = 0.2f;
 constexpr float KameenMaxSpeed = 8.0f;
 
+constexpr int FishHorizontal = 1;
+constexpr int FishHorizontalRange = 2;
+constexpr int FishVerticalRange = 3;
+constexpr float FishDefaultSpeed = 1.0f;
+constexpr float FishRange = 32.0f * 3.0f;
+
 bool IsBallSlime(const NativeObjectRuntime& Object) {
 	return Object.TypeId == "BallSlime";
 }
@@ -81,7 +87,8 @@ bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 		Object.TypeId == "Pikachii" ||
 		Object.TypeId == "Chikorarashi" ||
 		Object.TypeId == "FlyingEnemy" ||
-		Object.TypeId == "Kameen";
+		Object.TypeId == "Kameen" ||
+		Object.TypeId == "FishEnemy";
 }
 
 bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
@@ -89,7 +96,8 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 		Object.TypeId == "StationaryShooter" ||
 		Object.TypeId == "Pikachii" ||
 		Object.TypeId == "Chikorarashi" ||
-		Object.TypeId == "FlyingEnemy") {
+		Object.TypeId == "FlyingEnemy" ||
+		Object.TypeId == "FishEnemy") {
 		return true;
 	}
 	if (Object.TypeId == "Kameen") {
@@ -636,6 +644,19 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.MoveSpeed = 2.0f;
 		Runtime.Gravity = 0.0f;
 		Runtime.MaxFallSpeed = 0.0f;
+	} else if (Spawn.TypeId == "FishEnemy") {
+		Runtime.HitboxOffset = {0.0f, 0.0f};
+		Runtime.HitboxSize = {32.0f, 32.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.ContactEnabled = true;
+		Runtime.Stompable = false;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.Variant = FishHorizontal;
+		Runtime.MoveSpeed = FishDefaultSpeed;
+		Runtime.Gravity = 0.0f;
+		Runtime.MaxFallSpeed = 0.0f;
+		Runtime.BehaviorState = -1;
 	} else if (Spawn.TypeId == "Kameen") {
 		Runtime.HitboxOffset = {0.0f, 0.0f};
 		Runtime.HitboxSize = {32.0f, 32.0f};
@@ -748,6 +769,74 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 			Error,
 			Spawn.Id)) {
 		return Result<NativeObjectRuntime>::Failure(Error);
+	}
+
+	if (Spawn.TypeId == "FishEnemy") {
+		if (!TryReadInteger(
+			Spawn.Properties,
+			"variant",
+			Runtime.Variant,
+			Error,
+			Spawn.Id) ||
+			!TryReadFloat(
+				Spawn.Properties,
+				"speed",
+				Runtime.MoveSpeed,
+				Error,
+				Spawn.Id)) {
+			return Result<NativeObjectRuntime>::Failure(Error);
+		}
+
+		if (Runtime.Variant != FishHorizontal &&
+			Runtime.Variant != FishHorizontalRange &&
+			Runtime.Variant != FishVerticalRange) {
+			return Result<NativeObjectRuntime>::Failure(
+				"FishEnemy variant must be 1, 2 or 3: " +
+					Spawn.Id);
+		}
+
+		std::string Direction =
+			Runtime.Variant == FishVerticalRange
+				? "down"
+				: "left";
+		if (!TryReadString(
+			Spawn.Properties,
+			"direction",
+			Direction,
+			Error,
+			Spawn.Id)) {
+			return Result<NativeObjectRuntime>::Failure(Error);
+		}
+
+		if (Runtime.Variant == FishVerticalRange) {
+			if (Direction == "up") {
+				Runtime.Direction = -1;
+			} else if (Direction == "down") {
+				Runtime.Direction = 1;
+			} else {
+				return Result<NativeObjectRuntime>::Failure(
+					"Vertical FishEnemy direction must be up or down: " +
+						Spawn.Id);
+			}
+			Runtime.InitialDirection = Runtime.Direction;
+			Runtime.BehaviorState = Runtime.Direction;
+		} else {
+			if (Direction == "left") {
+				Runtime.Direction = -1;
+			} else if (Direction == "right") {
+				Runtime.Direction = 1;
+			} else {
+				return Result<NativeObjectRuntime>::Failure(
+					"Horizontal FishEnemy direction must be left or right: " +
+						Spawn.Id);
+			}
+			Runtime.InitialDirection = Runtime.Direction;
+		}
+
+		if (Runtime.MoveSpeed <= 0.0f) {
+			return Result<NativeObjectRuntime>::Failure(
+				"FishEnemy speed must be positive: " + Spawn.Id);
+		}
 	}
 
 	if (Spawn.TypeId == "FlyingEnemy") {
@@ -973,7 +1062,14 @@ void NativeObjectSystem::ResetToSpawn(
 	Object.Acceleration = {0.0f, 0.0f};
 	Object.Grounded = false;
 
-	if (Object.TypeId == "Kameen") {
+	if (Object.TypeId == "FishEnemy") {
+		Object.ContactEnabled = true;
+		Object.Stompable = false;
+		Object.ContactDamage = 1;
+		if (Object.Variant == FishVerticalRange) {
+			Object.BehaviorState = Object.InitialDirection;
+		}
+	} else if (Object.TypeId == "Kameen") {
 		Object.BehaviorState = KameenWaiting;
 		Object.ContactEnabled = false;
 		Object.Stompable = false;
@@ -1206,6 +1302,77 @@ void NativeObjectSystem::UpdateFlyingEnemy(
 		Object.LifeState = ObjectLifeState::Defeated;
 		Object.Active = false;
 		Object.Velocity = {0.0f, 0.0f};
+	}
+}
+
+void NativeObjectSystem::UpdateFishEnemy(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog,
+	WorldPosition PlayerPosition) {
+	if (!Object.Active || Object.MoveSpeed <= 0.0f) return;
+
+	if (Object.Variant == FishVerticalRange) {
+		const int MoveDirection =
+			Object.BehaviorState < 0 ? -1 : 1;
+		Object.Velocity.X = 0.0f;
+		Object.Velocity.Y =
+			static_cast<float>(MoveDirection) * Object.MoveSpeed;
+		Object.Position.Y += Object.Velocity.Y;
+
+		const bool ExceededRange =
+			std::fabs(Object.Position.Y - Object.InitialPosition.Y) >
+			FishRange;
+		if (ExceededRange) {
+			Object.BehaviorState *= -1;
+			Object.Velocity.Y =
+				static_cast<float>(
+					Object.BehaviorState < 0 ? -1 : 1) *
+				Object.MoveSpeed;
+		} else {
+			const bool MovingDown = Object.Velocity.Y > 0.0f;
+			if (ResolveFlyingEnemyVertical(
+				Object, Map, Catalog, MovingDown)) {
+				Object.BehaviorState *= -1;
+				Object.Velocity.Y =
+					static_cast<float>(
+						Object.BehaviorState < 0 ? -1 : 1) *
+					Object.MoveSpeed;
+			}
+		}
+
+		if (PlayerPosition.X < Object.Position.X) {
+			Object.Direction = -1;
+		} else if (PlayerPosition.X > Object.Position.X) {
+			Object.Direction = 1;
+		}
+		return;
+	}
+
+	Object.Velocity.Y = 0.0f;
+	Object.Velocity.X =
+		static_cast<float>(Object.Direction) * Object.MoveSpeed;
+	Object.Position.X += Object.Velocity.X;
+
+	bool ExceededRange = false;
+	if (Object.Variant == FishHorizontalRange) {
+		ExceededRange =
+			std::fabs(Object.Position.X - Object.InitialPosition.X) >
+			FishRange;
+		if (ExceededRange) {
+			Object.Direction *= -1;
+			Object.Velocity.X =
+				static_cast<float>(Object.Direction) *
+				Object.MoveSpeed;
+		}
+	}
+
+	if (!ExceededRange) {
+		if (ResolveWalkingEnemySide(Object, Map, Catalog)) {
+			Object.Velocity.X =
+				static_cast<float>(Object.Direction) *
+				Object.MoveSpeed;
+		}
 	}
 }
 
@@ -1674,6 +1841,9 @@ void NativeObjectSystem::Update(
 			UpdateWalkingEnemy(Object, Map, Catalog);
 		} else if (Object.TypeId == "FlyingEnemy") {
 			UpdateFlyingEnemy(
+				Object, Map, Catalog, PlayerPosition);
+		} else if (Object.TypeId == "FishEnemy") {
+			UpdateFishEnemy(
 				Object, Map, Catalog, PlayerPosition);
 		} else if (Object.TypeId == "Kameen") {
 			UpdateKameen(Object, PlayerPosition);
