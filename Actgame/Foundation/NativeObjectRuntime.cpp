@@ -70,6 +70,10 @@ constexpr int FishVerticalRange = 3;
 constexpr float FishDefaultSpeed = 1.0f;
 constexpr float FishRange = 32.0f * 3.0f;
 
+constexpr int WallCrawlerCounterClockwise = 1;
+constexpr int WallCrawlerClockwise = 2;
+constexpr float WallCrawlerSpeed = 1.0f;
+
 bool IsBallSlime(const NativeObjectRuntime& Object) {
 	return Object.TypeId == "BallSlime";
 }
@@ -88,7 +92,8 @@ bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 		Object.TypeId == "Chikorarashi" ||
 		Object.TypeId == "FlyingEnemy" ||
 		Object.TypeId == "Kameen" ||
-		Object.TypeId == "FishEnemy";
+		Object.TypeId == "FishEnemy" ||
+		Object.TypeId == "WallCrawler";
 }
 
 bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
@@ -97,7 +102,8 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 		Object.TypeId == "Pikachii" ||
 		Object.TypeId == "Chikorarashi" ||
 		Object.TypeId == "FlyingEnemy" ||
-		Object.TypeId == "FishEnemy") {
+		Object.TypeId == "FishEnemy" ||
+		Object.TypeId == "WallCrawler") {
 		return true;
 	}
 	if (Object.TypeId == "Kameen") {
@@ -206,6 +212,82 @@ bool TryObjectSurfaceY(
 		TileWidth,
 		TileHeight,
 		SurfaceY);
+}
+
+struct CardinalDirection {
+	int X = 0;
+	int Y = 0;
+};
+
+CardinalDirection WallCrawlerDirection(
+	const NativeObjectRuntime& Object) {
+	if (Object.Velocity.X < 0.0f) return {-1, 0};
+	if (Object.Velocity.X > 0.0f) return {1, 0};
+	if (Object.Velocity.Y < 0.0f) return {0, -1};
+	if (Object.Velocity.Y > 0.0f) return {0, 1};
+	return {0, 0};
+}
+
+CardinalDirection RotateClockwise(
+	CardinalDirection Direction) {
+	return {-Direction.Y, Direction.X};
+}
+
+CardinalDirection RotateCounterClockwise(
+	CardinalDirection Direction) {
+	return {Direction.Y, -Direction.X};
+}
+
+WorldPosition ToWallCrawlerVelocity(
+	CardinalDirection Direction) {
+	return {
+		static_cast<float>(Direction.X) * WallCrawlerSpeed,
+		static_cast<float>(Direction.Y) * WallCrawlerSpeed
+	};
+}
+
+bool IsWallCrawlerBlocked(
+	const TileMap& Map,
+	const TileCatalog& Catalog,
+	int Column,
+	int Row) {
+	if (Column < 0 || Column >= Map.Width() ||
+		Row < 0 || Row >= Map.Height()) {
+		return false;
+	}
+
+	const TilePosition Tile = {Column, Row};
+	const int* Id = Map.TryGet(Tile);
+	const TileDefinition* Definition =
+		Id == nullptr ? nullptr : Catalog.Find(*Id);
+	if (Definition == nullptr ||
+		Definition->Collision == CollisionShape::None) {
+		return false;
+	}
+
+	const WorldPosition Center = {
+		(static_cast<float>(Column) + 0.5f) * Map.TileWidth(),
+		(static_cast<float>(Row) + 0.5f) * Map.TileHeight()
+	};
+	return TerrainCollision::ContainsSolidPoint(
+		Definition->Collision,
+		Tile,
+		Center,
+		Map.TileWidth(),
+		Map.TileHeight());
+}
+
+bool IsWallCrawlerBlocked(
+	const TileMap& Map,
+	const TileCatalog& Catalog,
+	int Column,
+	int Row,
+	CardinalDirection Direction) {
+	return IsWallCrawlerBlocked(
+		Map,
+		Catalog,
+		Column + Direction.X,
+		Row + Direction.Y);
 }
 
 bool FindObjectGround(
@@ -644,6 +726,19 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.MoveSpeed = 2.0f;
 		Runtime.Gravity = 0.0f;
 		Runtime.MaxFallSpeed = 0.0f;
+	} else if (Spawn.TypeId == "WallCrawler") {
+		Runtime.HitboxOffset = {0.0f, 0.0f};
+		Runtime.HitboxSize = {32.0f, 32.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.ContactEnabled = true;
+		Runtime.Stompable = false;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.Variant = WallCrawlerCounterClockwise;
+		Runtime.MoveSpeed = WallCrawlerSpeed;
+		Runtime.Gravity = 0.0f;
+		Runtime.MaxFallSpeed = 0.0f;
+		Runtime.Velocity = {-WallCrawlerSpeed, 0.0f};
 	} else if (Spawn.TypeId == "FishEnemy") {
 		Runtime.HitboxOffset = {0.0f, 0.0f};
 		Runtime.HitboxSize = {32.0f, 32.0f};
@@ -769,6 +864,29 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 			Error,
 			Spawn.Id)) {
 		return Result<NativeObjectRuntime>::Failure(Error);
+	}
+
+	if (Spawn.TypeId == "WallCrawler") {
+		if (!TryReadInteger(
+			Spawn.Properties,
+			"variant",
+			Runtime.Variant,
+			Error,
+			Spawn.Id)) {
+			return Result<NativeObjectRuntime>::Failure(Error);
+		}
+
+		if (Runtime.Variant != WallCrawlerCounterClockwise &&
+			Runtime.Variant != WallCrawlerClockwise) {
+			return Result<NativeObjectRuntime>::Failure(
+				"WallCrawler variant must be 1 or 2: " +
+					Spawn.Id);
+		}
+
+		Runtime.Velocity =
+			Runtime.Variant == WallCrawlerCounterClockwise
+				? WorldPosition{-WallCrawlerSpeed, 0.0f}
+				: WorldPosition{WallCrawlerSpeed, 0.0f};
 	}
 
 	if (Spawn.TypeId == "FishEnemy") {
@@ -1062,7 +1180,15 @@ void NativeObjectSystem::ResetToSpawn(
 	Object.Acceleration = {0.0f, 0.0f};
 	Object.Grounded = false;
 
-	if (Object.TypeId == "FishEnemy") {
+	if (Object.TypeId == "WallCrawler") {
+		Object.ContactEnabled = true;
+		Object.Stompable = false;
+		Object.ContactDamage = 1;
+		Object.Velocity =
+			Object.Variant == WallCrawlerCounterClockwise
+				? WorldPosition{-WallCrawlerSpeed, 0.0f}
+				: WorldPosition{WallCrawlerSpeed, 0.0f};
+	} else if (Object.TypeId == "FishEnemy") {
 		Object.ContactEnabled = true;
 		Object.Stompable = false;
 		Object.ContactDamage = 1;
@@ -1302,6 +1428,72 @@ void NativeObjectSystem::UpdateFlyingEnemy(
 		Object.LifeState = ObjectLifeState::Defeated;
 		Object.Active = false;
 		Object.Velocity = {0.0f, 0.0f};
+	}
+}
+
+void NativeObjectSystem::UpdateWallCrawler(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog) {
+	if (!Object.Active) return;
+
+	Object.Position.X += Object.Velocity.X;
+	Object.Position.Y += Object.Velocity.Y;
+
+	const int X = static_cast<int>(Object.Position.X);
+	const int Y = static_cast<int>(Object.Position.Y);
+	if (X % Map.TileWidth() != 0 ||
+		Y % Map.TileHeight() != 0) {
+		return;
+	}
+
+	const int Column = X / Map.TileWidth();
+	const int Row = Y / Map.TileHeight();
+	const CardinalDirection Forward =
+		WallCrawlerDirection(Object);
+	if (Forward.X == 0 && Forward.Y == 0) return;
+
+	// 壁に片手を付けたまま進むwall followerとして扱う。
+	// CCWは進行方向の反時計側、CWは時計側を「壁側」とする。
+	const bool CounterClockwise =
+		Object.Variant == WallCrawlerCounterClockwise;
+	const CardinalDirection WallSide =
+		CounterClockwise
+			? RotateCounterClockwise(Forward)
+			: RotateClockwise(Forward);
+	const CardinalDirection AwayFromWall =
+		CounterClockwise
+			? RotateClockwise(Forward)
+			: RotateCounterClockwise(Forward);
+
+	bool Turned = false;
+
+	// 外角: 壁側のtileが空いたら、その方向へ回り込む。
+	if (!IsWallCrawlerBlocked(
+		Map, Catalog, Column, Row, WallSide)) {
+		Object.Velocity =
+			ToWallCrawlerVelocity(WallSide);
+		Turned = true;
+	}
+	// 内角: 正面が塞がれたら、壁から離れる側へ90度turnする。
+	else if (IsWallCrawlerBlocked(
+		Map, Catalog, Column, Row, Forward)) {
+		Object.Velocity =
+			ToWallCrawlerVelocity(AwayFromWall);
+		Turned = true;
+	}
+
+	// HSP enemyf=38/39はturnした同じframeに、
+	// 新しい方向へさらに1px進む。
+	if (Turned) {
+		Object.Position.X += Object.Velocity.X;
+		Object.Position.Y += Object.Velocity.Y;
+	}
+
+	if (Object.Velocity.X < 0.0f) {
+		Object.Direction = -1;
+	} else if (Object.Velocity.X > 0.0f) {
+		Object.Direction = 1;
 	}
 }
 
@@ -1842,6 +2034,8 @@ void NativeObjectSystem::Update(
 		} else if (Object.TypeId == "FlyingEnemy") {
 			UpdateFlyingEnemy(
 				Object, Map, Catalog, PlayerPosition);
+		} else if (Object.TypeId == "WallCrawler") {
+			UpdateWallCrawler(Object, Map, Catalog);
 		} else if (Object.TypeId == "FishEnemy") {
 			UpdateFishEnemy(
 				Object, Map, Catalog, PlayerPosition);

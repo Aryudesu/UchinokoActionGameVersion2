@@ -1417,7 +1417,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
 	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
-	assert(Data.Areas.size() == 10);
+	assert(Data.Areas.size() == 12);
 
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
@@ -1768,8 +1768,57 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(FishVariant == 3);
 	assert(FishVertical->Transitions.size() == 1);
 	assert(FishVertical->Transitions[0].Id ==
-		"pipe-fish-vertical-main");
-	assert(FishVertical->Transitions[0].TargetAreaId == "main");
+		"pipe-fish-vertical-wall-ccw");
+	assert(FishVertical->Transitions[0].TargetAreaId == "wall-ccw");
+
+	const StageArea* WallCcw = Data.FindArea("wall-ccw");
+	assert(WallCcw != nullptr);
+	assert(WallCcw->Width == 16);
+	assert(WallCcw->Height == 8);
+	assert(WallCcw->TerrainLayer() != nullptr);
+	assert(*WallCcw->TerrainLayer()->Map.TryGet({6, 2}) == 2);
+	assert(*WallCcw->TerrainLayer()->Map.TryGet({9, 3}) == 2);
+	assert(*WallCcw->TerrainLayer()->Map.TryGet({10, 4}) == 0);
+	const ObjectLayer* WallCcwObjects =
+		WallCcw->FindObjectLayer("objects");
+	assert(WallCcwObjects != nullptr);
+	assert(WallCcwObjects->Objects.size() == 1);
+	assert(WallCcwObjects->Objects[0].Id == "wall-crawler-ccw");
+	assert(WallCcwObjects->Objects[0].TypeId == "WallCrawler");
+	assert(NearlyEqual(
+		WallCcwObjects->Objects[0].Position.X, 320.0f));
+	assert(NearlyEqual(
+		WallCcwObjects->Objects[0].Position.Y, 32.0f));
+	int WallVariant = 0;
+	assert(WallCcwObjects->Objects[0]
+		.Properties.at("variant")
+		.TryGetInteger(WallVariant));
+	assert(WallVariant == 1);
+	assert(WallCcw->Transitions.size() == 1);
+	assert(WallCcw->Transitions[0].Id == "pipe-wall-ccw-cw");
+	assert(WallCcw->Transitions[0].TargetAreaId == "wall-cw");
+
+	const StageArea* WallCw = Data.FindArea("wall-cw");
+	assert(WallCw != nullptr);
+	assert(WallCw->Width == 16);
+	assert(WallCw->Height == 8);
+	const ObjectLayer* WallCwObjects =
+		WallCw->FindObjectLayer("objects");
+	assert(WallCwObjects != nullptr);
+	assert(WallCwObjects->Objects.size() == 1);
+	assert(WallCwObjects->Objects[0].Id == "wall-crawler-cw");
+	assert(WallCwObjects->Objects[0].TypeId == "WallCrawler");
+	assert(NearlyEqual(
+		WallCwObjects->Objects[0].Position.X, 192.0f));
+	assert(NearlyEqual(
+		WallCwObjects->Objects[0].Position.Y, 32.0f));
+	assert(WallCwObjects->Objects[0]
+		.Properties.at("variant")
+		.TryGetInteger(WallVariant));
+	assert(WallVariant == 2);
+	assert(WallCw->Transitions.size() == 1);
+	assert(WallCw->Transitions[0].Id == "pipe-wall-cw-main");
+	assert(WallCw->Transitions[0].TargetAreaId == "main");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -2535,6 +2584,190 @@ void TestNativeFlyingEnemyVerticalOscillationMatchesHspMotion() {
 	assert(NearlyEqual(Enemy->BehaviorPhase, 0.0f));
 	assert(NearlyEqual(Enemy->Position.X, 256.0f));
 	assert(NearlyEqual(Enemy->Position.Y, 128.0f));
+}
+
+void TestNativeWallCrawlerCounterClockwiseFollowsOuterCorner() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 1, 1, 0, 0},
+		{0, 0, 1, 1, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "crawler-ccw";
+	Spawn.TypeId = "WallCrawler";
+	Spawn.Position = {96.0f, 32.0f};
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(1);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	const NativeObjectRuntime* Crawler =
+		Objects.Find("crawler-ccw");
+	assert(Crawler != nullptr);
+	assert(Crawler->Variant == 1);
+	assert(!Crawler->Stompable);
+	assert(NearlyEqual(Crawler->Velocity.X, -1.0f));
+	assert(NearlyEqual(Crawler->Velocity.Y, 0.0f));
+
+	// Top edgeを左へ進み、solid島の左端を越えたところで下へ曲がる。
+	for (int Frame = 0; Frame < 64; ++Frame) {
+		Objects.Update(Map, Catalog, {0.0f, 0.0f});
+	}
+	Crawler = Objects.Find("crawler-ccw");
+	assert(NearlyEqual(Crawler->Position.X, 32.0f));
+	assert(NearlyEqual(Crawler->Position.Y, 33.0f));
+	assert(NearlyEqual(Crawler->Velocity.X, 0.0f));
+	assert(NearlyEqual(Crawler->Velocity.Y, 1.0f));
+
+	// HSP同様、turnしたframeに新方向へさらに1px進んでいる。
+	const std::vector<NativeObjectContact> Touch =
+		Objects.FindContacts(
+			Crawler->Position,
+			{16.0f, 32.0f},
+			4.0f);
+	assert(Touch.size() == 1);
+	assert(Touch[0].Kind == NativeObjectContactKind::Touch);
+	assert(Touch[0].ContactDamage == 1);
+}
+
+void TestNativeWallCrawlerClockwiseFollowsOuterCorner() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 1, 1, 0, 0},
+		{0, 0, 1, 1, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "crawler-cw";
+	Spawn.TypeId = "WallCrawler";
+	Spawn.Position = {64.0f, 32.0f};
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(2);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	for (int Frame = 0; Frame < 64; ++Frame) {
+		Objects.Update(Map, Catalog, {0.0f, 0.0f});
+	}
+	const NativeObjectRuntime* Crawler =
+		Objects.Find("crawler-cw");
+	assert(NearlyEqual(Crawler->Position.X, 128.0f));
+	assert(NearlyEqual(Crawler->Position.Y, 33.0f));
+	assert(NearlyEqual(Crawler->Velocity.X, 0.0f));
+	assert(NearlyEqual(Crawler->Velocity.Y, 1.0f));
+}
+
+void TestNativeWallCrawlerTurnsAtBlockedInnerCornerAndResets() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0},
+		{0, 1, 0, 0, 0},
+		{0, 0, 1, 0, 0},
+		{0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "crawler-inner";
+	Spawn.TypeId = "WallCrawler";
+	Spawn.Position = {96.0f, 32.0f};
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(1);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	for (int Frame = 0; Frame < 32; ++Frame) {
+		Objects.Update(Map, Catalog, {0.0f, 0.0f});
+	}
+	const NativeObjectRuntime* Crawler =
+		Objects.Find("crawler-inner");
+	assert(NearlyEqual(Crawler->Position.X, 64.0f));
+	assert(NearlyEqual(Crawler->Position.Y, 31.0f));
+	assert(NearlyEqual(Crawler->Velocity.X, 0.0f));
+	assert(NearlyEqual(Crawler->Velocity.Y, -1.0f));
+
+	NativeObjectRuntime* Mutable =
+		Objects.Find("crawler-inner");
+	assert(Mutable != nullptr);
+	Mutable->Position = {900.0f, 900.0f};
+	Mutable->Velocity = {0.0f, 1.0f};
+	Objects.UpdateLifecycle({0.0f, 0.0f}, {512.0f, 320.0f});
+	Crawler = Objects.Find("crawler-inner");
+	assert(Crawler->LifeState == ObjectLifeState::Dormant);
+	assert(NearlyEqual(Crawler->Position.X, 96.0f));
+	assert(NearlyEqual(Crawler->Position.Y, 32.0f));
+	assert(NearlyEqual(Crawler->Velocity.X, -1.0f));
+	assert(NearlyEqual(Crawler->Velocity.Y, 0.0f));
+}
+
+void TestNativeWallCrawlerRejectsUnknownVariant() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "crawler-bad";
+	Spawn.TypeId = "WallCrawler";
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(3);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	const Result<bool> Reset = Objects.Reset(Area);
+	assert(Reset.IsFailure());
+	assert(Reset.Error().find("variant must be 1 or 2") !=
+		std::string::npos);
 }
 
 void TestNativeFishEnemyHorizontalTurnsAtWall() {
@@ -7316,6 +7549,10 @@ int main(int argc, char* argv[]) {
 	TestNativeFlyingEnemyMovesVerticallyAndTurnsAtFloorCeiling();
 	TestNativeFlyingEnemyVerticalOscillationMatchesHspMotion();
 	TestNativeKameenWaitsThenAcceleratesTowardPlayer();
+	TestNativeWallCrawlerCounterClockwiseFollowsOuterCorner();
+	TestNativeWallCrawlerClockwiseFollowsOuterCorner();
+	TestNativeWallCrawlerTurnsAtBlockedInnerCornerAndResets();
+	TestNativeWallCrawlerRejectsUnknownVariant();
 	TestNativeFishEnemyHorizontalTurnsAtWall();
 	TestNativeFishEnemyHorizontalRangeTurnsAtThreeTiles();
 	TestNativeFishEnemyVerticalRangeMovesFacesPlayerAndTurns();
@@ -7401,6 +7638,10 @@ int main(int argc, char* argv[]) {
 	TestNativeFlyingEnemyMovesVerticallyAndTurnsAtFloorCeiling();
 	TestNativeFlyingEnemyVerticalOscillationMatchesHspMotion();
 	TestNativeKameenWaitsThenAcceleratesTowardPlayer();
+	TestNativeWallCrawlerCounterClockwiseFollowsOuterCorner();
+	TestNativeWallCrawlerClockwiseFollowsOuterCorner();
+	TestNativeWallCrawlerTurnsAtBlockedInnerCornerAndResets();
+	TestNativeWallCrawlerRejectsUnknownVariant();
 	TestNativeFishEnemyHorizontalTurnsAtWall();
 	TestNativeFishEnemyHorizontalRangeTurnsAtThreeTiles();
 	TestNativeFishEnemyVerticalRangeMovesFacesPlayerAndTurns();

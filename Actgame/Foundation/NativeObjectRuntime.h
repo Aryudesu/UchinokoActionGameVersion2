@@ -120,6 +120,10 @@ private:
 		const TileMap& Map,
 		const TileCatalog& Catalog,
 		WorldPosition PlayerPosition);
+	static void UpdateWallCrawler(
+		NativeObjectRuntime& Object,
+		const TileMap& Map,
+		const TileCatalog& Catalog);
 	static void UpdateFishEnemy(
 		NativeObjectRuntime& Object,
 		const TileMap& Map,

@@ -1069,6 +1069,17 @@ void NativeStageSandboxScene::DrawObjectLayer(
 			DrawString(
 				X + 10, Y + 8, "F",
 				GetColor(200, 250, 255));
+		} else if (Object->TypeId == "WallCrawler") {
+			DrawBox(
+				X + 4, Y + 4, X + 28, Y + 28,
+				Object->Variant == 1
+					? GetColor(90, 180, 245)
+					: GetColor(170, 120, 245),
+				FALSE);
+			DrawString(
+				X + 8, Y + 8,
+				Object->Variant == 1 ? "CC" : "CW",
+				GetColor(220, 240, 255));
 		} else if (Object->TypeId == "FishEnemy") {
 			DrawBox(
 				X + 2, Y + 8, X + 30, Y + 24,
@@ -1243,6 +1254,20 @@ void NativeStageSandboxScene::DrawObjectLayer(
 							Object->BehaviorPhase);
 					}
 				}
+			} else if (Object->TypeId == "WallCrawler") {
+				const char* Move =
+					Object->Velocity.X < 0.0f ? "<" :
+					Object->Velocity.X > 0.0f ? ">" :
+					Object->Velocity.Y < 0.0f ? "^" : "v";
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(190, 225, 255),
+					"%s %s %s v=(%.0f,%.0f)",
+					Object->Id.c_str(),
+					Object->Variant == 1 ? "CCW" : "CW",
+					Move,
+					Object->Velocity.X,
+					Object->Velocity.Y);
 			} else if (Object->TypeId == "FishEnemy") {
 				const char* Variant =
 					Object->Variant == 1 ? "H-FISH" :
