@@ -1417,7 +1417,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
 	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
-	assert(Data.Areas.size() == 21);
+	assert(Data.Areas.size() == 22);
 
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
@@ -2013,8 +2013,28 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 		.TryGetInteger(JumpVariant));
 	assert(JumpVariant == 2);
 	assert(Jumping9->Transitions.size() == 1);
-	assert(Jumping9->Transitions[0].Id == "pipe-jumping-9-main");
-	assert(Jumping9->Transitions[0].TargetAreaId == "main");
+	assert(Jumping9->Transitions[0].Id ==
+		"pipe-jumping-9-pipe-enemy");
+	assert(Jumping9->Transitions[0].TargetAreaId == "pipe-enemy");
+
+	const StageArea* PipeEnemyArea = Data.FindArea("pipe-enemy");
+	assert(PipeEnemyArea != nullptr);
+	assert(PipeEnemyArea->Width == 16);
+	assert(PipeEnemyArea->Height == 8);
+	const ObjectLayer* PipeEnemyObjects =
+		PipeEnemyArea->FindObjectLayer("objects");
+	assert(PipeEnemyObjects != nullptr);
+	assert(PipeEnemyObjects->Objects.size() == 1);
+	assert(PipeEnemyObjects->Objects[0].Id == "pipe-enemy-18");
+	assert(PipeEnemyObjects->Objects[0].TypeId == "PipeEnemy");
+	assert(NearlyEqual(
+		PipeEnemyObjects->Objects[0].Position.X, 224.0f));
+	assert(NearlyEqual(
+		PipeEnemyObjects->Objects[0].Position.Y, 160.0f));
+	assert(PipeEnemyArea->Transitions.size() == 1);
+	assert(PipeEnemyArea->Transitions[0].Id ==
+		"pipe-pipe-enemy-main");
+	assert(PipeEnemyArea->Transitions[0].TargetAreaId == "main");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -4503,6 +4523,142 @@ void TestNativeJumpingEnemyRejectsUnknownVariant() {
 	assert(Reset.IsFailure());
 	assert(Reset.Error().find("variant must be 1 or 2") !=
 		std::string::npos);
+}
+
+void TestNativePipeEnemyWaitsActivatesLaunchesAndResets() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "pipe18";
+	Spawn.TypeId = "PipeEnemy";
+	Spawn.Position = {64.0f, 96.0f};
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	const NativeObjectRuntime* Enemy = Objects.Find("pipe18");
+	assert(Enemy != nullptr);
+	assert(Enemy->BehaviorTimer == 0);
+	assert(!Enemy->ContactEnabled);
+	assert(!Enemy->Stompable);
+	assert(NearlyEqual(Enemy->Gravity, 0.4f));
+	assert(NearlyEqual(Enemy->MaxFallSpeed, 9.0f));
+
+	// Playerが横32px以内ならtimer<=50の間は完全に待機する。
+	for (int Frame = 0; Frame < 60; ++Frame) {
+		Objects.Update(Map, Catalog, {96.0f, 96.0f});
+	}
+	Enemy = Objects.Find("pipe18");
+	assert(Enemy != nullptr);
+	assert(Enemy->BehaviorTimer == 0);
+	assert(!Enemy->ContactEnabled);
+	assert(!Enemy->Stompable);
+	assert(Enemy->Grounded);
+
+	// Playerが離れるとtimerが進み、51で接触/踏みつけが有効になる。
+	for (int Frame = 0; Frame < 51; ++Frame) {
+		Objects.Update(Map, Catalog, {0.0f, 96.0f});
+	}
+	Enemy = Objects.Find("pipe18");
+	assert(Enemy->BehaviorTimer == 51);
+	assert(Enemy->ContactEnabled);
+	assert(Enemy->Stompable);
+	assert(Enemy->BehaviorState == 1);
+
+	// 100frame目は-18設定後、同frameのgravity/clampでvy=-9となる。
+	for (int Frame = 51; Frame < 100; ++Frame) {
+		Objects.Update(Map, Catalog, {64.0f, 96.0f});
+	}
+	Enemy = Objects.Find("pipe18");
+	assert(Enemy->BehaviorTimer == 100);
+	assert(Enemy->BehaviorState == 2);
+	assert(NearlyEqual(Enemy->Velocity.Y, -9.0f));
+	assert(Enemy->Position.Y < 96.0f);
+	assert(Enemy->ContactEnabled);
+	assert(Enemy->Stompable);
+
+	// timer>50になった後はPlayerが近づいてもcycleを継続する。
+	bool ResetToWaiting = false;
+	for (int Frame = 0; Frame < 160; ++Frame) {
+		Objects.Update(Map, Catalog, {64.0f, 96.0f});
+		Enemy = Objects.Find("pipe18");
+		if (Enemy != nullptr &&
+			Enemy->BehaviorTimer == 0 &&
+			Enemy->Grounded) {
+			ResetToWaiting = true;
+			break;
+		}
+	}
+	assert(ResetToWaiting);
+	assert(!Enemy->ContactEnabled);
+	assert(!Enemy->Stompable);
+	assert(Enemy->BehaviorState == 0);
+}
+
+void TestNativePipeEnemyContactOnlyAfterFrame50() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "pipe-contact";
+	Spawn.TypeId = "PipeEnemy";
+	Spawn.Position = {32.0f, 64.0f};
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	for (int Frame = 0; Frame < 50; ++Frame) {
+		Objects.Update(Map, Catalog, {96.0f, 64.0f});
+	}
+	assert(Objects.FindContacts(
+		{40.0f, 40.0f}, {16.0f, 32.0f}, 3.0f).empty());
+
+	Objects.Update(Map, Catalog, {96.0f, 64.0f});
+	const std::vector<NativeObjectContact> Contacts =
+		Objects.FindContacts(
+			{40.0f, 40.0f}, {16.0f, 32.0f}, 3.0f);
+	assert(Contacts.size() == 1);
+	assert(Contacts[0].Kind == NativeObjectContactKind::Stomp);
+	assert(Contacts[0].ContactDamage == 0);
+	assert(Objects.HandleStomp("pipe-contact"));
+	assert(!Objects.Find("pipe-contact")->Active);
 }
 
 void TestNativeMaririWaitsThenJumpsTowardPlayer() {
@@ -8603,6 +8759,8 @@ int main(int argc, char* argv[]) {
 	TestNativeJumpingEnemyVariantsMatchHspJumpSpeeds();
 	TestNativeJumpingEnemyTurnsAtWallAndCanBeStomped();
 	TestNativeJumpingEnemyRejectsUnknownVariant();
+	TestNativePipeEnemyWaitsActivatesLaunchesAndResets();
+	TestNativePipeEnemyContactOnlyAfterFrame50();
 	TestNativeMaririWaitsThenJumpsTowardPlayer();
 	TestNativeMaririTurnsAtWallDuringJump();
 	TestNativeMaririLifecycleResetRestoresWaitState();
@@ -8708,6 +8866,8 @@ int main(int argc, char* argv[]) {
 	TestNativeJumpingEnemyVariantsMatchHspJumpSpeeds();
 	TestNativeJumpingEnemyTurnsAtWallAndCanBeStomped();
 	TestNativeJumpingEnemyRejectsUnknownVariant();
+	TestNativePipeEnemyWaitsActivatesLaunchesAndResets();
+	TestNativePipeEnemyContactOnlyAfterFrame50();
 	TestNativeMaririWaitsThenJumpsTowardPlayer();
 	TestNativeMaririTurnsAtWallDuringJump();
 	TestNativeMaririLifecycleResetRestoresWaitState();
