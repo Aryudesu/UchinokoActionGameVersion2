@@ -99,3 +99,35 @@ Version2 C++ソースでは、日本語コメントを追加したファイル�
 新規・更新するC++ソースは、既存プロジェクト設定とVisual Studioで文字化けしないエンコーディングを確認すること。
 
 特に自動生成・API経由で日本語コメントを追加したファイルはビルド前に確認する。
+
+
+## 8. 2026-09-27 現在地
+
+devへmerge済みのEnemy系はPR #58まで。
+
+- #47 BallSlime / BallSlime2
+- #48 ProjectileSystem / StationaryShooter / Pikachii
+- #49 Chikorarashi / Ballistic
+- #50 Bounce / Split projectile
+- #51〜53 FlyingEnemy 4 variants
+- #54 Kameen
+- #55 FishEnemy 35〜37
+- #56 WallCrawler 38/39
+- #57 SeaAnemone 40/41
+- #58 Mariri 34
+
+PR #59 TransformingWalker 26/27はopenで、devには未マージ。
+
+特殊Enemyを追加するときは次を優先する。
+
+1. HSPの実コードからupdate順序まで確認
+2. 既存Walking/Flying/Projectile resolverを再利用
+3. numeric enemyfをTypeIdにしない
+4. state違いはBehaviorStateへまとめる
+5. 左右・時計回り等の対称差はDirection/variantへまとめる
+6. Camera lifecycleとの関係を明示する
+7. 専用test Areaを既存の確認chainの後ろへつなぐ
+8. Playerが次のAreaへ進める通路をfixtureで塞がない
+
+特にWallCrawlerは、HSPの方向別if列挙ではなく、
+4方向vectorと90度回転によるwall followerとして実装している。
