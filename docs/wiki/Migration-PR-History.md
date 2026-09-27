@@ -59,7 +59,7 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #56 | HSP壁伝い38/39をWallCrawler化 | merged |
 | #57 | HSPイソギンチャク40/41をSeaAnemone化 | merged |
 | #58 | HSPマリリ34をMaririとしてNative化 | merged |
-| #59 | HSP26/27の一回踏むと変化する敵をTransformingWalker化 | open / 実装PR |
+| #59 | HSP26/27の一回踏むと変化する敵をTransformingWalker化 | open / 実装PR / 実機確認済み |
 
 ## 読み方
 
@@ -148,7 +148,7 @@ HSP特殊Enemy群
 FishEnemy / WallCrawler / SeaAnemone / Mariri
 
 #59
-TransformingWalker 26/27（open）
+TransformingWalker 26/27（open / 実機確認済み）
 ```
 
 という流れです。
@@ -202,4 +202,4 @@ Version1/HSPのEnemyを個別TypeId + variant + BehaviorStateへ整理するフ�
 - SeaAnemone 2 variants
 - Mariri
 
-PR #59のTransformingWalkerはこの記録時点ではopenで、devには未マージ。
+PR #59のTransformingWalkerはこの記録時点ではopenで、devには未マージ。variant 1の崖落下、variant 2の崖手前反転、1回目stompで変化、2回目stompで撃破まで実機確認済み。
