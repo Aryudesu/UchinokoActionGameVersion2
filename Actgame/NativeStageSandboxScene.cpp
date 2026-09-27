@@ -1078,6 +1078,11 @@ void NativeStageSandboxScene::DrawObjectLayer(
 				X + 2, Y + 2, X + 30, Y + 30,
 				GetColor(240, 90, 90), FALSE);
 			DrawString(X + 10, Y + 8, "E", GetColor(255, 170, 170));
+		} else if (Object->TypeId == "BulletEnemy") {
+			DrawBox(
+				X + 2, Y + 8, X + 30, Y + 24,
+				GetColor(235, 210, 80), FALSE);
+			DrawString(X + 10, Y + 8, "3", GetColor(255, 245, 180));
 		} else if (Object->TypeId == "FlyingEnemy") {
 			DrawBox(
 				X + 3, Y + 5, X + 29, Y + 27,
@@ -1282,6 +1287,14 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					"vy=%.1f%s",
 					Object->Velocity.Y,
 					Object->Grounded ? " G" : "");
+			} else if (Object->TypeId == "BulletEnemy") {
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(255, 235, 150),
+					"%s HSP3 STRAIGHT %s %.1fpx",
+					Object->Id.c_str(),
+					Object->Direction < 0 ? "<" : ">",
+					Object->MoveSpeed);
 			} else if (Object->TypeId == "FlyingEnemy") {
 				if (Object->Variant == 3) {
 					DrawFormatString(
