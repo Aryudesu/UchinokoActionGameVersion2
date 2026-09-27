@@ -103,7 +103,7 @@
       ],
       "regionLayers": [],
       "transitions": [
-        { "id": "pipe-air-main", "type": "Pipe", "entry": { "shape": "point", "position": [32, 192] }, "targetArea": "main", "exitPosition": [192, 128], "enterDirection": "down", "exitDirection": "up" }
+        { "id": "pipe-air-main", "type": "Pipe", "entry": { "shape": "point", "position": [448, 192] }, "targetArea": "main", "exitPosition": [192, 128], "enterDirection": "down", "exitDirection": "up" }
       ]
     }
   ],
