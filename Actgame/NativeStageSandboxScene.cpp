@@ -1069,6 +1069,25 @@ void NativeStageSandboxScene::DrawObjectLayer(
 			DrawString(
 				X + 10, Y + 8, "F",
 				GetColor(200, 250, 255));
+		} else if (Object->TypeId == "SeaAnemone") {
+			DrawBox(
+				X + 6, Y + 12, X + 26, Y + 30,
+				Object->Variant == 1
+					? GetColor(245, 120, 190)
+					: GetColor(190, 120, 245),
+				FALSE);
+			DrawLine(
+				X + 8, Y + 12, X + 5, Y + 3,
+				GetColor(255, 190, 225), 2);
+			DrawLine(
+				X + 16, Y + 12, X + 16, Y + 1,
+				GetColor(255, 190, 225), 2);
+			DrawLine(
+				X + 24, Y + 12, X + 27, Y + 3,
+				GetColor(255, 190, 225), 2);
+			DrawString(
+				X + 9, Y + 15, "A",
+				GetColor(255, 220, 240));
 		} else if (Object->TypeId == "WallCrawler") {
 			DrawBox(
 				X + 4, Y + 4, X + 28, Y + 28,
@@ -1254,6 +1273,19 @@ void NativeStageSandboxScene::DrawObjectLayer(
 							Object->BehaviorPhase);
 					}
 				}
+			} else if (Object->TypeId == "SeaAnemone") {
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(255, 190, 230),
+					"%s %s t=%d",
+					Object->Id.c_str(),
+					Object->Variant == 1 ? "FAN-R" : "FAN-L",
+					Object->BehaviorTimer);
+				DrawFormatString(
+					X, Y + 50,
+					GetColor(230, 190, 255),
+					"anim=%.0f",
+					Object->BehaviorPhase);
 			} else if (Object->TypeId == "WallCrawler") {
 				const char* Move =
 					Object->Velocity.X < 0.0f ? "<" :
