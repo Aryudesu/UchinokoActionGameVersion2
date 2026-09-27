@@ -1417,7 +1417,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
 	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
-	assert(Data.Areas.size() == 3);
+	assert(Data.Areas.size() == 4);
 
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
@@ -1597,8 +1597,33 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 		.TryGetFloat(FlyingSpeed));
 	assert(NearlyEqual(FlyingSpeed, 2.0f));
 	assert(Air->Transitions.size() == 1);
-	assert(Air->Transitions[0].Id == "pipe-air-main");
-	assert(Air->Transitions[0].TargetAreaId == "main");
+	assert(Air->Transitions[0].Id == "pipe-air-wave");
+	assert(Air->Transitions[0].TargetAreaId == "air-wave");
+
+	const StageArea* AirWave = Data.FindArea("air-wave");
+	assert(AirWave != nullptr);
+	assert(AirWave->Width == 16);
+	assert(AirWave->Height == 8);
+	assert(AirWave->TerrainLayer() != nullptr);
+	assert(*AirWave->TerrainLayer()->Map.TryGet({0, 7}) == 2);
+	const ObjectLayer* FlyingWaveTests =
+		AirWave->FindObjectLayer("objects");
+	assert(FlyingWaveTests != nullptr);
+	assert(FlyingWaveTests->Objects.size() == 1);
+	assert(FlyingWaveTests->Objects[0].Id == "flying-horizontal-wave");
+	assert(FlyingWaveTests->Objects[0].TypeId == "FlyingEnemy");
+	assert(NearlyEqual(
+		FlyingWaveTests->Objects[0].Position.X, 256.0f));
+	assert(NearlyEqual(
+		FlyingWaveTests->Objects[0].Position.Y, 192.0f));
+	int FlyingVariant = 0;
+	assert(FlyingWaveTests->Objects[0]
+		.Properties.at("variant")
+		.TryGetInteger(FlyingVariant));
+	assert(FlyingVariant == 2);
+	assert(AirWave->Transitions.size() == 1);
+	assert(AirWave->Transitions[0].Id == "pipe-air-wave-main");
+	assert(AirWave->Transitions[0].TargetAreaId == "main");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -2084,6 +2109,97 @@ void TestNativeFlyingEnemyMovesHorizontallyAndTurnsAtWall() {
 			4.0f);
 	assert(Stomp.size() == 1);
 	assert(Stomp[0].Kind == NativeObjectContactKind::Stomp);
+}
+
+void TestNativeFlyingEnemyHorizontalOscillationMatchesHspMotion() {
+	TileMap Map = MakeMap({
+		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+		{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "wave";
+	Spawn.TypeId = "FlyingEnemy";
+	Spawn.Position = {256.0f, 192.0f};
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(2);
+	Spawn.Properties["direction"] =
+		StagePropertyValue::String("right");
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	const NativeObjectRuntime* Enemy = Objects.Find("wave");
+	assert(Enemy != nullptr);
+	assert(Enemy->Variant == 2);
+	assert(NearlyEqual(Enemy->BehaviorPhase, 0.0f));
+
+	const float StartX = Enemy->Position.X;
+	const float StartY = Enemy->Position.Y;
+
+	Objects.Update(Map, Catalog);
+	Enemy = Objects.Find("wave");
+	assert(NearlyEqual(Enemy->BehaviorPhase, 0.1f));
+	assert(NearlyEqual(
+		Enemy->Velocity.X,
+		5.0f * std::cos(0.05f)));
+	assert(Enemy->Direction == 1);
+	assert(Enemy->Position.X > StartX);
+	assert(NearlyEqual(Enemy->Position.Y, StartY));
+
+	float MaxX = Enemy->Position.X;
+	float MinX = Enemy->Position.X;
+	bool SawLeft = false;
+	bool SawRightAgain = false;
+	for (int Frame = 1; Frame < 126; ++Frame) {
+		Objects.Update(Map, Catalog);
+		Enemy = Objects.Find("wave");
+		MaxX = (std::max)(MaxX, Enemy->Position.X);
+		MinX = (std::min)(MinX, Enemy->Position.X);
+		if (Enemy->Direction < 0) SawLeft = true;
+		if (SawLeft && Enemy->Direction > 0) SawRightAgain = true;
+		assert(NearlyEqual(Enemy->Position.Y, StartY));
+		assert(NearlyEqual(Enemy->Velocity.Y, 0.0f));
+	}
+	assert(SawLeft);
+	assert(SawRightAgain);
+	assert(MaxX > StartX + 90.0f);
+	assert(MinX < StartX - 90.0f);
+
+	// HSP同様、12.56を超えた次frameでphaseを0へ戻す。
+	Enemy = Objects.Find("wave");
+	assert(NearlyEqual(Enemy->BehaviorPhase, 0.0f));
+
+	// Camera lifecycle resetでもoscillation phaseは初期化される。
+	NativeObjectRuntime* Mutable = Objects.Find("wave");
+	assert(Mutable != nullptr);
+	Mutable->BehaviorPhase = 3.0f;
+	Mutable->Position = {900.0f, 192.0f};
+	Objects.UpdateLifecycle({0.0f, 0.0f}, {512.0f, 320.0f});
+	Enemy = Objects.Find("wave");
+	assert(Enemy->LifeState == ObjectLifeState::Dormant);
+	assert(NearlyEqual(Enemy->BehaviorPhase, 0.0f));
+	assert(NearlyEqual(Enemy->Position.X, 256.0f));
 }
 
 void TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage() {
@@ -6544,6 +6660,7 @@ int main(int argc, char* argv[]) {
 		TestNativeObjectContactComposesWithDamageReaction();
 		TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage();
 	TestNativeFlyingEnemyMovesHorizontallyAndTurnsAtWall();
+	TestNativeFlyingEnemyHorizontalOscillationMatchesHspMotion();
 		TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery();
 		TestNativeBallSlimeVariant2TurnsAtCliffOnlyWhileWalking();
 		TestNativeKickedBallSlimeDefeatsOtherEnemyAndLifecycleResetsShell();
@@ -6621,6 +6738,7 @@ int main(int argc, char* argv[]) {
 	TestNativeObjectContactComposesWithDamageReaction();
 	TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage();
 	TestNativeFlyingEnemyMovesHorizontallyAndTurnsAtWall();
+	TestNativeFlyingEnemyHorizontalOscillationMatchesHspMotion();
 	TestNativeWalkingEnemyLifecycleUsesCameraAndKeepsDefeatedState();
 	TestNativeCarrotManWaitsEmergesAndStartsWalking();
 	TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery();
