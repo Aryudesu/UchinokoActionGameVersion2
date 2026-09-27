@@ -182,7 +182,7 @@
         {
           "id": "objects", "name": "Vertical Oscillation Flying Enemy Test Objects", "zOrder": 10,
           "objects": [
-            { "id": "flying-vertical-wave", "type": "FlyingEnemy", "position": [256, 128], "properties": { "variant": 4, "direction": "left", "speed": 2 } }
+            { "id": "flying-vertical-wave", "type": "FlyingEnemy", "position": [256, 96], "properties": { "variant": 4, "direction": "left", "speed": 2 } }
           ]
         }
       ],
