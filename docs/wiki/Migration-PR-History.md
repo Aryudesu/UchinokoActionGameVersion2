@@ -61,7 +61,8 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #58 | HSPマリリ34をMaririとしてNative化 | merged |
 | #59 | HSP26/27の一回踏むと変化する敵をTransformingWalker化 | merged / 実機確認済み |
 | #60 | HSP28の踏めない崖反転EnemyをUnstompableWalker化 | merged / 実機確認済み |
-| #61 | HSP3のキラー的な直進EnemyをBulletEnemy化 | open / 実機確認済み |
+| #61 | HSP3のキラー的な直進EnemyをBulletEnemy化 | merged / 実機確認済み |
+| #62 | HSP8/9の自動ジャンプEnemyをJumpingEnemy化 | open / 実機確認済み |
 
 ## 読み方
 
@@ -156,7 +157,10 @@ TransformingWalker 26/27（merged / 実機確認済み）
 UnstompableWalker 28（merged / 実機確認済み）
 
 #61
-BulletEnemy 3（open / 実機確認済み）
+BulletEnemy 3（merged / 実機確認済み）
+
+#62
+JumpingEnemy 8/9（open / 実機確認済み）
 ```
 
 という流れです。
@@ -214,4 +218,6 @@ PR #59のTransformingWalkerはdevへマージ済み。variant 1の崖落下、va
 
 PR #60のUnstompableWalkerはdevへマージ済み。HSP28相当の崖手前反転・踏みつけ不可・接触damageまで実機確認済み。
 
-PR #61のBulletEnemyはopenで、HSP3相当の水平直進・重力なし・Solid貫通・踏みつけ撃破・接触damageまで実機確認済み。
+PR #61のBulletEnemyはdevへマージ済み。HSP3相当の水平直進・重力なし・Solid貫通・踏みつけ撃破・接触damageまで実機確認済み。
+
+PR #62のJumpingEnemyはopenで、HSP8/9相当の連続ジャンプ・壁反転・踏みつけ撃破、およびenemyf=9の `-18 → 次frameで-9 clamp` まで実機/自動テストで確認済み。
