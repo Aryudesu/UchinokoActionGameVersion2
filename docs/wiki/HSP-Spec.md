@@ -281,7 +281,8 @@ CarrotManはVersion1を正本としてPR #46でNative runtimeへ移植済み。
 | 4..7 | FlyingEnemy variant 1..4 | merged |
 | 11..14 | StationaryShooter pattern | merged |
 | 20..25 | BallSlime + BehaviorState | merged |
-| 26..27 | TransformingWalker | PR #59 open |
+| 26..27 | TransformingWalker | merged |
+| 28 | UnstompableWalker | PR #60 open / 実機確認済み |
 | 29..30 | Kameen WAIT / CHASE | merged |
 | 31..32 | Pikachii + Direction | merged |
 | 33 | Chikorarashi | merged |
@@ -290,7 +291,7 @@ CarrotManはVersion1を正本としてPR #46でNative runtimeへ移植済み。
 | 38..39 | WallCrawler variant 1/2 | merged |
 | 40..41 | SeaAnemone variant 1/2 | merged |
 
-まだ主に未移植なのは、enemyf 3、8..10、15..19、28等。
+未移植なのは主に enemyf 3、8..10、15..19。enemyf 28はPR #60で実装・実機確認済み。今後は3 / 8 / 9 / 18を優先し、16 / 17はLift / path movement基盤の後で扱う方針。
 
 Projectile側はHSPの挙動をそのままID化せず、
 `ProjectileMotion` / `ProjectileTerrainResponse` へ意味を分離している。
