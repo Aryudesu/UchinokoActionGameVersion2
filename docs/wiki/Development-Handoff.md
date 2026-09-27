@@ -103,7 +103,7 @@ Version2 C++ソースでは、日本語コメントを追加したファイル�
 
 ## 8. 2026-09-27 現在地
 
-devへmerge済みのEnemy系はPR #61まで。
+devへmerge済みのEnemy系はPR #63まで。
 
 - #47 BallSlime / BallSlime2
 - #48 ProjectileSystem / StationaryShooter / Pikachii
@@ -118,12 +118,14 @@ devへmerge済みのEnemy系はPR #61まで。
 - #59 TransformingWalker 26/27
 - #60 UnstompableWalker 28
 - #61 BulletEnemy 3
+- #62 JumpingEnemy 8/9
+- #63 PipeEnemy 18
 
-PR #62 JumpingEnemy 8/9はopenで、連続ジャンプ・壁反転・踏みつけ撃破まで実機確認済み。enemyf=9の着地直後 `vy=-18` と次frame `-9` clampも自動テストで固定済み。
+今回優先していたHSP Enemy 3 / 8 / 9 / 18 / 28はすべてmerge・実機確認済み。PR #63 PipeEnemyでは、近距離待機、timer>50で接触/stomp有効、timer=100で上方飛び出し、着地後待機復帰まで確認済み。
 
-次のEnemy候補はHSP 18を優先する。16 / 17の線移動EnemyはLift / path movement基盤の後で扱う。
+Enemy追加フェーズはいったん区切る。次はEnemy死亡演出 / Score / SEなどの共通runtime effect、またはLift / moving platform基盤を優先する。16 / 17の線移動EnemyはLift / path movement基盤の後で扱う。
 
-特殊Enemyを追加するときは次を優先する。
+今後、未移植Enemyへ戻る場合は次を優先する。
 
 1. HSPの実コードからupdate順序まで確認
 2. 既存Walking/Flying/Projectile resolverを再利用
