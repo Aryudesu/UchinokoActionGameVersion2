@@ -2555,21 +2555,42 @@ void TestNativeKameenWaitsThenAcceleratesTowardPlayer() {
 	assert(NearlyEqual(Enemy->Velocity.X, -8.0f));
 	assert(NearlyEqual(Enemy->Velocity.Y, -8.0f));
 
-	// Camera lifecycle resetで待機状態・速度・加速度へ戻る。
+	// HSP enemyf=29は起動後、画面外へ出ても追尾を継続する。
 	NativeObjectRuntime* Mutable = Objects.Find("kameen");
 	assert(Mutable != nullptr);
 	Mutable->Position = {900.0f, 900.0f};
+	const WorldPosition ChaseVelocity = Mutable->Velocity;
+	const WorldPosition ChaseAcceleration = Mutable->Acceleration;
 	Objects.UpdateLifecycle({0.0f, 0.0f}, {512.0f, 320.0f});
 	Enemy = Objects.Find("kameen");
-	assert(Enemy->LifeState == ObjectLifeState::Dormant);
-	assert(Enemy->BehaviorState == 0);
-	assert(!Enemy->ContactEnabled);
-	assert(NearlyEqual(Enemy->Position.X, 320.0f));
-	assert(NearlyEqual(Enemy->Position.Y, 96.0f));
-	assert(NearlyEqual(Enemy->Velocity.X, 0.0f));
-	assert(NearlyEqual(Enemy->Velocity.Y, 0.0f));
-	assert(NearlyEqual(Enemy->Acceleration.X, 0.0f));
-	assert(NearlyEqual(Enemy->Acceleration.Y, 0.0f));
+	assert(Enemy->LifeState == ObjectLifeState::Active);
+	assert(Enemy->BehaviorState == 1);
+	assert(Enemy->Active);
+	assert(NearlyEqual(Enemy->Position.X, 900.0f));
+	assert(NearlyEqual(Enemy->Position.Y, 900.0f));
+	assert(NearlyEqual(Enemy->Velocity.X, ChaseVelocity.X));
+	assert(NearlyEqual(Enemy->Velocity.Y, ChaseVelocity.Y));
+	assert(NearlyEqual(Enemy->Acceleration.X, ChaseAcceleration.X));
+	assert(NearlyEqual(Enemy->Acceleration.Y, ChaseAcceleration.Y));
+
+	// WAIT中のKameenは通常のCamera lifecycle対象。
+	NativeObjectSystem WaitingObjects;
+	assert(WaitingObjects.Reset(Area).IsSuccess());
+	NativeObjectRuntime* Waiting = WaitingObjects.Find("kameen");
+	assert(Waiting != nullptr);
+	Waiting->Position = {900.0f, 900.0f};
+	WaitingObjects.UpdateLifecycle({0.0f, 0.0f}, {512.0f, 320.0f});
+	const NativeObjectRuntime* WaitingEnemy =
+		WaitingObjects.Find("kameen");
+	assert(WaitingEnemy->LifeState == ObjectLifeState::Dormant);
+	assert(WaitingEnemy->BehaviorState == 0);
+	assert(!WaitingEnemy->ContactEnabled);
+	assert(NearlyEqual(WaitingEnemy->Position.X, 320.0f));
+	assert(NearlyEqual(WaitingEnemy->Position.Y, 96.0f));
+	assert(NearlyEqual(WaitingEnemy->Velocity.X, 0.0f));
+	assert(NearlyEqual(WaitingEnemy->Velocity.Y, 0.0f));
+	assert(NearlyEqual(WaitingEnemy->Acceleration.X, 0.0f));
+	assert(NearlyEqual(WaitingEnemy->Acceleration.Y, 0.0f));
 }
 
 void TestNativeFlyingEnemyRejectsWrongDirectionForVariant() {
