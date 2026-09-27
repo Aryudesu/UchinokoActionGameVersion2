@@ -53,6 +53,7 @@ constexpr float ChikorarashiProjectileGravity = 0.4f / 3.0f;
 constexpr int FlyingHorizontal = 1;
 constexpr int FlyingHorizontalOscillation = 2;
 constexpr int FlyingVertical = 3;
+constexpr int FlyingVerticalOscillation = 4;
 constexpr float FlyingOscillationPhaseStep = 0.1f;
 constexpr float FlyingOscillationPhaseLimit = 6.28f * 2.0f;
 constexpr float FlyingOscillationSpeed = 5.0f;
@@ -342,24 +343,22 @@ bool ResolveWalkingEnemySide(
 bool ResolveFlyingEnemyVertical(
 	NativeObjectRuntime& Object,
 	const TileMap& Map,
-	const TileCatalog& Catalog) {
+	const TileCatalog& Catalog,
+	bool MovingDown) {
 	const ObjectHitBounds Bounds = Object.HitBounds();
 	const float WorldHeight =
 		static_cast<float>(Map.Height() * Map.TileHeight());
 
 	if (Bounds.Position.Y < 0.0f) {
 		Object.Position.Y -= Bounds.Position.Y;
-		Object.Direction = 1;
 		return true;
 	}
 	if (Bounds.Position.Y + Bounds.Size.Y > WorldHeight) {
 		Object.Position.Y -=
 			Bounds.Position.Y + Bounds.Size.Y - WorldHeight;
-		Object.Direction = -1;
 		return true;
 	}
 
-	const bool MovingDown = Object.Direction > 0;
 	const float ProbeY =
 		MovingDown
 			? Bounds.Position.Y + Bounds.Size.Y - 0.01f
@@ -411,13 +410,11 @@ bool ResolveFlyingEnemyVertical(
 				TileTop -
 				Object.HitboxOffset.Y -
 				Object.HitboxSize.Y;
-			Object.Direction = -1;
 		} else {
 			const float TileBottom =
 				static_cast<float>((Row + 1) * Map.TileHeight());
 			Object.Position.Y =
 				TileBottom - Object.HitboxOffset.Y;
-			Object.Direction = 1;
 		}
 		return true;
 	}
@@ -750,9 +747,11 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 
 		if (Runtime.Variant != FlyingHorizontal &&
 			Runtime.Variant != FlyingHorizontalOscillation &&
-			Runtime.Variant != FlyingVertical) {
+			Runtime.Variant != FlyingVertical &&
+			Runtime.Variant != FlyingVerticalOscillation) {
 			return Result<NativeObjectRuntime>::Failure(
-				"FlyingEnemy variant must be 1, 2 or 3: " + Spawn.Id);
+				"FlyingEnemy variant must be 1, 2, 3 or 4: " +
+					Spawn.Id);
 		}
 
 		std::string Direction =
@@ -1093,7 +1092,8 @@ void NativeObjectSystem::UpdateWalkingEnemy(
 void NativeObjectSystem::UpdateFlyingEnemy(
 	NativeObjectRuntime& Object,
 	const TileMap& Map,
-	const TileCatalog& Catalog) {
+	const TileCatalog& Catalog,
+	WorldPosition PlayerPosition) {
 	if (!Object.Active || Object.MoveSpeed <= 0.0f) return;
 
 	if (Object.Variant == FlyingVertical) {
@@ -1102,9 +1102,41 @@ void NativeObjectSystem::UpdateFlyingEnemy(
 			static_cast<float>(Object.Direction) * Object.MoveSpeed;
 		Object.Position.Y += Object.Velocity.Y;
 
-		if (ResolveFlyingEnemyVertical(Object, Map, Catalog)) {
+		const bool MovingDown = Object.Velocity.Y > 0.0f;
+		if (ResolveFlyingEnemyVertical(
+			Object, Map, Catalog, MovingDown)) {
+			Object.Direction *= -1;
 			Object.Velocity.Y =
 				static_cast<float>(Object.Direction) * Object.MoveSpeed;
+		}
+	} else if (Object.Variant == FlyingVerticalOscillation) {
+		// HSP enemyf=7:
+		// rad += 0.1
+		// y += 5 * cos(rad * 0.5)
+		// 向きは移動方向ではなくPlayerの左右位置へ向ける。
+		Object.BehaviorPhase += FlyingOscillationPhaseStep;
+		if (Object.BehaviorPhase > FlyingOscillationPhaseLimit) {
+			Object.BehaviorPhase = 0.0f;
+		}
+
+		const float Angle = Object.BehaviorPhase * 0.5f;
+		Object.Velocity.X = 0.0f;
+		Object.Velocity.Y =
+			FlyingOscillationSpeed * std::cos(Angle);
+		Object.Position.Y += Object.Velocity.Y;
+
+		if (PlayerPosition.X < Object.Position.X) {
+			Object.Direction = -1;
+		} else if (PlayerPosition.X > Object.Position.X) {
+			Object.Direction = 1;
+		}
+
+		const bool MovingDown = Object.Velocity.Y > 0.0f;
+		if (ResolveFlyingEnemyVertical(
+			Object, Map, Catalog, MovingDown)) {
+			// HSP版もterrain hit時にはenemydireを反転する。
+			// 次frameにはPlayer位置で再設定される。
+			Object.Direction *= -1;
 		}
 	} else {
 		Object.Velocity.Y = 0.0f;
@@ -1537,7 +1569,8 @@ void NativeObjectSystem::Update(
 		if (Object.TypeId == "WalkingEnemy") {
 			UpdateWalkingEnemy(Object, Map, Catalog);
 		} else if (Object.TypeId == "FlyingEnemy") {
-			UpdateFlyingEnemy(Object, Map, Catalog);
+			UpdateFlyingEnemy(
+				Object, Map, Catalog, PlayerPosition);
 		} else if (Object.TypeId == "CarrotMan") {
 			UpdateCarrotMan(Object, Map, Catalog, PlayerPosition);
 		} else if (Object.TypeId == "BallSlime") {
