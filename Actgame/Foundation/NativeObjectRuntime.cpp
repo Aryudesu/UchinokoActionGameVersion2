@@ -1219,10 +1219,11 @@ void NativeObjectSystem::UpdateKameen(
 		if (DistanceSquared <
 			KameenTriggerDistance * KameenTriggerDistance) {
 			Object.BehaviorState = KameenChasing;
-			Object.ContactEnabled = true;
 		}
 		return;
 	}
+
+	Object.ContactEnabled = true;
 
 	// HSP enemyf=29をそのまま寄せる。
 	// Playerが右/下の場合だけatan由来のcos/sin成分を使い、
