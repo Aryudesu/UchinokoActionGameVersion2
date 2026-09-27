@@ -1524,7 +1524,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 
 	assert(Area->RegionLayers.empty());
 
-	assert(Area->Transitions.size() == 2);
+	assert(Area->Transitions.size() == 1);
 	const StageTransition& Pipe = Area->Transitions[0];
 	assert(Pipe.Id == "pipe-main-sub");
 	assert(Pipe.TargetStageId.empty());
@@ -1537,17 +1537,6 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NearlyEqual(Pipe.ExitPosition.X, 32.0f));
 	assert(NearlyEqual(Pipe.ExitPosition.Y, 128.0f));
 
-	const StageTransition& AirPipe = Area->Transitions[1];
-	assert(AirPipe.Id == "pipe-main-air");
-	assert(AirPipe.TargetAreaId == "air");
-	assert(AirPipe.Entry.Shape == StageRegionShape::Point);
-	assert(NearlyEqual(AirPipe.Entry.Position.X, 192.0f));
-	assert(NearlyEqual(AirPipe.Entry.Position.Y, 128.0f));
-	assert(AirPipe.EnterDirection == StageDirection::Down);
-	assert(AirPipe.ExitDirection == StageDirection::Up);
-	assert(NearlyEqual(AirPipe.ExitPosition.X, 32.0f));
-	assert(NearlyEqual(AirPipe.ExitPosition.Y, 192.0f));
-
 	const StageArea* Sub = Data.FindArea("sub");
 	assert(Sub != nullptr);
 	assert(Sub->Width == 16);
@@ -1555,7 +1544,14 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(Sub->TerrainLayer() != nullptr);
 	assert(*Sub->TerrainLayer()->Map.TryGet({0, 7}) == 2);
 	assert(*Sub->TerrainLayer()->Map.TryGet({7, 3}) == 2);
-	assert(Sub->Transitions.empty());
+	assert(Sub->Transitions.size() == 1);
+	assert(Sub->Transitions[0].Id == "pipe-sub-air");
+	assert(Sub->Transitions[0].TargetAreaId == "air");
+	assert(Sub->Transitions[0].Entry.Shape == StageRegionShape::Point);
+	assert(NearlyEqual(Sub->Transitions[0].Entry.Position.X, 448.0f));
+	assert(NearlyEqual(Sub->Transitions[0].Entry.Position.Y, 192.0f));
+	assert(NearlyEqual(Sub->Transitions[0].ExitPosition.X, 32.0f));
+	assert(NearlyEqual(Sub->Transitions[0].ExitPosition.Y, 192.0f));
 	assert(Sub->RegionLayers.empty());
 
 	const ObjectLayer* ProjectileTests =
