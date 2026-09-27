@@ -104,7 +104,35 @@
       ],
       "regionLayers": [],
       "transitions": [
-        { "id": "pipe-air-main", "type": "Pipe", "entry": { "shape": "point", "position": [448, 192] }, "targetArea": "main", "exitPosition": [192, 128], "enterDirection": "down", "exitDirection": "up" }
+        { "id": "pipe-air-wave", "type": "Pipe", "entry": { "shape": "point", "position": [448, 192] }, "targetArea": "air-wave", "exitPosition": [32, 192], "enterDirection": "down", "exitDirection": "up" }
+      ]
+    },
+    {
+      "id": "air-wave",
+      "size": [16, 8],
+      "tileSize": [32, 32],
+      "settings": {
+        "timeLimitSeconds": 0,
+        "bgm": "test-air-wave-bgm",
+        "background": "test-air-wave-sky",
+        "properties": { "cameraMode": "follow" }
+      },
+      "tileLayers": [
+        { "id": "background", "name": "Background", "role": "visual", "zOrder": -10, "source": "air-wave/background.csv", "tileSet": "native-test" },
+        { "id": "terrain", "name": "Terrain", "role": "terrain", "zOrder": 0, "source": "air-wave/terrain.csv", "tileSet": "native-test" },
+        { "id": "foreground", "name": "Foreground", "role": "visual", "zOrder": 20, "source": "air-wave/foreground.csv", "tileSet": "native-test" }
+      ],
+      "objectLayers": [
+        {
+          "id": "objects", "name": "Flying Oscillation Test Objects", "zOrder": 10,
+          "objects": [
+            { "id": "flying-horizontal-wave", "type": "FlyingEnemy", "position": [256, 192], "properties": { "variant": 2, "direction": "right", "speed": 2 } }
+          ]
+        }
+      ],
+      "regionLayers": [],
+      "transitions": [
+        { "id": "pipe-air-wave-main", "type": "Pipe", "entry": { "shape": "point", "position": [448, 192] }, "targetArea": "main", "exitPosition": [192, 128], "enterDirection": "down", "exitDirection": "up" }
       ]
     }
   ],

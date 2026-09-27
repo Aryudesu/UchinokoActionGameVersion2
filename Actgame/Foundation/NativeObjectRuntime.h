@@ -48,6 +48,7 @@ struct NativeObjectRuntime {
 	bool Stompable = false;
 	int BehaviorState = 0;
 	int BehaviorTimer = 0;
+	float BehaviorPhase = 0.0f;
 	std::string AttackPattern;
 	int AttackIntervalFrames = 101;
 	unsigned int RandomState = 1;
