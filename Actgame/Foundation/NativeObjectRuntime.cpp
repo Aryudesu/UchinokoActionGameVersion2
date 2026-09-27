@@ -95,12 +95,7 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 	if (Object.TypeId == "Kameen") {
 		return Object.BehaviorState == KameenChasing;
 	}
-	if (Object.TypeId == "Kameen") {
-		Object.BehaviorState = KameenWaiting;
-		Object.ContactEnabled = false;
-		Object.Stompable = false;
-		Object.ContactDamage = 1;
-	} else if (Object.TypeId == "CarrotMan") {
+	if (Object.TypeId == "CarrotMan") {
 		return Object.BehaviorState != CarrotHidden;
 	}
 	return IsBallSlime(Object);
@@ -978,7 +973,12 @@ void NativeObjectSystem::ResetToSpawn(
 	Object.Acceleration = {0.0f, 0.0f};
 	Object.Grounded = false;
 
-	if (Object.TypeId == "CarrotMan") {
+	if (Object.TypeId == "Kameen") {
+		Object.BehaviorState = KameenWaiting;
+		Object.ContactEnabled = false;
+		Object.Stompable = false;
+		Object.ContactDamage = 1;
+	} else if (Object.TypeId == "CarrotMan") {
 		Object.BehaviorState = CarrotHidden;
 		Object.BehaviorTimer = 0;
 		Object.ContactEnabled = false;
