@@ -1,6 +1,6 @@
 # Version2仕様
 
-2026-09-26時点の `dev` を基準に記載します。
+2026-09-27時点の `dev` を基準に記載します。
 
 Version2は **Version1のクラス構造をそのままコピーするのではなく、Foundation層へ意味ごとに分解して再構成する** 方針です。
 
@@ -519,3 +519,96 @@ PR #44でDxLib非依存の2D CameraをFoundationへ追加。
 - VerticalAnchor: 0.55
 - VerticalDeadZoneUp: 64
 - VerticalDeadZoneDown: 16
+
+
+---
+
+## 16. Native Enemy / Projectile拡張（PR #47〜#58）
+
+PR #47以降、NativeObjectRuntimeはWalkingEnemyだけでなく、
+特殊EnemyをTypeId / variant / BehaviorStateへ整理して扱える段階へ進んだ。
+
+### BallSlime
+
+`BallSlime + variant` としてVersion1のBallSlime / BallSlime2を統合。
+
+BehaviorState:
+
+- Walking
+- Shell
+- Kicked
+
+Shellの復帰timer、Kick、Kicked Shellによる他Enemy撃破までNative化済み。
+
+### ProjectileSystem
+
+Enemy本体からProjectileを分離。
+
+現在のMotion:
+
+- Straight
+- SpiralClockwise
+- SpiralCounterClockwise
+- Ballistic
+
+Terrain response:
+
+- Deactivate
+- Bounce
+- Split
+
+BallisticにはGravityとoptionalなpositive MaxFallSpeedを持てる。
+
+### HSP特殊Enemy
+
+- StationaryShooter: 12-way / spiral / dual spiral
+- Pikachii: 接近 → Jump → 頂点付近でaimed shot
+- Chikorarashi: random初速のterrain無視Ballistic
+- FlyingEnemy: 横直進 / 横単振動 / 縦直進 / 縦単振動
+- Kameen: WAIT / inertia CHASE
+- FishEnemy: 横壁反転 / 横3tile range / 縦3tile range
+- WallCrawler: CW / CCW wall follower
+- SeaAnemone: charge後に8発fan shot
+- Mariri: 100F待機 → jump中のみ横移動
+
+HSP numeric IDはruntime TypeIdには使用せず、意味単位に再設計している。
+
+### WallCrawler
+
+時計/反時計を個別分岐で列挙せず、進行方向vectorを90度回転して
+「壁側が空なら外角を回る / 正面が壁なら内角を回る」という
+wall followerへ一般化している。
+
+### Kameen lifecycle例外
+
+WAIT中は通常Camera lifecycle対象。
+CHASE中はHSP挙動に合わせ、画面外でもDormantへ戻さず追尾状態を維持する。
+
+---
+
+## 17. Native test Areaの運用方針
+
+Enemy確認用Areaはmainへ集積せず、確認済みAreaの後ろへ直列接続する。
+
+2026-09-27時点の代表ルート:
+
+```text
+main
+ -> sub
+ -> air
+ -> air-wave
+ -> air-vertical
+ -> air-vertical-wave
+ -> kameen
+ -> fish-horizontal
+ -> fish-range
+ -> fish-vertical
+ -> wall-ccw
+ -> wall-cw
+ -> anemone-right
+ -> anemone-left
+ -> mariri
+ -> main
+```
+
+確認用terrainがPlayerの退出経路を塞がないことをfixture設計時に確認する。
