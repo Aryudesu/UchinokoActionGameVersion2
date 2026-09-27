@@ -1716,6 +1716,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(FishHorizontal->Height == 8);
 	assert(FishHorizontal->TerrainLayer() != nullptr);
 	assert(*FishHorizontal->TerrainLayer()->Map.TryGet({12, 3}) == 2);
+	assert(*FishHorizontal->TerrainLayer()->Map.TryGet({12, 6}) == 0);
 	const ObjectLayer* FishHorizontalObjects =
 		FishHorizontal->FindObjectLayer("objects");
 	assert(FishHorizontalObjects != nullptr);
