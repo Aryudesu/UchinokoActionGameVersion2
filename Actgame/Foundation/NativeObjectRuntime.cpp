@@ -91,6 +91,14 @@ constexpr int MaririJumpTimer = 100;
 constexpr float MaririMoveSpeed = 3.0f;
 constexpr float MaririJumpSpeed = 9.0f;
 
+constexpr int JumpingEnemyNormal = 1;
+constexpr int JumpingEnemyHigh = 2;
+constexpr float JumpingEnemyMoveSpeed = 2.0f;
+constexpr float JumpingEnemyNormalJumpSpeed = 9.0f;
+constexpr float JumpingEnemyHighJumpSpeed = 18.0f;
+constexpr float JumpingEnemyGravity = 0.4f;
+constexpr float JumpingEnemyMaxVerticalSpeed = 9.0f;
+
 bool IsBallSlime(const NativeObjectRuntime& Object) {
 	return Object.TypeId == "BallSlime";
 }
@@ -115,7 +123,8 @@ bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 		Object.TypeId == "Mariri" ||
 		Object.TypeId == "TransformingWalker" ||
 		Object.TypeId == "UnstompableWalker" ||
-		Object.TypeId == "BulletEnemy";
+		Object.TypeId == "BulletEnemy" ||
+		Object.TypeId == "JumpingEnemy";
 }
 
 bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
@@ -130,7 +139,8 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 		Object.TypeId == "Mariri" ||
 		Object.TypeId == "TransformingWalker" ||
 		Object.TypeId == "UnstompableWalker" ||
-		Object.TypeId == "BulletEnemy") {
+		Object.TypeId == "BulletEnemy" ||
+		Object.TypeId == "JumpingEnemy") {
 		return true;
 	}
 	if (Object.TypeId == "Kameen") {
@@ -771,6 +781,20 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.MoveSpeed = 2.0f;
 		Runtime.Gravity = 0.5f;
 		Runtime.MaxFallSpeed = 12.0f;
+	} else if (Spawn.TypeId == "JumpingEnemy") {
+		// HSP enemyf=8/9: 横移動しながら接地のたび自動ジャンプ。
+		// 8/9の差は着地時に設定するjump speedだけ。
+		Runtime.HitboxOffset = {8.0f, 1.0f};
+		Runtime.HitboxSize = {16.0f, 31.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.ContactEnabled = true;
+		Runtime.Stompable = true;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.Variant = JumpingEnemyNormal;
+		Runtime.MoveSpeed = JumpingEnemyMoveSpeed;
+		Runtime.Gravity = JumpingEnemyGravity;
+		Runtime.MaxFallSpeed = JumpingEnemyMaxVerticalSpeed;
 	} else if (Spawn.TypeId == "BulletEnemy") {
 		// HSP enemyf=3: enemyXspeed(2.0) * 1.5 = 3.0px/frameで
 		// 水平直進する。通常terrainでは反転せず、重力も受けない。
@@ -1134,6 +1158,63 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		if (Runtime.MoveSpeed <= 0.0f) {
 			return Result<NativeObjectRuntime>::Failure(
 				"FlyingEnemy speed must be positive: " + Spawn.Id);
+		}
+	}
+
+	if (Spawn.TypeId == "JumpingEnemy") {
+		std::string Direction =
+			Runtime.Direction < 0 ? "left" : "right";
+		if (!TryReadString(
+			Spawn.Properties,
+			"direction",
+			Direction,
+			Error,
+			Spawn.Id) ||
+			!TryReadInteger(
+				Spawn.Properties,
+				"variant",
+				Runtime.Variant,
+				Error,
+				Spawn.Id) ||
+			!TryReadFloat(
+				Spawn.Properties,
+				"speed",
+				Runtime.MoveSpeed,
+				Error,
+				Spawn.Id) ||
+			!TryReadFloat(
+				Spawn.Properties,
+				"gravity",
+				Runtime.Gravity,
+				Error,
+				Spawn.Id) ||
+			!TryReadFloat(
+				Spawn.Properties,
+				"maxFallSpeed",
+				Runtime.MaxFallSpeed,
+				Error,
+				Spawn.Id)) {
+			return Result<NativeObjectRuntime>::Failure(Error);
+		}
+		if (Direction == "left") {
+			Runtime.Direction = -1;
+		} else if (Direction == "right") {
+			Runtime.Direction = 1;
+		} else {
+			return Result<NativeObjectRuntime>::Failure(
+				"JumpingEnemy direction must be left or right: " + Spawn.Id);
+		}
+		Runtime.InitialDirection = Runtime.Direction;
+		if (Runtime.Variant != JumpingEnemyNormal &&
+			Runtime.Variant != JumpingEnemyHigh) {
+			return Result<NativeObjectRuntime>::Failure(
+				"JumpingEnemy variant must be 1 or 2: " + Spawn.Id);
+		}
+		if (Runtime.MoveSpeed <= 0.0f ||
+			Runtime.Gravity < 0.0f ||
+			Runtime.MaxFallSpeed <= 0.0f) {
+			return Result<NativeObjectRuntime>::Failure(
+				"JumpingEnemy motion values are invalid: " + Spawn.Id);
 		}
 	}
 
@@ -1510,6 +1591,62 @@ void NativeObjectSystem::UpdateWalkingEnemy(
 
 	// Damage / InstantDeath はデータ上は区別したまま保持する。
 	// 現在のWalkingEnemyはHPを持たないため、どちらも接触時に非Active化する。
+	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
+		Object.LifeState = ObjectLifeState::Defeated;
+		Object.Active = false;
+		Object.Velocity = {0.0f, 0.0f};
+	}
+}
+
+void NativeObjectSystem::UpdateJumpingEnemy(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog) {
+	if (!Object.Active || Object.MoveSpeed <= 0.0f) return;
+
+	// HSP enemyf=8/9: 横移動→壁反転→重力/上下速度clamp→接地時jump。
+	Object.Velocity.X =
+		static_cast<float>(Object.Direction) * Object.MoveSpeed;
+	Object.Position.X += Object.Velocity.X;
+	if (ResolveWalkingEnemySide(Object, Map, Catalog)) {
+		Object.Velocity.X =
+			static_cast<float>(Object.Direction) * Object.MoveSpeed;
+	}
+
+	Object.Velocity.Y = (std::clamp)(
+		Object.Velocity.Y + Object.Gravity,
+		-Object.MaxFallSpeed,
+		Object.MaxFallSpeed);
+	Object.Position.Y += Object.Velocity.Y;
+
+	const ObjectHitBounds Bounds = Object.HitBounds();
+	const float FootX =
+		Bounds.Position.X + Bounds.Size.X * 0.5f;
+	const float FootY =
+		Bounds.Position.Y + Bounds.Size.Y;
+	GroundHit Hit;
+	const float SnapDistance =
+		Object.MoveSpeed * 2.0f + 2.0f;
+	const bool Found = FindObjectGround(
+		Map,
+		Catalog,
+		{FootX, FootY},
+		std::fabs(Object.Velocity.Y) + SnapDistance,
+		Object.Grounded ? SnapDistance : 0.0f,
+		Hit);
+
+	if (Found && Object.Velocity.Y >= 0.0f) {
+		Object.Position.Y =
+			Hit.SurfaceY - Object.HitboxOffset.Y - Object.HitboxSize.Y;
+		Object.Velocity.Y =
+			Object.Variant == JumpingEnemyHigh
+				? -JumpingEnemyHighJumpSpeed
+				: -JumpingEnemyNormalJumpSpeed;
+		Object.Grounded = false;
+	} else {
+		Object.Grounded = false;
+	}
+
 	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
 		Object.LifeState = ObjectLifeState::Defeated;
 		Object.Active = false;
@@ -2348,6 +2485,8 @@ void NativeObjectSystem::Update(
 			Object.TypeId == "TransformingWalker" ||
 			Object.TypeId == "UnstompableWalker") {
 			UpdateWalkingEnemy(Object, Map, Catalog);
+		} else if (Object.TypeId == "JumpingEnemy") {
+			UpdateJumpingEnemy(Object, Map, Catalog);
 		} else if (Object.TypeId == "BulletEnemy") {
 			UpdateBulletEnemy(Object, Map, Catalog);
 		} else if (Object.TypeId == "FlyingEnemy") {
