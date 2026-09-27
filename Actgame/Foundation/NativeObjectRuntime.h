@@ -115,6 +115,10 @@ private:
 		NativeObjectRuntime& Object,
 		const TileMap& Map,
 		const TileCatalog& Catalog);
+	static void UpdateJumpingEnemy(
+		NativeObjectRuntime& Object,
+		const TileMap& Map,
+		const TileCatalog& Catalog);
 	static void UpdateBulletEnemy(
 		NativeObjectRuntime& Object,
 		const TileMap& Map,
