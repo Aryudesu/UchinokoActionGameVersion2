@@ -608,7 +608,35 @@
       ],
       "regionLayers": [],
       "transitions": [
-        { "id": "pipe-jumping-9-main", "type": "Pipe", "entry": { "shape": "point", "position": [448,192] }, "targetArea": "main", "exitPosition": [192,128], "enterDirection": "down", "exitDirection": "up" }
+        { "id": "pipe-jumping-9-pipe-enemy", "type": "Pipe", "entry": { "shape": "point", "position": [448,192] }, "targetArea": "pipe-enemy", "exitPosition": [192,192], "enterDirection": "down", "exitDirection": "up" }
+      ]
+    },
+    {
+      "id": "pipe-enemy",
+      "size": [16, 8],
+      "tileSize": [32, 32],
+      "settings": {
+        "timeLimitSeconds": 0,
+        "bgm": "test-pipe-enemy-bgm",
+        "background": "test-pipe-enemy-sky",
+        "properties": { "cameraMode": "follow" }
+      },
+      "tileLayers": [
+        { "id": "background", "name": "Background", "role": "visual", "zOrder": -10, "source": "pipe-enemy/background.csv", "tileSet": "native-test" },
+        { "id": "terrain", "name": "Terrain", "role": "terrain", "zOrder": 0, "source": "pipe-enemy/terrain.csv", "tileSet": "native-test" },
+        { "id": "foreground", "name": "Foreground", "role": "visual", "zOrder": 20, "source": "pipe-enemy/foreground.csv", "tileSet": "native-test" }
+      ],
+      "objectLayers": [
+        {
+          "id": "objects", "name": "HSP18 Pipe Enemy Test Objects", "zOrder": 10,
+          "objects": [
+            { "id": "pipe-enemy-18", "type": "PipeEnemy", "position": [224,160], "properties": {} }
+          ]
+        }
+      ],
+      "regionLayers": [],
+      "transitions": [
+        { "id": "pipe-pipe-enemy-main", "type": "Pipe", "entry": { "shape": "point", "position": [448,192] }, "targetArea": "main", "exitPosition": [192,128], "enterDirection": "down", "exitDirection": "up" }
       ]
     }
   ],

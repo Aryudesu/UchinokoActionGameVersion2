@@ -99,6 +99,16 @@ constexpr float JumpingEnemyHighJumpSpeed = 18.0f;
 constexpr float JumpingEnemyGravity = 0.4f;
 constexpr float JumpingEnemyMaxVerticalSpeed = 9.0f;
 
+constexpr int PipeEnemyWaiting = 0;
+constexpr int PipeEnemyArmed = 1;
+constexpr int PipeEnemyEmerging = 2;
+constexpr float PipeEnemyTriggerDistance = 32.0f;
+constexpr int PipeEnemyContactEnableFrame = 50;
+constexpr int PipeEnemyLaunchFrame = 100;
+constexpr float PipeEnemyLaunchSpeed = 18.0f;
+constexpr float PipeEnemyGravity = 0.4f;
+constexpr float PipeEnemyMaxVerticalSpeed = 9.0f;
+
 bool IsBallSlime(const NativeObjectRuntime& Object) {
 	return Object.TypeId == "BallSlime";
 }
@@ -124,7 +134,8 @@ bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 		Object.TypeId == "TransformingWalker" ||
 		Object.TypeId == "UnstompableWalker" ||
 		Object.TypeId == "BulletEnemy" ||
-		Object.TypeId == "JumpingEnemy";
+		Object.TypeId == "JumpingEnemy" ||
+		Object.TypeId == "PipeEnemy";
 }
 
 bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
@@ -142,6 +153,9 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 		Object.TypeId == "BulletEnemy" ||
 		Object.TypeId == "JumpingEnemy") {
 		return true;
+	}
+	if (Object.TypeId == "PipeEnemy") {
+		return Object.ContactEnabled;
 	}
 	if (Object.TypeId == "Kameen") {
 		return Object.BehaviorState == KameenChasing;
@@ -528,10 +542,11 @@ bool ResolveFlyingEnemyVertical(
 			static_cast<float>(Column * Map.TileWidth());
 		const float TileRight =
 			static_cast<float>((Column + 1) * Map.TileWidth());
-		const float ProbeX = (std::clamp)(
-			Bounds.Position.X + Bounds.Size.X * 0.5f,
-			TileLeft + 0.01f,
-			TileRight - 0.01f);
+		const float ProbeX = (std::min)(
+			TileRight - 0.01f,
+			(std::max)(
+				TileLeft + 0.01f,
+				Bounds.Position.X + Bounds.Size.X * 0.5f));
 
 		if (!TerrainCollision::ContainsSolidPoint(
 			Definition->Collision,
@@ -781,6 +796,21 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.MoveSpeed = 2.0f;
 		Runtime.Gravity = 0.5f;
 		Runtime.MaxFallSpeed = 12.0f;
+	} else if (Spawn.TypeId == "PipeEnemy") {
+		// HSP enemyf=18: Playerが横32pxより離れるとtimer開始。
+		// timer>50で接触ON、100で上へ飛び出し、着地後timerを0へ戻す。
+		Runtime.HitboxOffset = {8.0f, 1.0f};
+		Runtime.HitboxSize = {16.0f, 31.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.ContactEnabled = false;
+		Runtime.Stompable = false;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.MoveSpeed = 0.0f;
+		Runtime.Gravity = PipeEnemyGravity;
+		Runtime.MaxFallSpeed = PipeEnemyMaxVerticalSpeed;
+		Runtime.BehaviorState = PipeEnemyWaiting;
+		Runtime.BehaviorTimer = 0;
 	} else if (Spawn.TypeId == "JumpingEnemy") {
 		// HSP enemyf=8/9: 横移動しながら接地のたび自動ジャンプ。
 		// 8/9の差は着地時に設定するjump speedだけ。
@@ -1161,6 +1191,27 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		}
 	}
 
+	if (Spawn.TypeId == "PipeEnemy") {
+		if (!TryReadFloat(
+			Spawn.Properties,
+			"gravity",
+			Runtime.Gravity,
+			Error,
+			Spawn.Id) ||
+			!TryReadFloat(
+				Spawn.Properties,
+				"maxFallSpeed",
+				Runtime.MaxFallSpeed,
+				Error,
+				Spawn.Id)) {
+			return Result<NativeObjectRuntime>::Failure(Error);
+		}
+		if (Runtime.Gravity < 0.0f || Runtime.MaxFallSpeed <= 0.0f) {
+			return Result<NativeObjectRuntime>::Failure(
+				"PipeEnemy motion values are invalid: " + Spawn.Id);
+		}
+	}
+
 	if (Spawn.TypeId == "JumpingEnemy") {
 		std::string Direction =
 			Runtime.Direction < 0 ? "left" : "right";
@@ -1413,7 +1464,15 @@ void NativeObjectSystem::ResetToSpawn(
 	Object.Acceleration = {0.0f, 0.0f};
 	Object.Grounded = false;
 
-	if (Object.TypeId == "TransformingWalker") {
+	if (Object.TypeId == "PipeEnemy") {
+		Object.BehaviorState = PipeEnemyWaiting;
+		Object.BehaviorTimer = 0;
+		Object.ContactEnabled = false;
+		Object.Stompable = false;
+		Object.ContactDamage = 1;
+		Object.Gravity = PipeEnemyGravity;
+		Object.MaxFallSpeed = PipeEnemyMaxVerticalSpeed;
+	} else if (Object.TypeId == "TransformingWalker") {
 		Object.BehaviorState = TransformingWalkerOriginal;
 		Object.ContactEnabled = true;
 		Object.Stompable = true;
@@ -1598,6 +1657,75 @@ void NativeObjectSystem::UpdateWalkingEnemy(
 	}
 }
 
+void NativeObjectSystem::UpdatePipeEnemy(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog,
+	WorldPosition PlayerPosition) {
+	if (!Object.Active) return;
+
+	const bool PlayerIsFar =
+		std::fabs(Object.Position.X - PlayerPosition.X) >
+			PipeEnemyTriggerDistance;
+	if (PlayerIsFar || Object.BehaviorTimer > PipeEnemyContactEnableFrame) {
+		++Object.BehaviorTimer;
+	}
+
+	if (Object.BehaviorTimer <= PipeEnemyContactEnableFrame) {
+		Object.BehaviorState = PipeEnemyWaiting;
+		Object.ContactEnabled = false;
+		Object.Stompable = false;
+	} else if (Object.BehaviorTimer < PipeEnemyLaunchFrame) {
+		Object.BehaviorState = PipeEnemyArmed;
+		Object.ContactEnabled = true;
+		Object.Stompable = true;
+	} else {
+		Object.BehaviorState = PipeEnemyEmerging;
+		Object.ContactEnabled = true;
+		Object.Stompable = true;
+	}
+
+	// HSPはtimer==100で-18を代入した後、同じframeでgravityと
+	// maxVspeed clampを適用するため、実際の上昇速度は-9になる。
+	if (Object.BehaviorTimer == PipeEnemyLaunchFrame) {
+		Object.Velocity.Y = -PipeEnemyLaunchSpeed;
+	}
+	Object.Velocity.Y = (std::min)(
+		Object.MaxFallSpeed,
+		(std::max)(
+			-Object.MaxFallSpeed,
+			Object.Velocity.Y + Object.Gravity));
+	Object.Position.Y += Object.Velocity.Y;
+
+	const ObjectHitBounds Bounds = Object.HitBounds();
+	const float FootX = Bounds.Position.X + Bounds.Size.X * 0.5f;
+	const float FootY = Bounds.Position.Y + Bounds.Size.Y;
+	GroundHit Hit;
+	const float SnapDistance = 2.0f;
+	const bool Found = FindObjectGround(
+		Map,
+		Catalog,
+		{FootX, FootY},
+		std::fabs(Object.Velocity.Y) + SnapDistance,
+		Object.Grounded ? SnapDistance : 0.0f,
+		Hit);
+
+	if (Found && Object.Velocity.Y >= 0.0f) {
+		Object.Position.Y =
+			Hit.SurfaceY - Object.HitboxOffset.Y - Object.HitboxSize.Y;
+		Object.Velocity.Y = 0.0f;
+		Object.Grounded = true;
+		if (Object.BehaviorTimer > PipeEnemyLaunchFrame) {
+			Object.BehaviorTimer = 0;
+			Object.BehaviorState = PipeEnemyWaiting;
+			Object.ContactEnabled = false;
+			Object.Stompable = false;
+		}
+	} else {
+		Object.Grounded = false;
+	}
+}
+
 void NativeObjectSystem::UpdateJumpingEnemy(
 	NativeObjectRuntime& Object,
 	const TileMap& Map,
@@ -1613,10 +1741,11 @@ void NativeObjectSystem::UpdateJumpingEnemy(
 			static_cast<float>(Object.Direction) * Object.MoveSpeed;
 	}
 
-	Object.Velocity.Y = (std::clamp)(
-		Object.Velocity.Y + Object.Gravity,
-		-Object.MaxFallSpeed,
-		Object.MaxFallSpeed);
+	Object.Velocity.Y = (std::min)(
+		Object.MaxFallSpeed,
+		(std::max)(
+			-Object.MaxFallSpeed,
+			Object.Velocity.Y + Object.Gravity));
 	Object.Position.Y += Object.Velocity.Y;
 
 	const ObjectHitBounds Bounds = Object.HitBounds();
@@ -2000,14 +2129,16 @@ void NativeObjectSystem::UpdateKameen(
 		Object.Acceleration.Y = -KameenAcceleration;
 	}
 
-	Object.Velocity.X = (std::clamp)(
-		Object.Velocity.X + Object.Acceleration.X,
-		-KameenMaxSpeed,
-		KameenMaxSpeed);
-	Object.Velocity.Y = (std::clamp)(
-		Object.Velocity.Y + Object.Acceleration.Y,
-		-KameenMaxSpeed,
-		KameenMaxSpeed);
+	Object.Velocity.X = (std::min)(
+		KameenMaxSpeed,
+		(std::max)(
+			-KameenMaxSpeed,
+			Object.Velocity.X + Object.Acceleration.X));
+	Object.Velocity.Y = (std::min)(
+		KameenMaxSpeed,
+		(std::max)(
+			-KameenMaxSpeed,
+			Object.Velocity.Y + Object.Acceleration.Y));
 
 	// HSPは int(enemyv + enemyPos) を毎frame代入する。
 	Object.Position.X = static_cast<float>(
@@ -2485,6 +2616,8 @@ void NativeObjectSystem::Update(
 			Object.TypeId == "TransformingWalker" ||
 			Object.TypeId == "UnstompableWalker") {
 			UpdateWalkingEnemy(Object, Map, Catalog);
+		} else if (Object.TypeId == "PipeEnemy") {
+			UpdatePipeEnemy(Object, Map, Catalog, PlayerPosition);
 		} else if (Object.TypeId == "JumpingEnemy") {
 			UpdateJumpingEnemy(Object, Map, Catalog);
 		} else if (Object.TypeId == "BulletEnemy") {

@@ -115,6 +115,11 @@ private:
 		NativeObjectRuntime& Object,
 		const TileMap& Map,
 		const TileCatalog& Catalog);
+	static void UpdatePipeEnemy(
+		NativeObjectRuntime& Object,
+		const TileMap& Map,
+		const TileCatalog& Catalog,
+		WorldPosition PlayerPosition);
 	static void UpdateJumpingEnemy(
 		NativeObjectRuntime& Object,
 		const TileMap& Map,

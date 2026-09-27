@@ -1078,6 +1078,14 @@ void NativeStageSandboxScene::DrawObjectLayer(
 				X + 2, Y + 2, X + 30, Y + 30,
 				GetColor(240, 90, 90), FALSE);
 			DrawString(X + 10, Y + 8, "E", GetColor(255, 170, 170));
+		} else if (Object->TypeId == "PipeEnemy") {
+			DrawBox(
+				X + 4, Y + 4, X + 28, Y + 28,
+				Object->ContactEnabled
+					? GetColor(240, 120, 90)
+					: GetColor(120, 120, 120),
+				FALSE);
+			DrawString(X + 6, Y + 8, "18", GetColor(255, 235, 220));
 		} else if (Object->TypeId == "JumpingEnemy") {
 			DrawBox(
 				X + 3, Y + 3, X + 29, Y + 29,
@@ -1298,6 +1306,16 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					"vy=%.1f%s",
 					Object->Velocity.Y,
 					Object->Grounded ? " G" : "");
+			} else if (Object->TypeId == "PipeEnemy") {
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(255, 210, 190),
+					"%s HSP18 state=%d timer=%d vy=%.1f %s",
+					Object->Id.c_str(),
+					Object->BehaviorState,
+					Object->BehaviorTimer,
+					Object->Velocity.Y,
+					Object->ContactEnabled ? "CONTACT" : "WAIT");
 			} else if (Object->TypeId == "JumpingEnemy") {
 				DrawFormatString(
 					X, Y + 34,
