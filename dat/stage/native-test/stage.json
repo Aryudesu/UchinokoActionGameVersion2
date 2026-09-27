@@ -440,7 +440,7 @@
       ],
       "regionLayers": [],
       "transitions": [
-        { "id": "pipe-mariri-main", "type": "Pipe", "entry": { "shape": "point", "position": [448,192] }, "targetArea": "main", "exitPosition": [192,128], "enterDirection": "down", "exitDirection": "up" }
+        { "id": "pipe-mariri-transform-fall", "type": "Pipe", "entry": { "shape": "point", "position": [448,192] }, "targetArea": "transform-fall", "exitPosition": [32,192], "enterDirection": "down", "exitDirection": "up" }
       ]
     },
     {
