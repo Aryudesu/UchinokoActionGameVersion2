@@ -47,8 +47,7 @@
       ],
       "regionLayers": [],
       "transitions": [
-        { "id": "pipe-main-sub", "type": "Pipe", "entry": { "shape": "point", "position": [128, 128] }, "targetArea": "sub", "exitPosition": [32, 128], "enterDirection": "down", "exitDirection": "up" },
-        { "id": "pipe-main-air", "type": "Pipe", "entry": { "shape": "point", "position": [192, 128] }, "targetArea": "air", "exitPosition": [32, 192], "enterDirection": "down", "exitDirection": "up" }
+        { "id": "pipe-main-sub", "type": "Pipe", "entry": { "shape": "point", "position": [128, 128] }, "targetArea": "sub", "exitPosition": [32, 128], "enterDirection": "down", "exitDirection": "up" }
       ]
     },
     {
@@ -76,7 +75,9 @@
         }
       ],
       "regionLayers": [],
-      "transitions": []
+      "transitions": [
+        { "id": "pipe-sub-air", "type": "Pipe", "entry": { "shape": "point", "position": [448, 192] }, "targetArea": "air", "exitPosition": [32, 192], "enterDirection": "down", "exitDirection": "up" }
+      ]
     },
     {
       "id": "air",
