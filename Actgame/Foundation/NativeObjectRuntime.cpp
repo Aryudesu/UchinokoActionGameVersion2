@@ -1043,6 +1043,14 @@ void NativeObjectSystem::UpdateLifecycle(
 				continue;
 			}
 
+			// HSP enemyf=29のKameenは起動後、画面外へ出ても追尾を継続する。
+			// CHASE中に共通Camera lifecycleでDormantへ戻すと、
+			// 画面端を越えた瞬間にspawnへresetされてしまうため除外する。
+			if (Object.TypeId == "Kameen" &&
+				Object.BehaviorState == KameenChasing) {
+				continue;
+			}
+
 			Object.LifeState = ObjectLifeState::Dormant;
 			Object.Active = false;
 			ResetToSpawn(Object);
