@@ -1417,7 +1417,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
 	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
-	assert(Data.Areas.size() == 18);
+	assert(Data.Areas.size() == 19);
 
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
@@ -1954,8 +1954,30 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 		UnstompableObjects->Objects[0].Position.Y, 128.0f));
 	assert(Unstompable->Transitions.size() == 1);
 	assert(Unstompable->Transitions[0].Id ==
-		"pipe-unstompable-main");
-	assert(Unstompable->Transitions[0].TargetAreaId == "main");
+		"pipe-unstompable-bullet");
+	assert(Unstompable->Transitions[0].TargetAreaId ==
+		"bullet-enemy");
+
+	const StageArea* BulletArea =
+		Data.FindArea("bullet-enemy");
+	assert(BulletArea != nullptr);
+	assert(BulletArea->Width == 16);
+	assert(BulletArea->Height == 8);
+	assert(BulletArea->TerrainLayer() != nullptr);
+	assert(*BulletArea->TerrainLayer()->Map.TryGet({7, 4}) == 2);
+	const ObjectLayer* BulletObjects =
+		BulletArea->FindObjectLayer("objects");
+	assert(BulletObjects != nullptr);
+	assert(BulletObjects->Objects.size() == 1);
+	assert(BulletObjects->Objects[0].Id == "bullet-enemy-3");
+	assert(BulletObjects->Objects[0].TypeId == "BulletEnemy");
+	assert(NearlyEqual(
+		BulletObjects->Objects[0].Position.X, 320.0f));
+	assert(NearlyEqual(
+		BulletObjects->Objects[0].Position.Y, 128.0f));
+	assert(BulletArea->Transitions.size() == 1);
+	assert(BulletArea->Transitions[0].Id == "pipe-bullet-main");
+	assert(BulletArea->Transitions[0].TargetAreaId == "main");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -4233,6 +4255,72 @@ void TestNativeUnstompableWalkerTurnsAtCliffAndRejectsStomp() {
 		}
 	}
 	assert(TurnedAtCliff);
+}
+
+void TestNativeBulletEnemyMovesStraightThroughSolidAndCanBeStomped() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 1, 0, 0},
+		{0, 0, 0, 1, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "bullet";
+	Spawn.TypeId = "BulletEnemy";
+	Spawn.Position = {64.0f, 32.0f};
+	Spawn.Properties["direction"] =
+		StagePropertyValue::String("right");
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	const NativeObjectRuntime* Enemy = Objects.Find("bullet");
+	assert(Enemy != nullptr);
+	assert(Enemy->Stompable);
+	assert(Enemy->Direction == 1);
+	assert(NearlyEqual(Enemy->MoveSpeed, 3.0f));
+	assert(NearlyEqual(Enemy->Gravity, 0.0f));
+
+	// HSP enemyf=3 は通常terrainを解決せず、3px/frameで直進する。
+	for (int Frame = 0; Frame < 20; ++Frame) {
+		Objects.Update(Map, Catalog);
+	}
+	Enemy = Objects.Find("bullet");
+	assert(Enemy != nullptr);
+	assert(Enemy->Active);
+	assert(Enemy->Direction == 1);
+	assert(NearlyEqual(Enemy->Position.X, 124.0f));
+	assert(NearlyEqual(Enemy->Position.Y, 32.0f));
+
+	// x=96..128にあるSolid列を貫通しても方向は変わらない。
+	assert(Enemy->Position.X > 96.0f);
+
+	const std::vector<NativeObjectContact> Contacts =
+		Objects.FindContacts({132.0f, 8.0f}, {16.0f, 32.0f}, 3.0f);
+	assert(Contacts.size() == 1);
+	assert(Contacts[0].Kind == NativeObjectContactKind::Stomp);
+	assert(Contacts[0].ContactDamage == 0);
+
+	assert(Objects.HandleStomp("bullet"));
+	Enemy = Objects.Find("bullet");
+	assert(Enemy != nullptr);
+	assert(!Enemy->Active);
+	assert(Enemy->LifeState == ObjectLifeState::Defeated);
 }
 
 void TestNativeMaririWaitsThenJumpsTowardPlayer() {
@@ -8329,6 +8417,7 @@ int main(int argc, char* argv[]) {
 	TestNativeTransformingWalkerLifecycleRestoresOriginalState();
 	TestNativeTransformingWalkerRejectsUnknownVariant();
 	TestNativeUnstompableWalkerTurnsAtCliffAndRejectsStomp();
+	TestNativeBulletEnemyMovesStraightThroughSolidAndCanBeStomped();
 	TestNativeMaririWaitsThenJumpsTowardPlayer();
 	TestNativeMaririTurnsAtWallDuringJump();
 	TestNativeMaririLifecycleResetRestoresWaitState();
@@ -8430,6 +8519,7 @@ int main(int argc, char* argv[]) {
 	TestNativeTransformingWalkerLifecycleRestoresOriginalState();
 	TestNativeTransformingWalkerRejectsUnknownVariant();
 	TestNativeUnstompableWalkerTurnsAtCliffAndRejectsStomp();
+	TestNativeBulletEnemyMovesStraightThroughSolidAndCanBeStomped();
 	TestNativeMaririWaitsThenJumpsTowardPlayer();
 	TestNativeMaririTurnsAtWallDuringJump();
 	TestNativeMaririLifecycleResetRestoresWaitState();
