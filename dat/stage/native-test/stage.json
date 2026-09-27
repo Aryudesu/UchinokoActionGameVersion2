@@ -490,7 +490,7 @@
         {
           "id": "objects", "name": "Transforming Walker 27 Test Objects", "zOrder": 10,
           "objects": [
-            { "id": "transform-turn-enemy", "type": "TransformingWalker", "position": [224,96], "properties": { "variant": 2, "direction": "right", "speed": 2 } }
+            { "id": "transform-turn-enemy", "type": "TransformingWalker", "position": [224,128], "properties": { "variant": 2, "direction": "right", "speed": 2 } }
           ]
         }
       ],
