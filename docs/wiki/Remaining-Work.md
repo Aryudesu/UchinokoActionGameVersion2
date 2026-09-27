@@ -25,21 +25,24 @@ PR #28は現時点で未マージ。
 
 ## 2. 次の優先残件
 
-PR #47〜#61までで、BallSlime / Projectile / HSP FlyingEnemy / Kameen /
-Fish / WallCrawler / SeaAnemone / Mariri / TransformingWalker / UnstompableWalker / BulletEnemyまでNative化済み。
+PR #47〜#63までで、BallSlime / Projectile / HSP FlyingEnemy / Kameen /
+Fish / WallCrawler / SeaAnemone / Mariri / TransformingWalker / UnstompableWalker / BulletEnemy / JumpingEnemy / PipeEnemyまでNative化済み。
 
-現在のopen実装PR:
+現在、今回優先していたEnemy実装PRはすべてmerge済み。
 
-- PR #62: HSP8/9 JumpingEnemy（実装・実機確認済み、未マージ）
+今回完了した優先Enemy:
+
+- HSP3 BulletEnemy
+- HSP8/9 JumpingEnemy
+- HSP18 PipeEnemy
+- HSP28 UnstompableWalker
 
 推奨順:
 
-1. PR #62のJumpingEnemyをmerge
-2. HSP未移植Enemy 18を次に整理
+1. Enemy死亡演出 / Score / SEをruntime effectへ分離
+2. Lift Stand判定 / moving platform runtimeを完成
 3. HSP 16 / 17はLift / path movement基盤の後で整理
-4. Enemy死亡演出 / Score / SEをruntime effectへ分離
-5. Lift Stand判定 / moving platform runtimeを完成
-6. external Stage transition / Stage loader責務を設計
+4. external Stage transition / Stage loader責務を設計
 7. PR #28を旧ARY parser / converter入力として整理
 8. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
 9. V1 Block ID 0..45 → V2 native Tile定義への変換mapping
@@ -74,7 +77,7 @@ Fish / WallCrawler / SeaAnemone / Mariri / TransformingWalker / UnstompableWalke
 
 ### Version1現役機能
 
-- Enemy: WalkingEnemy1/2、CarrotMan、BallSlime、FlyingEnemy 4種、Kameen、Pikachii、Chikorarashi、Fish、WallCrawler、SeaAnemone、MaririはNative化済み。HSP 10 / 15..19は未移植。3はPR #61でmerge済み、8/9はPR #62で実装・実機確認済み、28はPR #60でmerge済み
+- Enemy: WalkingEnemy1/2、CarrotMan、BallSlime、FlyingEnemy 4種、Kameen、Pikachii、Chikorarashi、Fish、WallCrawler、SeaAnemone、MaririはNative化済み。HSP 10 / 15..17 / 19は未移植。3はPR #61、8/9はPR #62、18はPR #63、28はPR #60でmerge済み
 - Lift / moving object
 - Boss
 - presentation effect
@@ -129,7 +132,7 @@ Terrain / Visual / Object / Eventを分ける。
 
 ## 6. ステージデータの未決事項
 
-PR #30〜#61はdevへマージ済み。Native StageData、WalkingEnemy、Camera lifecycle、ProjectileSystem、BallSlimeおよびHSP特殊Enemyの多くまでNativeObjectRuntimeへ接続済み。PR #62はopenだが実装・実機確認済み。
+PR #30〜#63はdevへマージ済み。Native StageData、WalkingEnemy、Camera lifecycle、ProjectileSystem、BallSlimeおよびHSP特殊Enemyの多くまでNativeObjectRuntimeへ接続済み。今回優先していたHSP Enemy 3 / 8 / 9 / 18 / 28はすべて実装・実機確認済み。
 
 - JSON + CSVをauthoring/native v1として採用済み。将来binary/export formatを追加するか
 - TileLayer CSVを将来full grid / sparse / chunkedへ最適化するか
