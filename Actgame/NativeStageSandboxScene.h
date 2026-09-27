@@ -57,6 +57,7 @@ private:
 	void ApplyEffectList(const std::vector<uchinoko::TileEffect>& Effects);
 	bool BeginPlayerDamage(int Damage, float SourceCenterX);
 	void ApplyTerrainEffects();
+	void StepPlayerWithPlatforms(const uchinoko::CharacterInput& Input);
 	void ApplyObjectContacts();
 	void UpdateProjectilesAndContacts();
 	void CheckGoalRegions();
