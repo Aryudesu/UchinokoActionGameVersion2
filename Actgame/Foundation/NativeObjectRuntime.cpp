@@ -114,7 +114,8 @@ bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 		Object.TypeId == "SeaAnemone" ||
 		Object.TypeId == "Mariri" ||
 		Object.TypeId == "TransformingWalker" ||
-		Object.TypeId == "UnstompableWalker";
+		Object.TypeId == "UnstompableWalker" ||
+		Object.TypeId == "BulletEnemy";
 }
 
 bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
@@ -128,7 +129,8 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 		Object.TypeId == "SeaAnemone" ||
 		Object.TypeId == "Mariri" ||
 		Object.TypeId == "TransformingWalker" ||
-		Object.TypeId == "UnstompableWalker") {
+		Object.TypeId == "UnstompableWalker" ||
+		Object.TypeId == "BulletEnemy") {
 		return true;
 	}
 	if (Object.TypeId == "Kameen") {
@@ -769,6 +771,19 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.MoveSpeed = 2.0f;
 		Runtime.Gravity = 0.5f;
 		Runtime.MaxFallSpeed = 12.0f;
+	} else if (Spawn.TypeId == "BulletEnemy") {
+		// HSP enemyf=3: enemyXspeed(2.0) * 1.5 = 3.0px/frameで
+		// 水平直進する。通常terrainでは反転せず、重力も受けない。
+		Runtime.HitboxOffset = {8.0f, 1.0f};
+		Runtime.HitboxSize = {16.0f, 31.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.ContactEnabled = true;
+		Runtime.Stompable = true;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.MoveSpeed = 3.0f;
+		Runtime.Gravity = 0.0f;
+		Runtime.MaxFallSpeed = 0.0f;
 	} else if (Spawn.TypeId == "FlyingEnemy") {
 		// HSP enemyf=4: gravityを使わず一定高度を横移動する飛行Enemy。
 		Runtime.HitboxOffset = {8.0f, 1.0f};
@@ -1122,6 +1137,38 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		}
 	}
 
+	if (Spawn.TypeId == "BulletEnemy") {
+		std::string Direction =
+			Runtime.Direction < 0 ? "left" : "right";
+		if (!TryReadString(
+			Spawn.Properties,
+			"direction",
+			Direction,
+			Error,
+			Spawn.Id) ||
+			!TryReadFloat(
+				Spawn.Properties,
+				"speed",
+				Runtime.MoveSpeed,
+				Error,
+				Spawn.Id)) {
+			return Result<NativeObjectRuntime>::Failure(Error);
+		}
+		if (Direction == "left") {
+			Runtime.Direction = -1;
+		} else if (Direction == "right") {
+			Runtime.Direction = 1;
+		} else {
+			return Result<NativeObjectRuntime>::Failure(
+				"BulletEnemy direction must be left or right: " + Spawn.Id);
+		}
+		Runtime.InitialDirection = Runtime.Direction;
+		if (Runtime.MoveSpeed <= 0.0f) {
+			return Result<NativeObjectRuntime>::Failure(
+				"BulletEnemy speed must be positive: " + Spawn.Id);
+		}
+	}
+
 	if (Spawn.TypeId == "WalkingEnemy" ||
 		Spawn.TypeId == "TransformingWalker" ||
 		Spawn.TypeId == "UnstompableWalker" ||
@@ -1463,6 +1510,26 @@ void NativeObjectSystem::UpdateWalkingEnemy(
 
 	// Damage / InstantDeath はデータ上は区別したまま保持する。
 	// 現在のWalkingEnemyはHPを持たないため、どちらも接触時に非Active化する。
+	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
+		Object.LifeState = ObjectLifeState::Defeated;
+		Object.Active = false;
+		Object.Velocity = {0.0f, 0.0f};
+	}
+}
+
+void NativeObjectSystem::UpdateBulletEnemy(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog) {
+	if (!Object.Active) return;
+
+	Object.Velocity.X =
+		static_cast<float>(Object.Direction) * Object.MoveSpeed;
+	Object.Velocity.Y = 0.0f;
+	Object.Position.X += Object.Velocity.X;
+
+	// HSP enemyf=3には通常terrain / world端での反転処理がない。
+	// damage terrainだけは他Enemyと同様に撃破対象。
 	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
 		Object.LifeState = ObjectLifeState::Defeated;
 		Object.Active = false;
@@ -2281,6 +2348,8 @@ void NativeObjectSystem::Update(
 			Object.TypeId == "TransformingWalker" ||
 			Object.TypeId == "UnstompableWalker") {
 			UpdateWalkingEnemy(Object, Map, Catalog);
+		} else if (Object.TypeId == "BulletEnemy") {
+			UpdateBulletEnemy(Object, Map, Catalog);
 		} else if (Object.TypeId == "FlyingEnemy") {
 			UpdateFlyingEnemy(
 				Object, Map, Catalog, PlayerPosition);

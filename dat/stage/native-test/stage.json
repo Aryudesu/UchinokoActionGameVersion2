@@ -524,7 +524,35 @@
       ],
       "regionLayers": [],
       "transitions": [
-        { "id": "pipe-unstompable-main", "type": "Pipe", "entry": { "shape": "point", "position": [448,192] }, "targetArea": "main", "exitPosition": [192,128], "enterDirection": "down", "exitDirection": "up" }
+        { "id": "pipe-unstompable-bullet", "type": "Pipe", "entry": { "shape": "point", "position": [448,192] }, "targetArea": "bullet-enemy", "exitPosition": [32,192], "enterDirection": "down", "exitDirection": "up" }
+      ]
+    },
+    {
+      "id": "bullet-enemy",
+      "size": [16, 8],
+      "tileSize": [32, 32],
+      "settings": {
+        "timeLimitSeconds": 0,
+        "bgm": "test-bullet-enemy-bgm",
+        "background": "test-bullet-enemy-sky",
+        "properties": { "cameraMode": "follow" }
+      },
+      "tileLayers": [
+        { "id": "background", "name": "Background", "role": "visual", "zOrder": -10, "source": "bullet-enemy/background.csv", "tileSet": "native-test" },
+        { "id": "terrain", "name": "Terrain", "role": "terrain", "zOrder": 0, "source": "bullet-enemy/terrain.csv", "tileSet": "native-test" },
+        { "id": "foreground", "name": "Foreground", "role": "visual", "zOrder": 20, "source": "bullet-enemy/foreground.csv", "tileSet": "native-test" }
+      ],
+      "objectLayers": [
+        {
+          "id": "objects", "name": "HSP3 BulletEnemy Test Objects", "zOrder": 10,
+          "objects": [
+            { "id": "bullet-enemy-3", "type": "BulletEnemy", "position": [320,160], "properties": { "direction": "left", "speed": 3 } }
+          ]
+        }
+      ],
+      "regionLayers": [],
+      "transitions": [
+        { "id": "pipe-bullet-main", "type": "Pipe", "entry": { "shape": "point", "position": [448,192] }, "targetArea": "main", "exitPosition": [192,128], "enterDirection": "down", "exitDirection": "up" }
       ]
     }
   ],
