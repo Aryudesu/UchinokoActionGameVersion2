@@ -542,10 +542,11 @@ bool ResolveFlyingEnemyVertical(
 			static_cast<float>(Column * Map.TileWidth());
 		const float TileRight =
 			static_cast<float>((Column + 1) * Map.TileWidth());
-		const float ProbeX = (std::clamp)(
-			Bounds.Position.X + Bounds.Size.X * 0.5f,
-			TileLeft + 0.01f,
-			TileRight - 0.01f);
+		const float ProbeX = (std::min)(
+			TileRight - 0.01f,
+			(std::max)(
+				TileLeft + 0.01f,
+				Bounds.Position.X + Bounds.Size.X * 0.5f));
 
 		if (!TerrainCollision::ContainsSolidPoint(
 			Definition->Collision,
@@ -1689,10 +1690,11 @@ void NativeObjectSystem::UpdatePipeEnemy(
 	if (Object.BehaviorTimer == PipeEnemyLaunchFrame) {
 		Object.Velocity.Y = -PipeEnemyLaunchSpeed;
 	}
-	Object.Velocity.Y = (std::clamp)(
-		Object.Velocity.Y + Object.Gravity,
-		-Object.MaxFallSpeed,
-		Object.MaxFallSpeed);
+	Object.Velocity.Y = (std::min)(
+		Object.MaxFallSpeed,
+		(std::max)(
+			-Object.MaxFallSpeed,
+			Object.Velocity.Y + Object.Gravity));
 	Object.Position.Y += Object.Velocity.Y;
 
 	const ObjectHitBounds Bounds = Object.HitBounds();
@@ -1739,10 +1741,11 @@ void NativeObjectSystem::UpdateJumpingEnemy(
 			static_cast<float>(Object.Direction) * Object.MoveSpeed;
 	}
 
-	Object.Velocity.Y = (std::clamp)(
-		Object.Velocity.Y + Object.Gravity,
-		-Object.MaxFallSpeed,
-		Object.MaxFallSpeed);
+	Object.Velocity.Y = (std::min)(
+		Object.MaxFallSpeed,
+		(std::max)(
+			-Object.MaxFallSpeed,
+			Object.Velocity.Y + Object.Gravity));
 	Object.Position.Y += Object.Velocity.Y;
 
 	const ObjectHitBounds Bounds = Object.HitBounds();
@@ -2126,14 +2129,16 @@ void NativeObjectSystem::UpdateKameen(
 		Object.Acceleration.Y = -KameenAcceleration;
 	}
 
-	Object.Velocity.X = (std::clamp)(
-		Object.Velocity.X + Object.Acceleration.X,
-		-KameenMaxSpeed,
-		KameenMaxSpeed);
-	Object.Velocity.Y = (std::clamp)(
-		Object.Velocity.Y + Object.Acceleration.Y,
-		-KameenMaxSpeed,
-		KameenMaxSpeed);
+	Object.Velocity.X = (std::min)(
+		KameenMaxSpeed,
+		(std::max)(
+			-KameenMaxSpeed,
+			Object.Velocity.X + Object.Acceleration.X));
+	Object.Velocity.Y = (std::min)(
+		KameenMaxSpeed,
+		(std::max)(
+			-KameenMaxSpeed,
+			Object.Velocity.Y + Object.Acceleration.Y));
 
 	// HSPは int(enemyv + enemyPos) を毎frame代入する。
 	Object.Position.X = static_cast<float>(
