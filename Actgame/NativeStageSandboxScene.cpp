@@ -438,7 +438,8 @@ void NativeStageSandboxScene::StepPlayerWithPlatforms(
 	};
 
 	float SurfaceY = 0.0f;
-	if (Objects_.FindPlatformLanding(
+	if (!Player_.IsGravityUp() &&
+		Objects_.FindPlatformLanding(
 			BeforeBounds,
 			AfterBounds,
 			Player_.Body().Velocity.Y,
