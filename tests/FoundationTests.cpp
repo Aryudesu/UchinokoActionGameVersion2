@@ -1678,7 +1678,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NearlyEqual(
 		FlyingVerticalWaveTests->Objects[0].Position.X, 256.0f));
 	assert(NearlyEqual(
-		FlyingVerticalWaveTests->Objects[0].Position.Y, 128.0f));
+		FlyingVerticalWaveTests->Objects[0].Position.Y, 96.0f));
 	int VerticalWaveVariant = 0;
 	assert(FlyingVerticalWaveTests->Objects[0]
 		.Properties.at("variant")
