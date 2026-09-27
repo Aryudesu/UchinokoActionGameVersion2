@@ -33,6 +33,7 @@ struct NativeObjectRuntime {
 	WorldPosition Position;
 	WorldPosition InitialPosition;
 	WorldPosition Velocity;
+	WorldPosition Acceleration;
 	WorldPosition HitboxOffset;
 	WorldPosition HitboxSize;
 	int ContactDamage = 0;
@@ -118,6 +119,9 @@ private:
 		NativeObjectRuntime& Object,
 		const TileMap& Map,
 		const TileCatalog& Catalog,
+		WorldPosition PlayerPosition);
+	static void UpdateKameen(
+		NativeObjectRuntime& Object,
 		WorldPosition PlayerPosition);
 	static void UpdateCarrotMan(
 		NativeObjectRuntime& Object,
