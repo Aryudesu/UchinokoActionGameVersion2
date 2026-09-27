@@ -378,7 +378,7 @@
         {
           "id": "objects", "name": "Right Fan Sea Anemone Test Objects", "zOrder": 10,
           "objects": [
-            { "id": "anemone-right", "type": "SeaAnemone", "position": [256,160], "properties": { "variant": 1 } }
+            { "id": "anemone-right", "type": "SeaAnemone", "position": [256,192], "properties": { "variant": 1 } }
           ]
         }
       ],
@@ -406,7 +406,7 @@
         {
           "id": "objects", "name": "Left Fan Sea Anemone Test Objects", "zOrder": 10,
           "objects": [
-            { "id": "anemone-left", "type": "SeaAnemone", "position": [256,160], "properties": { "variant": 2 } }
+            { "id": "anemone-left", "type": "SeaAnemone", "position": [256,192], "properties": { "variant": 2 } }
           ]
         }
       ],
