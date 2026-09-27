@@ -3981,7 +3981,7 @@ void TestNativeMaririWaitsThenJumpsTowardPlayer() {
 
 	const std::vector<NativeObjectContact> Stomp =
 		Objects.FindContacts(
-			{Mariri->Position.X, Mariri->Position.Y - 20.0f},
+			{Mariri->Position.X, Mariri->Position.Y - 21.0f},
 			{16.0f, 32.0f},
 			4.0f);
 	assert(Stomp.size() == 1);
