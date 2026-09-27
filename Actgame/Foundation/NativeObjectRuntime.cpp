@@ -50,6 +50,12 @@ constexpr int ChikorarashiShotModulo = 25;
 constexpr int ChikorarashiShotRemainder = 24;
 constexpr float ChikorarashiProjectileGravity = 0.4f / 3.0f;
 
+constexpr int FlyingHorizontal = 1;
+constexpr int FlyingHorizontalOscillation = 2;
+constexpr float FlyingOscillationPhaseStep = 0.1f;
+constexpr float FlyingOscillationPhaseLimit = 6.28f * 2.0f;
+constexpr float FlyingOscillationSpeed = 5.0f;
+
 bool IsBallSlime(const NativeObjectRuntime& Object) {
 	return Object.TypeId == "BallSlime";
 }
@@ -532,6 +538,7 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.Stompable = true;
 		Runtime.Direction = -1;
 		Runtime.InitialDirection = -1;
+		Runtime.Variant = FlyingHorizontal;
 		Runtime.MoveSpeed = 2.0f;
 		Runtime.Gravity = 0.0f;
 		Runtime.MaxFallSpeed = 0.0f;
@@ -647,6 +654,12 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 			Direction,
 			Error,
 			Spawn.Id) ||
+			!TryReadInteger(
+				Spawn.Properties,
+				"variant",
+				Runtime.Variant,
+				Error,
+				Spawn.Id) ||
 			!TryReadFloat(
 				Spawn.Properties,
 				"speed",
@@ -665,6 +678,11 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 				Spawn.Id);
 		}
 		Runtime.InitialDirection = Runtime.Direction;
+		if (Runtime.Variant != FlyingHorizontal &&
+			Runtime.Variant != FlyingHorizontalOscillation) {
+			return Result<NativeObjectRuntime>::Failure(
+				"FlyingEnemy variant must be 1 or 2: " + Spawn.Id);
+		}
 		if (Runtime.MoveSpeed <= 0.0f) {
 			return Result<NativeObjectRuntime>::Failure(
 				"FlyingEnemy speed must be positive: " + Spawn.Id);
@@ -855,6 +873,7 @@ void NativeObjectSystem::ResetToSpawn(
 		Object.Stompable = true;
 		Object.ContactDamage = 1;
 	} else if (Object.TypeId == "FlyingEnemy") {
+		Object.BehaviorPhase = 0.0f;
 		Object.ContactEnabled = true;
 		Object.Stompable = true;
 		Object.ContactDamage = 1;
@@ -969,19 +988,38 @@ void NativeObjectSystem::UpdateFlyingEnemy(
 	const TileCatalog& Catalog) {
 	if (!Object.Active || Object.MoveSpeed <= 0.0f) return;
 
-	Object.Velocity.X =
-		static_cast<float>(Object.Direction) * Object.MoveSpeed;
 	Object.Velocity.Y = 0.0f;
-	Object.Position.X += Object.Velocity.X;
+
+	if (Object.Variant == FlyingHorizontalOscillation) {
+		// HSP enemyf=5:
+		// rad += 0.1
+		// x += 5 * cos(rad * 0.5)
+		// 速度の符号に応じて見た目の向きを切り替える。
+		Object.BehaviorPhase += FlyingOscillationPhaseStep;
+		if (Object.BehaviorPhase > FlyingOscillationPhaseLimit) {
+			Object.BehaviorPhase = 0.0f;
+		}
+
+		const float Angle = Object.BehaviorPhase * 0.5f;
+		Object.Velocity.X =
+			FlyingOscillationSpeed * std::cos(Angle);
+		Object.Direction =
+			Angle <= 1.57f || Angle > 4.71f ? 1 : -1;
+		Object.Position.X += Object.Velocity.X;
+	} else {
+		Object.Velocity.X =
+			static_cast<float>(Object.Direction) * Object.MoveSpeed;
+		Object.Position.X += Object.Velocity.X;
+	}
 
 	const bool HitWall =
 		ResolveWalkingEnemySide(Object, Map, Catalog);
-	if (HitWall) {
+	if (HitWall && Object.Variant == FlyingHorizontal) {
 		Object.Velocity.X =
 			static_cast<float>(Object.Direction) * Object.MoveSpeed;
 	}
 
-	// HSP enemyf=4は重力を適用せず、spawn時の高度を維持する。
+	// HSP enemyf=4/5はgravityを適用せず、spawn時の高度を維持する。
 	// damage/instant-death terrainへ直接触れた場合だけ通常Enemy同様に撃破する。
 	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
 		Object.LifeState = ObjectLifeState::Defeated;
