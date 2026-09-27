@@ -1417,7 +1417,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
 	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
-	assert(Data.Areas.size() == 5);
+	assert(Data.Areas.size() == 6);
 
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
@@ -1657,8 +1657,37 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 		.TryGetFloat(VerticalSpeed));
 	assert(NearlyEqual(VerticalSpeed, 2.0f));
 	assert(AirVertical->Transitions.size() == 1);
-	assert(AirVertical->Transitions[0].Id == "pipe-air-vertical-main");
-	assert(AirVertical->Transitions[0].TargetAreaId == "main");
+	assert(AirVertical->Transitions[0].Id == "pipe-air-vertical-wave");
+	assert(AirVertical->Transitions[0].TargetAreaId == "air-vertical-wave");
+
+	const StageArea* AirVerticalWave =
+		Data.FindArea("air-vertical-wave");
+	assert(AirVerticalWave != nullptr);
+	assert(AirVerticalWave->Width == 16);
+	assert(AirVerticalWave->Height == 8);
+	assert(AirVerticalWave->TerrainLayer() != nullptr);
+	assert(*AirVerticalWave->TerrainLayer()->Map.TryGet({0, 7}) == 2);
+	const ObjectLayer* FlyingVerticalWaveTests =
+		AirVerticalWave->FindObjectLayer("objects");
+	assert(FlyingVerticalWaveTests != nullptr);
+	assert(FlyingVerticalWaveTests->Objects.size() == 1);
+	assert(FlyingVerticalWaveTests->Objects[0].Id ==
+		"flying-vertical-wave");
+	assert(FlyingVerticalWaveTests->Objects[0].TypeId ==
+		"FlyingEnemy");
+	assert(NearlyEqual(
+		FlyingVerticalWaveTests->Objects[0].Position.X, 256.0f));
+	assert(NearlyEqual(
+		FlyingVerticalWaveTests->Objects[0].Position.Y, 128.0f));
+	int VerticalWaveVariant = 0;
+	assert(FlyingVerticalWaveTests->Objects[0]
+		.Properties.at("variant")
+		.TryGetInteger(VerticalWaveVariant));
+	assert(VerticalWaveVariant == 4);
+	assert(AirVerticalWave->Transitions.size() == 1);
+	assert(AirVerticalWave->Transitions[0].Id ==
+		"pipe-air-vertical-wave-main");
+	assert(AirVerticalWave->Transitions[0].TargetAreaId == "main");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -2322,6 +2351,108 @@ void TestNativeFlyingEnemyMovesVerticallyAndTurnsAtFloorCeiling() {
 			4.0f);
 	assert(Stomp.size() == 1);
 	assert(Stomp[0].Kind == NativeObjectContactKind::Stomp);
+}
+
+void TestNativeFlyingEnemyVerticalOscillationMatchesHspMotion() {
+	TileMap Map = MakeMap({
+		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+		{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "vertical-wave";
+	Spawn.TypeId = "FlyingEnemy";
+	Spawn.Position = {256.0f, 128.0f};
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(4);
+	Spawn.Properties["direction"] =
+		StagePropertyValue::String("left");
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	const NativeObjectRuntime* Enemy =
+		Objects.Find("vertical-wave");
+	assert(Enemy != nullptr);
+	assert(Enemy->Variant == 4);
+	assert(NearlyEqual(Enemy->BehaviorPhase, 0.0f));
+
+	const float StartX = Enemy->Position.X;
+	const float StartY = Enemy->Position.Y;
+
+	// HSP enemyf=7は1frame目から 5*cos(0.05) だけ下へ進む。
+	Objects.Update(Map, Catalog, {400.0f, 128.0f});
+	Enemy = Objects.Find("vertical-wave");
+	assert(NearlyEqual(Enemy->BehaviorPhase, 0.1f));
+	assert(NearlyEqual(Enemy->Velocity.X, 0.0f));
+	assert(NearlyEqual(
+		Enemy->Velocity.Y,
+		5.0f * std::cos(0.05f)));
+	assert(Enemy->Position.Y > StartY);
+	assert(NearlyEqual(Enemy->Position.X, StartX));
+	assert(Enemy->Direction == 1);
+
+	float MaxY = Enemy->Position.Y;
+	float MinY = Enemy->Position.Y;
+	bool SawUpwardMotion = false;
+	bool SawDownwardAgain = false;
+	for (int Frame = 1; Frame < 126; ++Frame) {
+		Objects.Update(Map, Catalog, {100.0f, 128.0f});
+		Enemy = Objects.Find("vertical-wave");
+		MaxY = (std::max)(MaxY, Enemy->Position.Y);
+		MinY = (std::min)(MinY, Enemy->Position.Y);
+		if (Enemy->Velocity.Y < 0.0f) SawUpwardMotion = true;
+		if (SawUpwardMotion && Enemy->Velocity.Y > 0.0f) {
+			SawDownwardAgain = true;
+		}
+		assert(NearlyEqual(Enemy->Position.X, StartX));
+		assert(NearlyEqual(Enemy->Velocity.X, 0.0f));
+	}
+	assert(SawUpwardMotion);
+	assert(SawDownwardAgain);
+	assert(MaxY > StartY + 50.0f);
+	assert(MinY < StartY + 10.0f);
+
+	Enemy = Objects.Find("vertical-wave");
+	assert(NearlyEqual(Enemy->BehaviorPhase, 0.0f));
+
+	// enemyf=7は移動方向ではなくPlayerの左右を向く。
+	Objects.Update(Map, Catalog, {400.0f, 128.0f});
+	assert(Objects.Find("vertical-wave")->Direction == 1);
+	Objects.Update(Map, Catalog, {100.0f, 128.0f});
+	assert(Objects.Find("vertical-wave")->Direction == -1);
+
+	// lifecycle resetでphaseもspawn位置も戻る。
+	NativeObjectRuntime* Mutable = Objects.Find("vertical-wave");
+	assert(Mutable != nullptr);
+	Mutable->BehaviorPhase = 3.0f;
+	Mutable->Position = {900.0f, 128.0f};
+	Objects.UpdateLifecycle({0.0f, 0.0f}, {512.0f, 320.0f});
+	Enemy = Objects.Find("vertical-wave");
+	assert(Enemy->LifeState == ObjectLifeState::Dormant);
+	assert(NearlyEqual(Enemy->BehaviorPhase, 0.0f));
+	assert(NearlyEqual(Enemy->Position.X, 256.0f));
+	assert(NearlyEqual(Enemy->Position.Y, 128.0f));
 }
 
 void TestNativeFlyingEnemyRejectsWrongDirectionForVariant() {
@@ -6805,6 +6936,7 @@ int main(int argc, char* argv[]) {
 	TestNativeFlyingEnemyMovesHorizontallyAndTurnsAtWall();
 	TestNativeFlyingEnemyHorizontalOscillationMatchesHspMotion();
 	TestNativeFlyingEnemyMovesVerticallyAndTurnsAtFloorCeiling();
+	TestNativeFlyingEnemyVerticalOscillationMatchesHspMotion();
 	TestNativeFlyingEnemyRejectsWrongDirectionForVariant();
 		TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery();
 		TestNativeBallSlimeVariant2TurnsAtCliffOnlyWhileWalking();
@@ -6885,6 +7017,7 @@ int main(int argc, char* argv[]) {
 	TestNativeFlyingEnemyMovesHorizontallyAndTurnsAtWall();
 	TestNativeFlyingEnemyHorizontalOscillationMatchesHspMotion();
 	TestNativeFlyingEnemyMovesVerticallyAndTurnsAtFloorCeiling();
+	TestNativeFlyingEnemyVerticalOscillationMatchesHspMotion();
 	TestNativeFlyingEnemyRejectsWrongDirectionForVariant();
 	TestNativeWalkingEnemyLifecycleUsesCameraAndKeepsDefeatedState();
 	TestNativeCarrotManWaitsEmergesAndStartsWalking();
