@@ -272,3 +272,39 @@ BehaviorState = Walking / Shell / Kicked
 のように、キャラクター種と内部状態を分離して再設計する。
 
 CarrotManはVersion1を正本としてPR #46でNative runtimeへ移植済み。
+
+### 2026-09-27時点のV2移植状況
+
+| HSP enemyf | V2 | 状態 |
+|---:|---|---|
+| 1..2 | WalkingEnemy variant 1/2 | merged |
+| 4..7 | FlyingEnemy variant 1..4 | merged |
+| 11..14 | StationaryShooter pattern | merged |
+| 20..25 | BallSlime + BehaviorState | merged |
+| 26..27 | TransformingWalker | PR #59 open |
+| 29..30 | Kameen WAIT / CHASE | merged |
+| 31..32 | Pikachii + Direction | merged |
+| 33 | Chikorarashi | merged |
+| 34 | Mariri | merged |
+| 35..37 | FishEnemy variant 1..3 | merged |
+| 38..39 | WallCrawler variant 1/2 | merged |
+| 40..41 | SeaAnemone variant 1/2 | merged |
+
+まだ主に未移植なのは、enemyf 3、8..10、15..19、28等。
+
+Projectile側はHSPの挙動をそのままID化せず、
+`ProjectileMotion` / `ProjectileTerrainResponse` へ意味を分離している。
+
+確認済みの主なProjectile要素:
+
+- Straight
+- Spiral clockwise / counter-clockwise
+- Ballistic gravity
+- terrain Bounce
+- terrain Split
+- terrain無視
+- Ballisticのpositive MaxFallSpeed clamp
+
+WallCrawler 38/39はHSPの多数の方向別ifをそのまま移植せず、
+4方向vectorの90度回転を用いるwall followerとして一般化した。
+
