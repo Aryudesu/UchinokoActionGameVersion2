@@ -1584,6 +1584,8 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(FlyingTests->Objects.size() == 1);
 	assert(FlyingTests->Objects[0].Id == "flying-horizontal");
 	assert(FlyingTests->Objects[0].TypeId == "FlyingEnemy");
+	assert(NearlyEqual(FlyingTests->Objects[0].Position.X, 128.0f));
+	assert(NearlyEqual(FlyingTests->Objects[0].Position.Y, 192.0f));
 	std::string FlyingDirection;
 	float FlyingSpeed = 0.0f;
 	assert(FlyingTests->Objects[0]
