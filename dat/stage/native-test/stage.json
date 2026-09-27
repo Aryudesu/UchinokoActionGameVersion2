@@ -98,7 +98,7 @@
         {
           "id": "objects", "name": "Flying Enemy Test Objects", "zOrder": 10,
           "objects": [
-            { "id": "flying-horizontal", "type": "FlyingEnemy", "position": [128, 128], "properties": { "direction": "right", "speed": 2 } }
+            { "id": "flying-horizontal", "type": "FlyingEnemy", "position": [128, 192], "properties": { "direction": "right", "speed": 2 } }
           ]
         }
       ],
