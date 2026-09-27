@@ -29,6 +29,7 @@ struct ProjectileSpawnRequest {
 	float Speed = 0.0f;
 	float Angle = 0.0f;
 	float Gravity = 0.0f;
+	float MaxFallSpeed = 0.0f;
 	ProjectileTerrainResponse TerrainResponse =
 		ProjectileTerrainResponse::Deactivate;
 	int SplitCount = 8;
@@ -48,6 +49,7 @@ struct ProjectileRuntime {
 	float Angle = 0.0f;
 	float RadiusFromOrigin = 0.0f;
 	float Gravity = 0.0f;
+	float MaxFallSpeed = 0.0f;
 	ProjectileTerrainResponse TerrainResponse =
 		ProjectileTerrainResponse::Deactivate;
 	int SplitCount = 8;
