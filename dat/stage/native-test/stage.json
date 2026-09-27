@@ -69,7 +69,7 @@
         {
           "id": "objects", "name": "Projectile Test Objects", "zOrder": 10,
           "objects": [
-            { "id": "shooter-bounce", "type": "StationaryShooter", "position": [224, 160], "properties": { "pattern": "bounce4", "intervalFrames": 120 } },
+            { "id": "shooter-bounce", "type": "StationaryShooter", "position": [160, 160], "properties": { "pattern": "bounce4", "intervalFrames": 120 } },
             { "id": "shooter-split", "type": "StationaryShooter", "position": [384, 96], "properties": { "pattern": "splitDown", "intervalFrames": 120 } }
           ]
         }
