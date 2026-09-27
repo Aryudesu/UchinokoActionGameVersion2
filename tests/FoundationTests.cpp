@@ -1460,7 +1460,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 
 	const ObjectLayer* Objects = Area->FindObjectLayer("objects");
 	assert(Objects != nullptr);
-	assert(Objects->Objects.size() == 18);
+	assert(Objects->Objects.size() == 16);
 	assert(Objects->Objects[0].TypeId == "PlayerSpawn");
 	assert(NearlyEqual(Objects->Objects[0].Position.X, 32.0f));
 	assert(NearlyEqual(Objects->Objects[0].Position.Y, 128.0f));
@@ -1539,27 +1539,31 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 
 	const StageArea* Sub = Data.FindArea("sub");
 	assert(Sub != nullptr);
-	assert(Sub->Width == 8);
-	assert(Sub->Height == 6);
+	assert(Sub->Width == 16);
+	assert(Sub->Height == 8);
 	assert(Sub->TerrainLayer() != nullptr);
-	assert(*Sub->TerrainLayer()->Map.TryGet({0, 5}) == 2);
-	assert(Sub->ObjectLayers.empty());
+	assert(*Sub->TerrainLayer()->Map.TryGet({0, 7}) == 2);
+	assert(*Sub->TerrainLayer()->Map.TryGet({7, 3}) == 2);
 	assert(Sub->Transitions.empty());
+	assert(Sub->RegionLayers.empty());
 
-	const RegionLayer* Events = Sub->FindRegionLayer("events");
-	assert(Events != nullptr);
-	assert(Events->Regions.size() == 1);
-	const StageRegion& Goal = Events->Regions[0];
-	assert(Goal.Id == "goal-sub");
-	assert(Goal.TypeId == "Goal");
-	assert(Goal.Geometry.Shape == StageRegionShape::Rectangle);
-	assert(NearlyEqual(Goal.Geometry.Position.X, 192.0f));
-	assert(NearlyEqual(Goal.Geometry.Position.Y, 128.0f));
-	assert(NearlyEqual(Goal.Geometry.Size.X, 32.0f));
-	assert(NearlyEqual(Goal.Geometry.Size.Y, 32.0f));
-	std::string GoalKind;
-	assert(Goal.Properties.at("goalKind").TryGetString(GoalKind));
-	assert(GoalKind == "normal");
+	const ObjectLayer* ProjectileTests =
+		Sub->FindObjectLayer("objects");
+	assert(ProjectileTests != nullptr);
+	assert(ProjectileTests->Objects.size() == 2);
+	assert(ProjectileTests->Objects[0].Id == "shooter-bounce");
+	assert(ProjectileTests->Objects[0].TypeId == "StationaryShooter");
+	assert(ProjectileTests->Objects[1].Id == "shooter-split");
+	assert(ProjectileTests->Objects[1].TypeId == "StationaryShooter");
+	std::string ProjectilePattern;
+	assert(ProjectileTests->Objects[0]
+		.Properties.at("pattern")
+		.TryGetString(ProjectilePattern));
+	assert(ProjectilePattern == "bounce4");
+	assert(ProjectileTests->Objects[1]
+		.Properties.at("pattern")
+		.TryGetString(ProjectilePattern));
+	assert(ProjectilePattern == "splitDown");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -1845,7 +1849,7 @@ void TestNativeObjectRuntimeBuildsTypeSpecificHitBounds() {
 	NativeObjectSystem Objects;
 	Result<bool> Reset = Objects.Reset(*Area);
 	assert(Reset.IsSuccess());
-	assert(Objects.Objects().size() == 17);
+	assert(Objects.Objects().size() == 15);
 
 	const NativeObjectRuntime* TurnEnemy =
 		Objects.Find("enemy-cliff-turn");
