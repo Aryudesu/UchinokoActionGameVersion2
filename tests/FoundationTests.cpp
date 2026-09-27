@@ -1417,7 +1417,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
 	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
-	assert(Data.Areas.size() == 12);
+	assert(Data.Areas.size() == 14);
 
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
@@ -1817,8 +1817,53 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 		.TryGetInteger(WallVariant));
 	assert(WallVariant == 2);
 	assert(WallCw->Transitions.size() == 1);
-	assert(WallCw->Transitions[0].Id == "pipe-wall-cw-main");
-	assert(WallCw->Transitions[0].TargetAreaId == "main");
+	assert(WallCw->Transitions[0].Id ==
+		"pipe-wall-cw-anemone-right");
+	assert(WallCw->Transitions[0].TargetAreaId == "anemone-right");
+
+	const StageArea* AnemoneRight =
+		Data.FindArea("anemone-right");
+	assert(AnemoneRight != nullptr);
+	assert(AnemoneRight->Width == 16);
+	assert(AnemoneRight->Height == 8);
+	const ObjectLayer* AnemoneRightObjects =
+		AnemoneRight->FindObjectLayer("objects");
+	assert(AnemoneRightObjects != nullptr);
+	assert(AnemoneRightObjects->Objects.size() == 1);
+	assert(AnemoneRightObjects->Objects[0].Id == "anemone-right");
+	assert(AnemoneRightObjects->Objects[0].TypeId == "SeaAnemone");
+	assert(NearlyEqual(
+		AnemoneRightObjects->Objects[0].Position.X, 256.0f));
+	assert(NearlyEqual(
+		AnemoneRightObjects->Objects[0].Position.Y, 192.0f));
+	int AnemoneVariant = 0;
+	assert(AnemoneRightObjects->Objects[0]
+		.Properties.at("variant")
+		.TryGetInteger(AnemoneVariant));
+	assert(AnemoneVariant == 1);
+	assert(AnemoneRight->Transitions.size() == 1);
+	assert(AnemoneRight->Transitions[0].Id ==
+		"pipe-anemone-right-left");
+	assert(AnemoneRight->Transitions[0].TargetAreaId ==
+		"anemone-left");
+
+	const StageArea* AnemoneLeft =
+		Data.FindArea("anemone-left");
+	assert(AnemoneLeft != nullptr);
+	const ObjectLayer* AnemoneLeftObjects =
+		AnemoneLeft->FindObjectLayer("objects");
+	assert(AnemoneLeftObjects != nullptr);
+	assert(AnemoneLeftObjects->Objects.size() == 1);
+	assert(AnemoneLeftObjects->Objects[0].Id == "anemone-left");
+	assert(AnemoneLeftObjects->Objects[0].TypeId == "SeaAnemone");
+	assert(AnemoneLeftObjects->Objects[0]
+		.Properties.at("variant")
+		.TryGetInteger(AnemoneVariant));
+	assert(AnemoneVariant == 2);
+	assert(AnemoneLeft->Transitions.size() == 1);
+	assert(AnemoneLeft->Transitions[0].Id ==
+		"pipe-anemone-left-main");
+	assert(AnemoneLeft->Transitions[0].TargetAreaId == "main");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -3834,6 +3879,195 @@ void TestBallisticProjectileAppliesGravityAndIgnoresTerrain() {
 	Projectiles.Update(Map, Catalog);
 	assert(Projectiles.Projectiles()[0].Active);
 	assert(Projectiles.Projectiles()[0].Position.Y > 32.0f);
+}
+
+void TestNativeSeaAnemoneChargesThenEmitsHspFan() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "anemone";
+	Spawn.TypeId = "SeaAnemone";
+	Spawn.Position = {256.0f, 192.0f};
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(1);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	const NativeObjectRuntime* Anemone =
+		Objects.Find("anemone");
+	assert(Anemone != nullptr);
+	assert(Anemone->Variant == 1);
+	assert(!Anemone->Stompable);
+	assert(Anemone->BehaviorTimer == 0);
+
+	// 横6tilesより遠い間はchargeしない。
+	for (int Frame = 0; Frame < 20; ++Frame) {
+		Objects.Update(Map, Catalog, {0.0f, 192.0f});
+		assert(Objects.TakeProjectileSpawns().empty());
+	}
+	assert(Objects.Find("anemone")->BehaviorTimer == 0);
+
+	// 160frameまではchargeのみ。
+	for (int Frame = 0; Frame < 160; ++Frame) {
+		Objects.Update(Map, Catalog, {128.0f, 192.0f});
+		assert(Objects.TakeProjectileSpawns().empty());
+	}
+	assert(Objects.Find("anemone")->BehaviorTimer == 160);
+
+	// 161frame目まで近くにいればattack cycleへ入る。
+	Objects.Update(Map, Catalog, {128.0f, 192.0f});
+	assert(Objects.TakeProjectileSpawns().empty());
+	assert(Objects.Find("anemone")->BehaviorTimer == 161);
+
+	// cycle開始後はPlayerが離れても継続し、170frameで最初の1発。
+	std::vector<ProjectileSpawnRequest> Shots;
+	for (int Timer = 162; Timer <= 240; ++Timer) {
+		Objects.Update(Map, Catalog, {0.0f, 192.0f});
+		const auto NewShots = Objects.TakeProjectileSpawns();
+		Shots.insert(Shots.end(), NewShots.begin(), NewShots.end());
+	}
+
+	assert(Shots.size() == 8);
+	assert(Objects.Find("anemone")->BehaviorTimer == 0);
+
+	for (std::size_t Index = 0; Index < Shots.size(); ++Index) {
+		const ProjectileSpawnRequest& Shot = Shots[Index];
+		assert(Shot.Motion == ProjectileMotion::Ballistic);
+		assert(!Shot.CollidesWithTerrain);
+		assert(NearlyEqual(Shot.Gravity, 0.4f / 3.0f));
+		assert(NearlyEqual(Shot.MaxFallSpeed, 4.0f));
+		assert(NearlyEqual(Shot.Radius, 6.0f));
+
+		const int Step = static_cast<int>(Index) + 2;
+		const float Angle =
+			3.14f * 2.0f * static_cast<float>(Step) / 24.0f;
+		assert(NearlyEqual(
+			Shot.Velocity.X,
+			std::cos(Angle) * 6.0f));
+		assert(NearlyEqual(
+			Shot.Velocity.Y,
+			-std::sin(Angle) * 6.0f));
+	}
+
+	// stomp不可なので下降中に上から重なってもTouch。
+	const std::vector<NativeObjectContact> Touch =
+		Objects.FindContacts(
+			{256.0f, 180.0f},
+			{16.0f, 32.0f},
+			4.0f);
+	assert(Touch.size() == 1);
+	assert(Touch[0].Kind == NativeObjectContactKind::Touch);
+	assert(Touch[0].ContactDamage == 1);
+}
+
+void TestNativeSeaAnemoneVariant2MirrorsFan() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+
+	for (int Variant = 1; Variant <= 2; ++Variant) {
+		ObjectSpawn Spawn;
+		Spawn.Id = Variant == 1 ? "right" : "left";
+		Spawn.TypeId = "SeaAnemone";
+		Spawn.Position = {64.0f + Variant * 64.0f, 64.0f};
+		Spawn.Properties["variant"] =
+			StagePropertyValue::Integer(Variant);
+		Layer.Objects.push_back(Spawn);
+	}
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	for (int Frame = 0; Frame < 170; ++Frame) {
+		Objects.Update(Map, Catalog, {192.0f, 64.0f});
+	}
+	const std::vector<ProjectileSpawnRequest> Shots =
+		Objects.TakeProjectileSpawns();
+	assert(Shots.size() == 2);
+	assert(NearlyEqual(Shots[0].Velocity.X, -Shots[1].Velocity.X));
+	assert(NearlyEqual(Shots[0].Velocity.Y, Shots[1].Velocity.Y));
+}
+
+void TestBallisticProjectileClampsPositiveFallSpeed() {
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 0, 0}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	ProjectileSystem Projectiles;
+	ProjectileSpawnRequest Request;
+	Request.Position = {32.0f, 32.0f};
+	Request.Velocity = {0.0f, 3.9f};
+	Request.Motion = ProjectileMotion::Ballistic;
+	Request.Gravity = 0.4f / 3.0f;
+	Request.MaxFallSpeed = 4.0f;
+	Request.CollidesWithTerrain = false;
+	Projectiles.Spawn(Request);
+
+	Projectiles.Update(Map, Catalog);
+	const ProjectileRuntime& Projectile =
+		Projectiles.Projectiles()[0];
+	assert(NearlyEqual(Projectile.Velocity.Y, 4.0f));
+	assert(NearlyEqual(Projectile.Position.Y, 36.0f));
+}
+
+void TestNativeSeaAnemoneRejectsUnknownVariant() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "anemone-bad";
+	Spawn.TypeId = "SeaAnemone";
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(3);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	const Result<bool> Reset = Objects.Reset(Area);
+	assert(Reset.IsFailure());
+	assert(Reset.Error().find("variant must be 1 or 2") !=
+		std::string::npos);
 }
 
 void TestChikorarashiEmitsHspGravityShots() {
@@ -7553,6 +7787,10 @@ int main(int argc, char* argv[]) {
 	TestNativeWallCrawlerClockwiseFollowsOuterCorner();
 	TestNativeWallCrawlerTurnsAtBlockedInnerCornerAndResets();
 	TestNativeWallCrawlerRejectsUnknownVariant();
+	TestNativeSeaAnemoneChargesThenEmitsHspFan();
+	TestNativeSeaAnemoneVariant2MirrorsFan();
+	TestBallisticProjectileClampsPositiveFallSpeed();
+	TestNativeSeaAnemoneRejectsUnknownVariant();
 	TestNativeFishEnemyHorizontalTurnsAtWall();
 	TestNativeFishEnemyHorizontalRangeTurnsAtThreeTiles();
 	TestNativeFishEnemyVerticalRangeMovesFacesPlayerAndTurns();
@@ -7642,6 +7880,10 @@ int main(int argc, char* argv[]) {
 	TestNativeWallCrawlerClockwiseFollowsOuterCorner();
 	TestNativeWallCrawlerTurnsAtBlockedInnerCornerAndResets();
 	TestNativeWallCrawlerRejectsUnknownVariant();
+	TestNativeSeaAnemoneChargesThenEmitsHspFan();
+	TestNativeSeaAnemoneVariant2MirrorsFan();
+	TestBallisticProjectileClampsPositiveFallSpeed();
+	TestNativeSeaAnemoneRejectsUnknownVariant();
 	TestNativeFishEnemyHorizontalTurnsAtWall();
 	TestNativeFishEnemyHorizontalRangeTurnsAtThreeTiles();
 	TestNativeFishEnemyVerticalRangeMovesFacesPlayerAndTurns();
