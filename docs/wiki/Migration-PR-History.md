@@ -47,6 +47,19 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #44 | Platformer向けCamera2D / Native Sandbox接続 | merged |
 | #45 | Enemy Active / Dormant / Defeated lifecycle | merged |
 | #46 | Version1 CarrotMan移植 | merged |
+| #47 | Version1 BallSlime / BallSlime2をBehaviorStateでNative化 | merged |
+| #48 | ProjectileSystem + 固定砲台4種 + Pikachii | merged |
+| #49 | Chikorarashi + Ballistic重力弾 | merged |
+| #50 | ProjectileSystem Bounce / Split | merged |
+| #51 | HSP横直進FlyingEnemy | merged |
+| #52 | HSP横単振動FlyingEnemy | merged |
+| #53 | HSP縦直進 / 縦単振動FlyingEnemy | merged |
+| #54 | HSP Kameen WAIT / CHASE | merged |
+| #55 | HSP魚35〜37をFishEnemy化 | merged |
+| #56 | HSP壁伝い38/39をWallCrawler化 | merged |
+| #57 | HSPイソギンチャク40/41をSeaAnemone化 | merged |
+| #58 | HSPマリリ34をMaririとしてNative化 | merged |
+| #59 | HSP26/27の一回踏むと変化する敵をTransformingWalker化 | open / 実装PR |
 
 ## 読み方
 
@@ -117,6 +130,25 @@ Enemy camera lifecycle / Dormant / respawn / Defeated
 
 #46
 Version1 CarrotMan / behavior state
+
+#47
+BallSlime / BallSlime2 / Shell / Kicked state
+
+#48-50
+ProjectileSystem / Straight / Spiral / Ballistic / Bounce / Split
+
+#51-53
+FlyingEnemy 4 variants
+
+#54
+Kameen WAIT / inertia CHASE
+
+#55-58
+HSP特殊Enemy群
+FishEnemy / WallCrawler / SeaAnemone / Mariri
+
+#59
+TransformingWalker 26/27（open）
 ```
 
 という流れです。
@@ -139,3 +171,35 @@ Version1 CarrotMan / behavior state
 本編 `Action / PlayerManager / ObjectManager / GameData` まで統合済みとは限りません。
 
 この区別は [Version2仕様](Version2-Spec.md) と [残件](Remaining-Work.md) を参照してください。
+
+
+## 2026-09-27 Enemy移植のまとまり
+
+PR #47以降は、Native StageData / ObjectRuntime / Camera lifecycleの土台を使って、
+Version1/HSPのEnemyを個別TypeId + variant + BehaviorStateへ整理するフェーズへ移った。
+
+主な設計判断:
+
+- HSPの番号はV2の正式TypeIdにしない
+- 同一キャラクターの状態違いはBehaviorStateへ寄せる
+- 左右向きだけのID差はDirectionへ統合する
+- 同型の移動はvariantでまとめる
+- ProjectileはEnemy本体から分離してProjectileSystemへ集約する
+- 通常EnemyはCamera lifecycleへ参加する
+- Kameen CHASEのような旧仕様上の例外だけlifecycleを明示的に外す
+- 確認用Enemyはmainへ積み上げず、専用Areaを直列につなぐ
+
+この期間に実機確認された主なNative Enemy:
+
+- BallSlime / BallSlime2
+- StationaryShooter 4 pattern
+- Pikachii
+- Chikorarashi
+- FlyingEnemy 4 variants
+- Kameen
+- FishEnemy 3 variants
+- WallCrawler CW / CCW
+- SeaAnemone 2 variants
+- Mariri
+
+PR #59のTransformingWalkerはこの記録時点ではopenで、devには未マージ。
