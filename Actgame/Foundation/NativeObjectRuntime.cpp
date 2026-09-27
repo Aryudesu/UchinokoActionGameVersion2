@@ -74,6 +74,16 @@ constexpr int WallCrawlerCounterClockwise = 1;
 constexpr int WallCrawlerClockwise = 2;
 constexpr float WallCrawlerSpeed = 1.0f;
 
+constexpr int SeaAnemoneRightFan = 1;
+constexpr int SeaAnemoneLeftFan = 2;
+constexpr float SeaAnemoneTriggerDistance = 32.0f * 6.0f;
+constexpr int SeaAnemoneChargeFrames = 160;
+constexpr int SeaAnemoneShotIntervalFrames = 10;
+constexpr int SeaAnemoneShotCount = 8;
+constexpr float SeaAnemoneProjectileSpeed = 6.0f;
+constexpr float SeaAnemoneProjectileGravity = 0.4f / 3.0f;
+constexpr float SeaAnemoneProjectileMaxFallSpeed = 8.0f / 2.0f;
+
 bool IsBallSlime(const NativeObjectRuntime& Object) {
 	return Object.TypeId == "BallSlime";
 }
@@ -93,7 +103,8 @@ bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 		Object.TypeId == "FlyingEnemy" ||
 		Object.TypeId == "Kameen" ||
 		Object.TypeId == "FishEnemy" ||
-		Object.TypeId == "WallCrawler";
+		Object.TypeId == "WallCrawler" ||
+		Object.TypeId == "SeaAnemone";
 }
 
 bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
@@ -103,7 +114,8 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 		Object.TypeId == "Chikorarashi" ||
 		Object.TypeId == "FlyingEnemy" ||
 		Object.TypeId == "FishEnemy" ||
-		Object.TypeId == "WallCrawler") {
+		Object.TypeId == "WallCrawler" ||
+		Object.TypeId == "SeaAnemone") {
 		return true;
 	}
 	if (Object.TypeId == "Kameen") {
@@ -726,6 +738,20 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.MoveSpeed = 2.0f;
 		Runtime.Gravity = 0.0f;
 		Runtime.MaxFallSpeed = 0.0f;
+	} else if (Spawn.TypeId == "SeaAnemone") {
+		Runtime.HitboxOffset = {0.0f, 0.0f};
+		Runtime.HitboxSize = {32.0f, 32.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.ContactEnabled = true;
+		Runtime.Stompable = false;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.Variant = SeaAnemoneRightFan;
+		Runtime.MoveSpeed = 0.0f;
+		Runtime.Gravity = 0.0f;
+		Runtime.MaxFallSpeed = 0.0f;
+		Runtime.BehaviorTimer = 0;
+		Runtime.BehaviorPhase = 0.0f;
 	} else if (Spawn.TypeId == "WallCrawler") {
 		Runtime.HitboxOffset = {0.0f, 0.0f};
 		Runtime.HitboxSize = {32.0f, 32.0f};
@@ -864,6 +890,23 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 			Error,
 			Spawn.Id)) {
 		return Result<NativeObjectRuntime>::Failure(Error);
+	}
+
+	if (Spawn.TypeId == "SeaAnemone") {
+		if (!TryReadInteger(
+			Spawn.Properties,
+			"variant",
+			Runtime.Variant,
+			Error,
+			Spawn.Id)) {
+			return Result<NativeObjectRuntime>::Failure(Error);
+		}
+		if (Runtime.Variant != SeaAnemoneRightFan &&
+			Runtime.Variant != SeaAnemoneLeftFan) {
+			return Result<NativeObjectRuntime>::Failure(
+				"SeaAnemone variant must be 1 or 2: " +
+					Spawn.Id);
+		}
 	}
 
 	if (Spawn.TypeId == "WallCrawler") {
@@ -1180,7 +1223,13 @@ void NativeObjectSystem::ResetToSpawn(
 	Object.Acceleration = {0.0f, 0.0f};
 	Object.Grounded = false;
 
-	if (Object.TypeId == "WallCrawler") {
+	if (Object.TypeId == "SeaAnemone") {
+		Object.BehaviorTimer = 0;
+		Object.BehaviorPhase = 0.0f;
+		Object.ContactEnabled = true;
+		Object.Stompable = false;
+		Object.ContactDamage = 1;
+	} else if (Object.TypeId == "WallCrawler") {
 		Object.ContactEnabled = true;
 		Object.Stompable = false;
 		Object.ContactDamage = 1;
@@ -1945,6 +1994,73 @@ void NativeObjectSystem::UpdatePikachii(
 	}
 }
 
+void NativeObjectSystem::UpdateSeaAnemone(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog,
+	WorldPosition PlayerPosition) {
+	if (!Object.Active) return;
+
+	// HSP enemyf=40/41:
+	// Playerが横6tiles以内なら160frame charge。
+	// charge完了後はPlayerが離れても8発撃ち切るまでcycleを継続する。
+	if (std::fabs(Object.Position.X - PlayerPosition.X) <
+			SeaAnemoneTriggerDistance ||
+		Object.BehaviorTimer > SeaAnemoneChargeFrames) {
+		++Object.BehaviorTimer;
+	} else {
+		Object.BehaviorTimer = 0;
+	}
+
+	// HSPではenemyvyを0..159で回しており、実移動には使っていない。
+	// animation用phaseとして保持する。
+	Object.BehaviorPhase += 1.0f;
+	if (Object.BehaviorPhase >= 160.0f) {
+		Object.BehaviorPhase = 0.0f;
+	}
+
+	if (Object.BehaviorTimer > SeaAnemoneChargeFrames &&
+		Object.BehaviorTimer % SeaAnemoneShotIntervalFrames == 0) {
+		const int Step =
+			(Object.BehaviorTimer - SeaAnemoneChargeFrames) /
+				SeaAnemoneShotIntervalFrames +
+			1;
+		const float Angle =
+			3.14f * 2.0f *
+			static_cast<float>(Step) / 24.0f;
+		const float HorizontalSign =
+			Object.Variant == SeaAnemoneRightFan ? 1.0f : -1.0f;
+
+		ProjectileSpawnRequest Request;
+		Request.Position = Object.Position;
+		Request.Velocity = {
+			HorizontalSign * std::cos(Angle) *
+				SeaAnemoneProjectileSpeed,
+			-std::sin(Angle) * SeaAnemoneProjectileSpeed
+		};
+		Request.Motion = ProjectileMotion::Ballistic;
+		Request.Gravity = SeaAnemoneProjectileGravity;
+		Request.MaxFallSpeed = SeaAnemoneProjectileMaxFallSpeed;
+		Request.Damage = 1;
+		Request.LifetimeFrames = 480;
+		Request.Radius = 6.0f;
+		Request.CollidesWithTerrain = false;
+		PendingProjectileSpawns_.push_back(Request);
+	}
+
+	if ((Object.BehaviorTimer - SeaAnemoneChargeFrames) /
+			SeaAnemoneShotIntervalFrames ==
+		SeaAnemoneShotCount) {
+		Object.BehaviorTimer = 0;
+	}
+
+	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
+		Object.LifeState = ObjectLifeState::Defeated;
+		Object.Active = false;
+		Object.Velocity = {0.0f, 0.0f};
+	}
+}
+
 void NativeObjectSystem::UpdateChikorarashi(
 	NativeObjectRuntime& Object,
 	const TileMap& Map,
@@ -2049,6 +2165,9 @@ void NativeObjectSystem::Update(
 			UpdatePikachii(Object, Map, Catalog, PlayerPosition);
 		} else if (Object.TypeId == "StationaryShooter") {
 			UpdateStationaryShooter(Object);
+		} else if (Object.TypeId == "SeaAnemone") {
+			UpdateSeaAnemone(
+				Object, Map, Catalog, PlayerPosition);
 		} else if (Object.TypeId == "Chikorarashi") {
 			UpdateChikorarashi(
 				Object, Map, Catalog, PlayerPosition);

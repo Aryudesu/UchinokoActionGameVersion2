@@ -148,6 +148,11 @@ private:
 		WorldPosition PlayerPosition);
 	void UpdateStationaryShooter(
 		NativeObjectRuntime& Object);
+	void UpdateSeaAnemone(
+		NativeObjectRuntime& Object,
+		const TileMap& Map,
+		const TileCatalog& Catalog,
+		WorldPosition PlayerPosition);
 	void UpdateChikorarashi(
 		NativeObjectRuntime& Object,
 		const TileMap& Map,
