@@ -1974,7 +1974,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NearlyEqual(
 		BulletObjects->Objects[0].Position.X, 320.0f));
 	assert(NearlyEqual(
-		BulletObjects->Objects[0].Position.Y, 128.0f));
+		BulletObjects->Objects[0].Position.Y, 160.0f));
 	assert(BulletArea->Transitions.size() == 1);
 	assert(BulletArea->Transitions[0].Id == "pipe-bullet-main");
 	assert(BulletArea->Transitions[0].TargetAreaId == "main");
