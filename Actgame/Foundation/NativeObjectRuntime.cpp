@@ -112,7 +112,8 @@ bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 		Object.TypeId == "FishEnemy" ||
 		Object.TypeId == "WallCrawler" ||
 		Object.TypeId == "SeaAnemone" ||
-		Object.TypeId == "Mariri";
+		Object.TypeId == "Mariri" ||
+		Object.TypeId == "TransformingWalker";
 }
 
 bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
@@ -124,7 +125,8 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 		Object.TypeId == "FishEnemy" ||
 		Object.TypeId == "WallCrawler" ||
 		Object.TypeId == "SeaAnemone" ||
-		Object.TypeId == "Mariri") {
+		Object.TypeId == "Mariri" ||
+		Object.TypeId == "TransformingWalker") {
 		return true;
 	}
 	if (Object.TypeId == "Kameen") {
@@ -1266,9 +1268,6 @@ void NativeObjectSystem::ResetToSpawn(
 		Object.ContactEnabled = true;
 		Object.Stompable = true;
 		Object.ContactDamage = 1;
-		Object.MoveSpeed = 2.0f;
-		Object.Gravity = 0.5f;
-		Object.MaxFallSpeed = 12.0f;
 	} else if (Object.TypeId == "Mariri") {
 		Object.BehaviorTimer = 0;
 		Object.ContactEnabled = true;
