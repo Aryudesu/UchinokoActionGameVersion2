@@ -523,7 +523,7 @@ PR #44でDxLib非依存の2D CameraをFoundationへ追加。
 
 ---
 
-## 16. Native Enemy / Projectile拡張（PR #47〜#58）
+## 16. Native Enemy / Projectile拡張（PR #47〜#59）
 
 PR #47以降、NativeObjectRuntimeはWalkingEnemyだけでなく、
 特殊EnemyをTypeId / variant / BehaviorStateへ整理して扱える段階へ進んだ。
@@ -570,6 +570,7 @@ BallisticにはGravityとoptionalなpositive MaxFallSpeedを持てる。
 - WallCrawler: CW / CCW wall follower
 - SeaAnemone: charge後に8発fan shot
 - Mariri: 100F待機 → jump中のみ横移動
+- TransformingWalker: HSP26/27。一度踏むとWalkingEnemy相当へ変化し、二度目の踏みつけで撃破
 
 HSP numeric IDはruntime TypeIdには使用せず、意味単位に再設計している。
 
@@ -608,7 +609,10 @@ main
  -> anemone-right
  -> anemone-left
  -> mariri
+ -> transform-fall
+ -> transform-turn
  -> main
 ```
 
 確認用terrainがPlayerの退出経路を塞がないことをfixture設計時に確認する。
+また、Playerより高い位置に確認対象Enemyを置く場合は、通常ジャンプで踏みつけ確認できるよう地面から1〜2段程度を目安にする。
