@@ -82,6 +82,13 @@ void CharacterController::SetVelocity(WorldPosition Velocity) {
 	Body_.Grounded = false;
 }
 
+void CharacterController::LandOnExternalSurface(float SurfaceY) {
+	Body_.Position.Y = SurfaceY - Body_.Height;
+	Body_.Velocity.Y = 0.0f;
+	VelocityY10_ = 0;
+	Body_.Grounded = true;
+}
+
 
 CollisionShape CharacterController::ShapeAt(
 	const TileMap& Map, const TileCatalog& Catalog, float X, float Y) const {
@@ -756,12 +763,15 @@ void CharacterController::StepClimbing(
 }
 
 void CharacterController::Step(
-	float HorizontalInput, bool JumpPressed,
-	const TileMap& Map, const TileCatalog& Catalog) {
+	float HorizontalInput,
+	bool JumpPressed,
+	const TileMap& Map,
+	const TileCatalog& Catalog,
+	bool ExternalGroundSupport) {
 	CharacterInput Input;
 	Input.Horizontal = HorizontalInput;
 	Input.JumpPressed = JumpPressed;
-	Step(Input, Map, Catalog);
+	Step(Input, Map, Catalog, ExternalGroundSupport);
 }
 
 void CharacterController::StepWithoutInput(
@@ -776,7 +786,9 @@ void CharacterController::StepWithoutInput(
 
 void CharacterController::Step(
 	const CharacterInput& RawInput,
-	const TileMap& Map, const TileCatalog& Catalog) {
+	const TileMap& Map,
+	const TileCatalog& Catalog,
+	bool ExternalGroundSupport) {
 	Interactions_.clear();
 	TouchProbePoints_.clear();
 
@@ -885,7 +897,10 @@ void CharacterController::Step(
 		Body_.Grounded = false;
 		WaterJumped = true;
 		WaterExitBoostArmed_ = true;
-	} else if (Input.JumpPressed && Body_.Grounded) {
+	} else if (
+		Input.JumpPressed &&
+		(Body_.Grounded ||
+		 (ExternalGroundSupport && Gravity_ == GravityDirection::Down))) {
 		WaterExitBoostArmed_ = false;
 		VelocityY10_ = -GravitySign() *
 			static_cast<int>(std::round(Motion_.JumpSpeed * 10.0f));
