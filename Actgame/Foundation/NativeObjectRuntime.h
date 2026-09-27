@@ -117,7 +117,8 @@ private:
 	static void UpdateFlyingEnemy(
 		NativeObjectRuntime& Object,
 		const TileMap& Map,
-		const TileCatalog& Catalog);
+		const TileCatalog& Catalog,
+		WorldPosition PlayerPosition);
 	static void UpdateCarrotMan(
 		NativeObjectRuntime& Object,
 		const TileMap& Map,

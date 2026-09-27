@@ -52,6 +52,8 @@ constexpr float ChikorarashiProjectileGravity = 0.4f / 3.0f;
 
 constexpr int FlyingHorizontal = 1;
 constexpr int FlyingHorizontalOscillation = 2;
+constexpr int FlyingVertical = 3;
+constexpr int FlyingVerticalOscillation = 4;
 constexpr float FlyingOscillationPhaseStep = 0.1f;
 constexpr float FlyingOscillationPhaseLimit = 6.28f * 2.0f;
 constexpr float FlyingOscillationSpeed = 5.0f;
@@ -335,6 +337,88 @@ bool ResolveWalkingEnemySide(
 		}
 		return true;
 	}
+	return false;
+}
+
+bool ResolveFlyingEnemyVertical(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog,
+	bool MovingDown) {
+	const ObjectHitBounds Bounds = Object.HitBounds();
+	const float WorldHeight =
+		static_cast<float>(Map.Height() * Map.TileHeight());
+
+	if (Bounds.Position.Y < 0.0f) {
+		Object.Position.Y -= Bounds.Position.Y;
+		return true;
+	}
+	if (Bounds.Position.Y + Bounds.Size.Y > WorldHeight) {
+		Object.Position.Y -=
+			Bounds.Position.Y + Bounds.Size.Y - WorldHeight;
+		return true;
+	}
+
+	const float ProbeY =
+		MovingDown
+			? Bounds.Position.Y + Bounds.Size.Y - 0.01f
+			: Bounds.Position.Y + 0.01f;
+	const int Row =
+		static_cast<int>(std::floor(ProbeY / Map.TileHeight()));
+	if (Row < 0 || Row >= Map.Height()) return false;
+
+	const int FirstColumn = (std::max)(
+		0,
+		static_cast<int>(
+			std::floor(Bounds.Position.X / Map.TileWidth())));
+	const int LastColumn = (std::min)(
+		Map.Width() - 1,
+		static_cast<int>(
+			std::floor(
+				(Bounds.Position.X + Bounds.Size.X - 0.01f) /
+				Map.TileWidth())));
+
+	for (int Column = FirstColumn; Column <= LastColumn; ++Column) {
+		const TilePosition Tile = {Column, Row};
+		const int* Id = Map.TryGet(Tile);
+		const TileDefinition* Definition =
+			Id == nullptr ? nullptr : Catalog.Find(*Id);
+		if (Definition == nullptr) continue;
+
+		const float TileLeft =
+			static_cast<float>(Column * Map.TileWidth());
+		const float TileRight =
+			static_cast<float>((Column + 1) * Map.TileWidth());
+		const float ProbeX = (std::clamp)(
+			Bounds.Position.X + Bounds.Size.X * 0.5f,
+			TileLeft + 0.01f,
+			TileRight - 0.01f);
+
+		if (!TerrainCollision::ContainsSolidPoint(
+			Definition->Collision,
+			Tile,
+			{ProbeX, ProbeY},
+			Map.TileWidth(),
+			Map.TileHeight())) {
+			continue;
+		}
+
+		if (MovingDown) {
+			const float TileTop =
+				static_cast<float>(Row * Map.TileHeight());
+			Object.Position.Y =
+				TileTop -
+				Object.HitboxOffset.Y -
+				Object.HitboxSize.Y;
+		} else {
+			const float TileBottom =
+				static_cast<float>((Row + 1) * Map.TileHeight());
+			Object.Position.Y =
+				TileBottom - Object.HitboxOffset.Y;
+		}
+		return true;
+	}
+
 	return false;
 }
 
@@ -646,20 +730,12 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 	}
 
 	if (Spawn.TypeId == "FlyingEnemy") {
-		std::string Direction =
-			Runtime.Direction < 0 ? "left" : "right";
-		if (!TryReadString(
+		if (!TryReadInteger(
 			Spawn.Properties,
-			"direction",
-			Direction,
+			"variant",
+			Runtime.Variant,
 			Error,
 			Spawn.Id) ||
-			!TryReadInteger(
-				Spawn.Properties,
-				"variant",
-				Runtime.Variant,
-				Error,
-				Spawn.Id) ||
 			!TryReadFloat(
 				Spawn.Properties,
 				"speed",
@@ -668,21 +744,52 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 				Spawn.Id)) {
 			return Result<NativeObjectRuntime>::Failure(Error);
 		}
-		if (Direction == "left") {
-			Runtime.Direction = -1;
-		} else if (Direction == "right") {
-			Runtime.Direction = 1;
-		} else {
+
+		if (Runtime.Variant != FlyingHorizontal &&
+			Runtime.Variant != FlyingHorizontalOscillation &&
+			Runtime.Variant != FlyingVertical &&
+			Runtime.Variant != FlyingVerticalOscillation) {
 			return Result<NativeObjectRuntime>::Failure(
-				"FlyingEnemy direction must be left or right: " +
-				Spawn.Id);
+				"FlyingEnemy variant must be 1, 2, 3 or 4: " +
+					Spawn.Id);
+		}
+
+		std::string Direction =
+			Runtime.Variant == FlyingVertical
+				? "down"
+				: (Runtime.Direction < 0 ? "left" : "right");
+		if (!TryReadString(
+			Spawn.Properties,
+			"direction",
+			Direction,
+			Error,
+			Spawn.Id)) {
+			return Result<NativeObjectRuntime>::Failure(Error);
+		}
+
+		if (Runtime.Variant == FlyingVertical) {
+			if (Direction == "up") {
+				Runtime.Direction = -1;
+			} else if (Direction == "down") {
+				Runtime.Direction = 1;
+			} else {
+				return Result<NativeObjectRuntime>::Failure(
+					"Vertical FlyingEnemy direction must be up or down: " +
+						Spawn.Id);
+			}
+		} else {
+			if (Direction == "left") {
+				Runtime.Direction = -1;
+			} else if (Direction == "right") {
+				Runtime.Direction = 1;
+			} else {
+				return Result<NativeObjectRuntime>::Failure(
+					"Horizontal FlyingEnemy direction must be left or right: " +
+						Spawn.Id);
+			}
 		}
 		Runtime.InitialDirection = Runtime.Direction;
-		if (Runtime.Variant != FlyingHorizontal &&
-			Runtime.Variant != FlyingHorizontalOscillation) {
-			return Result<NativeObjectRuntime>::Failure(
-				"FlyingEnemy variant must be 1 or 2: " + Spawn.Id);
-		}
+
 		if (Runtime.MoveSpeed <= 0.0f) {
 			return Result<NativeObjectRuntime>::Failure(
 				"FlyingEnemy speed must be positive: " + Spawn.Id);
@@ -985,42 +1092,81 @@ void NativeObjectSystem::UpdateWalkingEnemy(
 void NativeObjectSystem::UpdateFlyingEnemy(
 	NativeObjectRuntime& Object,
 	const TileMap& Map,
-	const TileCatalog& Catalog) {
+	const TileCatalog& Catalog,
+	WorldPosition PlayerPosition) {
 	if (!Object.Active || Object.MoveSpeed <= 0.0f) return;
 
-	Object.Velocity.Y = 0.0f;
+	if (Object.Variant == FlyingVertical) {
+		Object.Velocity.X = 0.0f;
+		Object.Velocity.Y =
+			static_cast<float>(Object.Direction) * Object.MoveSpeed;
+		Object.Position.Y += Object.Velocity.Y;
 
-	if (Object.Variant == FlyingHorizontalOscillation) {
-		// HSP enemyf=5:
+		const bool MovingDown = Object.Velocity.Y > 0.0f;
+		if (ResolveFlyingEnemyVertical(
+			Object, Map, Catalog, MovingDown)) {
+			Object.Direction *= -1;
+			Object.Velocity.Y =
+				static_cast<float>(Object.Direction) * Object.MoveSpeed;
+		}
+	} else if (Object.Variant == FlyingVerticalOscillation) {
+		// HSP enemyf=7:
 		// rad += 0.1
-		// x += 5 * cos(rad * 0.5)
-		// 速度の符号に応じて見た目の向きを切り替える。
+		// y += 5 * cos(rad * 0.5)
+		// 向きは移動方向ではなくPlayerの左右位置へ向ける。
 		Object.BehaviorPhase += FlyingOscillationPhaseStep;
 		if (Object.BehaviorPhase > FlyingOscillationPhaseLimit) {
 			Object.BehaviorPhase = 0.0f;
 		}
 
 		const float Angle = Object.BehaviorPhase * 0.5f;
-		Object.Velocity.X =
+		Object.Velocity.X = 0.0f;
+		Object.Velocity.Y =
 			FlyingOscillationSpeed * std::cos(Angle);
-		Object.Direction =
-			Angle <= 1.57f || Angle > 4.71f ? 1 : -1;
-		Object.Position.X += Object.Velocity.X;
+		Object.Position.Y += Object.Velocity.Y;
+
+		if (PlayerPosition.X < Object.Position.X) {
+			Object.Direction = -1;
+		} else if (PlayerPosition.X > Object.Position.X) {
+			Object.Direction = 1;
+		}
+
+		const bool MovingDown = Object.Velocity.Y > 0.0f;
+		if (ResolveFlyingEnemyVertical(
+			Object, Map, Catalog, MovingDown)) {
+			// HSP版もterrain hit時にはenemydireを反転する。
+			// 次frameにはPlayer位置で再設定される。
+			Object.Direction *= -1;
+		}
 	} else {
-		Object.Velocity.X =
-			static_cast<float>(Object.Direction) * Object.MoveSpeed;
-		Object.Position.X += Object.Velocity.X;
+		Object.Velocity.Y = 0.0f;
+
+		if (Object.Variant == FlyingHorizontalOscillation) {
+			Object.BehaviorPhase += FlyingOscillationPhaseStep;
+			if (Object.BehaviorPhase > FlyingOscillationPhaseLimit) {
+				Object.BehaviorPhase = 0.0f;
+			}
+
+			const float Angle = Object.BehaviorPhase * 0.5f;
+			Object.Velocity.X =
+				FlyingOscillationSpeed * std::cos(Angle);
+			Object.Direction =
+				Angle <= 1.57f || Angle > 4.71f ? 1 : -1;
+			Object.Position.X += Object.Velocity.X;
+		} else {
+			Object.Velocity.X =
+				static_cast<float>(Object.Direction) * Object.MoveSpeed;
+			Object.Position.X += Object.Velocity.X;
+		}
+
+		const bool HitWall =
+			ResolveWalkingEnemySide(Object, Map, Catalog);
+		if (HitWall && Object.Variant == FlyingHorizontal) {
+			Object.Velocity.X =
+				static_cast<float>(Object.Direction) * Object.MoveSpeed;
+		}
 	}
 
-	const bool HitWall =
-		ResolveWalkingEnemySide(Object, Map, Catalog);
-	if (HitWall && Object.Variant == FlyingHorizontal) {
-		Object.Velocity.X =
-			static_cast<float>(Object.Direction) * Object.MoveSpeed;
-	}
-
-	// HSP enemyf=4/5はgravityを適用せず、spawn時の高度を維持する。
-	// damage/instant-death terrainへ直接触れた場合だけ通常Enemy同様に撃破する。
 	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
 		Object.LifeState = ObjectLifeState::Defeated;
 		Object.Active = false;
@@ -1423,7 +1569,8 @@ void NativeObjectSystem::Update(
 		if (Object.TypeId == "WalkingEnemy") {
 			UpdateWalkingEnemy(Object, Map, Catalog);
 		} else if (Object.TypeId == "FlyingEnemy") {
-			UpdateFlyingEnemy(Object, Map, Catalog);
+			UpdateFlyingEnemy(
+				Object, Map, Catalog, PlayerPosition);
 		} else if (Object.TypeId == "CarrotMan") {
 			UpdateCarrotMan(Object, Map, Catalog, PlayerPosition);
 		} else if (Object.TypeId == "BallSlime") {

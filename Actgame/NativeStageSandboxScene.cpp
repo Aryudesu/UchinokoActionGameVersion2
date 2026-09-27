@@ -1176,21 +1176,44 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					Object->Velocity.Y,
 					Object->Grounded ? " G" : "");
 			} else if (Object->TypeId == "FlyingEnemy") {
-				DrawFormatString(
-					X, Y + 34,
-					GetColor(180, 245, 255),
-					Object->Variant == 2
-						? "%s H-WAVE %s vx=%.1f"
-						: "%s H-FLY %s vx=%.1f",
-					Object->Id.c_str(),
-					Object->Direction < 0 ? "<" : ">",
-					Object->Velocity.X);
-				if (Object->Variant == 2) {
+				if (Object->Variant == 3) {
+					DrawFormatString(
+						X, Y + 34,
+						GetColor(180, 245, 255),
+						"%s V-FLY %s vy=%.1f",
+						Object->Id.c_str(),
+						Object->Direction < 0 ? "^" : "v",
+						Object->Velocity.Y);
+				} else if (Object->Variant == 4) {
+					DrawFormatString(
+						X, Y + 34,
+						GetColor(180, 245, 255),
+						"%s V-WAVE %s vy=%.1f",
+						Object->Id.c_str(),
+						Object->Direction < 0 ? "<" : ">",
+						Object->Velocity.Y);
 					DrawFormatString(
 						X, Y + 50,
 						GetColor(180, 245, 255),
 						"phase=%.2f",
 						Object->BehaviorPhase);
+				} else {
+					DrawFormatString(
+						X, Y + 34,
+						GetColor(180, 245, 255),
+						Object->Variant == 2
+							? "%s H-WAVE %s vx=%.1f"
+							: "%s H-FLY %s vx=%.1f",
+						Object->Id.c_str(),
+						Object->Direction < 0 ? "<" : ">",
+						Object->Velocity.X);
+					if (Object->Variant == 2) {
+						DrawFormatString(
+							X, Y + 50,
+							GetColor(180, 245, 255),
+							"phase=%.2f",
+							Object->BehaviorPhase);
+					}
 				}
 			} else if (Object->TypeId == "CarrotMan") {
 				const char* State =
