@@ -442,6 +442,62 @@
       "transitions": [
         { "id": "pipe-mariri-main", "type": "Pipe", "entry": { "shape": "point", "position": [448,192] }, "targetArea": "main", "exitPosition": [192,128], "enterDirection": "down", "exitDirection": "up" }
       ]
+    },
+    {
+      "id": "transform-fall",
+      "size": [16, 8],
+      "tileSize": [32, 32],
+      "settings": {
+        "timeLimitSeconds": 0,
+        "bgm": "test-transform-fall-bgm",
+        "background": "test-transform-fall-sky",
+        "properties": { "cameraMode": "follow" }
+      },
+      "tileLayers": [
+        { "id": "background", "name": "Background", "role": "visual", "zOrder": -10, "source": "transform-fall/background.csv", "tileSet": "native-test" },
+        { "id": "terrain", "name": "Terrain", "role": "terrain", "zOrder": 0, "source": "transform-fall/terrain.csv", "tileSet": "native-test" },
+        { "id": "foreground", "name": "Foreground", "role": "visual", "zOrder": 20, "source": "transform-fall/foreground.csv", "tileSet": "native-test" }
+      ],
+      "objectLayers": [
+        {
+          "id": "objects", "name": "Transforming Walker 26 Test Objects", "zOrder": 10,
+          "objects": [
+            { "id": "transform-fall-enemy", "type": "TransformingWalker", "position": [224,96], "properties": { "variant": 1, "direction": "right", "speed": 2 } }
+          ]
+        }
+      ],
+      "regionLayers": [],
+      "transitions": [
+        { "id": "pipe-transform-fall-turn", "type": "Pipe", "entry": { "shape": "point", "position": [448,192] }, "targetArea": "transform-turn", "exitPosition": [32,192], "enterDirection": "down", "exitDirection": "up" }
+      ]
+    },
+    {
+      "id": "transform-turn",
+      "size": [16, 8],
+      "tileSize": [32, 32],
+      "settings": {
+        "timeLimitSeconds": 0,
+        "bgm": "test-transform-turn-bgm",
+        "background": "test-transform-turn-sky",
+        "properties": { "cameraMode": "follow" }
+      },
+      "tileLayers": [
+        { "id": "background", "name": "Background", "role": "visual", "zOrder": -10, "source": "transform-turn/background.csv", "tileSet": "native-test" },
+        { "id": "terrain", "name": "Terrain", "role": "terrain", "zOrder": 0, "source": "transform-turn/terrain.csv", "tileSet": "native-test" },
+        { "id": "foreground", "name": "Foreground", "role": "visual", "zOrder": 20, "source": "transform-turn/foreground.csv", "tileSet": "native-test" }
+      ],
+      "objectLayers": [
+        {
+          "id": "objects", "name": "Transforming Walker 27 Test Objects", "zOrder": 10,
+          "objects": [
+            { "id": "transform-turn-enemy", "type": "TransformingWalker", "position": [224,96], "properties": { "variant": 2, "direction": "right", "speed": 2 } }
+          ]
+        }
+      ],
+      "regionLayers": [],
+      "transitions": [
+        { "id": "pipe-transform-turn-main", "type": "Pipe", "entry": { "shape": "point", "position": [448,192] }, "targetArea": "main", "exitPosition": [192,128], "enterDirection": "down", "exitDirection": "up" }
+      ]
     }
   ],
   "tileSets": [
