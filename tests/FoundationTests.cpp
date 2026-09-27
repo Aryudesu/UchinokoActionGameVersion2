@@ -1417,7 +1417,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
 	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
-	assert(Data.Areas.size() == 19);
+	assert(Data.Areas.size() == 21);
 
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
@@ -1976,8 +1976,45 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NearlyEqual(
 		BulletObjects->Objects[0].Position.Y, 160.0f));
 	assert(BulletArea->Transitions.size() == 1);
-	assert(BulletArea->Transitions[0].Id == "pipe-bullet-main");
-	assert(BulletArea->Transitions[0].TargetAreaId == "main");
+	assert(BulletArea->Transitions[0].Id ==
+		"pipe-bullet-jumping-8");
+	assert(BulletArea->Transitions[0].TargetAreaId ==
+		"jumping-8");
+
+	const StageArea* Jumping8 = Data.FindArea("jumping-8");
+	assert(Jumping8 != nullptr);
+	assert(Jumping8->Width == 16);
+	assert(Jumping8->Height == 8);
+	const ObjectLayer* Jumping8Objects =
+		Jumping8->FindObjectLayer("objects");
+	assert(Jumping8Objects != nullptr);
+	assert(Jumping8Objects->Objects.size() == 1);
+	assert(Jumping8Objects->Objects[0].Id == "jumping-enemy-8");
+	assert(Jumping8Objects->Objects[0].TypeId == "JumpingEnemy");
+	int JumpVariant = 0;
+	assert(Jumping8Objects->Objects[0]
+		.Properties.at("variant")
+		.TryGetInteger(JumpVariant));
+	assert(JumpVariant == 1);
+	assert(Jumping8->Transitions.size() == 1);
+	assert(Jumping8->Transitions[0].Id == "pipe-jumping-8-9");
+	assert(Jumping8->Transitions[0].TargetAreaId == "jumping-9");
+
+	const StageArea* Jumping9 = Data.FindArea("jumping-9");
+	assert(Jumping9 != nullptr);
+	const ObjectLayer* Jumping9Objects =
+		Jumping9->FindObjectLayer("objects");
+	assert(Jumping9Objects != nullptr);
+	assert(Jumping9Objects->Objects.size() == 1);
+	assert(Jumping9Objects->Objects[0].Id == "jumping-enemy-9");
+	assert(Jumping9Objects->Objects[0].TypeId == "JumpingEnemy");
+	assert(Jumping9Objects->Objects[0]
+		.Properties.at("variant")
+		.TryGetInteger(JumpVariant));
+	assert(JumpVariant == 2);
+	assert(Jumping9->Transitions.size() == 1);
+	assert(Jumping9->Transitions[0].Id == "pipe-jumping-9-main");
+	assert(Jumping9->Transitions[0].TargetAreaId == "main");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -4321,6 +4358,151 @@ void TestNativeBulletEnemyMovesStraightThroughSolidAndCanBeStomped() {
 	assert(Enemy != nullptr);
 	assert(!Enemy->Active);
 	assert(Enemy->LifeState == ObjectLifeState::Defeated);
+}
+
+void TestNativeJumpingEnemyVariantsMatchHspJumpSpeeds() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	auto MakeArea = [](int Variant, const std::string& Id) {
+		StageArea Area;
+		ObjectLayer Layer;
+		Layer.Metadata.Id = "objects";
+		ObjectSpawn Spawn;
+		Spawn.Id = Id;
+		Spawn.TypeId = "JumpingEnemy";
+		Spawn.Position = {64.0f, 96.0f};
+		Spawn.Properties["variant"] =
+			StagePropertyValue::Integer(Variant);
+		Spawn.Properties["direction"] =
+			StagePropertyValue::String("right");
+		Layer.Objects.push_back(Spawn);
+		Area.ObjectLayers.push_back(Layer);
+		return Area;
+	};
+
+	NativeObjectSystem Normal;
+	assert(Normal.Reset(MakeArea(1, "jump8")).IsSuccess());
+	NativeObjectSystem High;
+	assert(High.Reset(MakeArea(2, "jump9")).IsSuccess());
+
+	// 接地frameでHSP8は-jump(-9)、HSP9は-jump*2(-18)を設定する。
+	Normal.Update(Map, Catalog);
+	High.Update(Map, Catalog);
+	const NativeObjectRuntime* J8 = Normal.Find("jump8");
+	const NativeObjectRuntime* J9 = High.Find("jump9");
+	assert(J8 != nullptr && J9 != nullptr);
+	assert(NearlyEqual(J8->Velocity.Y, -9.0f));
+	assert(NearlyEqual(J9->Velocity.Y, -18.0f));
+	assert(!J8->Grounded);
+	assert(!J9->Grounded);
+
+	// 次frameのHSP maxVspeed clampで9側だけ-9へ制限される。
+	Normal.Update(Map, Catalog);
+	High.Update(Map, Catalog);
+	J8 = Normal.Find("jump8");
+	J9 = High.Find("jump9");
+	assert(NearlyEqual(J8->Velocity.Y, -8.6f));
+	assert(NearlyEqual(J9->Velocity.Y, -9.0f));
+	assert(J9->Position.Y < J8->Position.Y);
+
+	assert(J8->Stompable);
+	assert(J9->Stompable);
+	assert(NearlyEqual(J8->MoveSpeed, 2.0f));
+	assert(NearlyEqual(J9->MoveSpeed, 2.0f));
+	assert(NearlyEqual(J8->Gravity, 0.4f));
+	assert(NearlyEqual(J9->Gravity, 0.4f));
+	assert(NearlyEqual(J8->MaxFallSpeed, 9.0f));
+	assert(NearlyEqual(J9->MaxFallSpeed, 9.0f));
+}
+
+void TestNativeJumpingEnemyTurnsAtWallAndCanBeStomped() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 1, 0, 0},
+		{0, 0, 0, 1, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "jumper";
+	Spawn.TypeId = "JumpingEnemy";
+	Spawn.Position = {64.0f, 64.0f};
+	Spawn.Properties["variant"] = StagePropertyValue::Integer(1);
+	Spawn.Properties["direction"] = StagePropertyValue::String("right");
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	bool Turned = false;
+	for (int Frame = 0; Frame < 40; ++Frame) {
+		Objects.Update(Map, Catalog);
+		const NativeObjectRuntime* Enemy = Objects.Find("jumper");
+		assert(Enemy != nullptr);
+		if (Enemy->Direction < 0) {
+			Turned = true;
+			break;
+		}
+	}
+	assert(Turned);
+
+	NativeObjectRuntime* Enemy = Objects.Find("jumper");
+	assert(Enemy != nullptr);
+	Enemy->Position = {64.0f, 64.0f};
+	Enemy->Velocity = {0.0f, 0.0f};
+	const std::vector<NativeObjectContact> Contacts =
+		Objects.FindContacts({72.0f, 40.0f}, {16.0f, 32.0f}, 3.0f);
+	assert(Contacts.size() == 1);
+	assert(Contacts[0].Kind == NativeObjectContactKind::Stomp);
+	assert(Objects.HandleStomp("jumper"));
+	assert(!Objects.Find("jumper")->Active);
+}
+
+void TestNativeJumpingEnemyRejectsUnknownVariant() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "jump-bad";
+	Spawn.TypeId = "JumpingEnemy";
+	Spawn.Properties["variant"] = StagePropertyValue::Integer(3);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	const Result<bool> Reset = Objects.Reset(Area);
+	assert(Reset.IsFailure());
+	assert(Reset.Error().find("variant must be 1 or 2") !=
+		std::string::npos);
 }
 
 void TestNativeMaririWaitsThenJumpsTowardPlayer() {
@@ -8418,6 +8600,9 @@ int main(int argc, char* argv[]) {
 	TestNativeTransformingWalkerRejectsUnknownVariant();
 	TestNativeUnstompableWalkerTurnsAtCliffAndRejectsStomp();
 	TestNativeBulletEnemyMovesStraightThroughSolidAndCanBeStomped();
+	TestNativeJumpingEnemyVariantsMatchHspJumpSpeeds();
+	TestNativeJumpingEnemyTurnsAtWallAndCanBeStomped();
+	TestNativeJumpingEnemyRejectsUnknownVariant();
 	TestNativeMaririWaitsThenJumpsTowardPlayer();
 	TestNativeMaririTurnsAtWallDuringJump();
 	TestNativeMaririLifecycleResetRestoresWaitState();
@@ -8520,6 +8705,9 @@ int main(int argc, char* argv[]) {
 	TestNativeTransformingWalkerRejectsUnknownVariant();
 	TestNativeUnstompableWalkerTurnsAtCliffAndRejectsStomp();
 	TestNativeBulletEnemyMovesStraightThroughSolidAndCanBeStomped();
+	TestNativeJumpingEnemyVariantsMatchHspJumpSpeeds();
+	TestNativeJumpingEnemyTurnsAtWallAndCanBeStomped();
+	TestNativeJumpingEnemyRejectsUnknownVariant();
 	TestNativeMaririWaitsThenJumpsTowardPlayer();
 	TestNativeMaririTurnsAtWallDuringJump();
 	TestNativeMaririLifecycleResetRestoresWaitState();
