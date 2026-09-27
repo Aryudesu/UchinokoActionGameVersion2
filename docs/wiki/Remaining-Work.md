@@ -25,29 +25,30 @@ PR #28は現時点で未マージ。
 
 ## 2. 次の優先残件
 
-PR #47〜#58までで、BallSlime / Projectile / HSP FlyingEnemy / Kameen /
-Fish / WallCrawler / SeaAnemone / MaririまでNative化済み。
+PR #47〜#59までで、BallSlime / Projectile / HSP FlyingEnemy / Kameen /
+Fish / WallCrawler / SeaAnemone / Mariri / TransformingWalkerまでNative化済み。
 
 現在のopen実装PR:
 
-- PR #59: HSP26/27 TransformingWalker（実装・実機確認済み、未マージ）
+- PR #60: HSP28 UnstompableWalker（実装・実機確認済み、未マージ）
 
 推奨順:
 
-1. PR #59のTransformingWalkerをmerge
-2. HSP未移植Enemy 3 / 8..10 / 15..19 / 28を順次整理
-3. Enemy死亡演出 / Score / SEをruntime effectへ分離
-4. Lift Stand判定 / moving platform runtimeを完成
-5. external Stage transition / Stage loader責務を設計
-6. PR #28を旧ARY parser / converter入力として整理
-7. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
-8. V1 Block ID 0..45 → V2 native Tile定義への変換mapping
-9. 旧Stage 5をV2 native形式へ実際に変換するfixtureを作る
-10. `Action` をV2 native StageDataから動かす
-11. Legacy Enemy `-2..-6` → ObjectSpawn変換
-12. Goal / StageProgress → GameData / Save / WorldMap
-13. Boss / Event
-14. 旧Map / Block runtime撤去
+1. PR #60のUnstompableWalkerをmerge
+2. HSP未移植Enemy 3 / 8 / 9 / 18を優先して整理
+3. HSP 16 / 17はLift / path movement基盤の後で整理
+4. Enemy死亡演出 / Score / SEをruntime effectへ分離
+5. Lift Stand判定 / moving platform runtimeを完成
+6. external Stage transition / Stage loader責務を設計
+7. PR #28を旧ARY parser / converter入力として整理
+8. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
+9. V1 Block ID 0..45 → V2 native Tile定義への変換mapping
+10. 旧Stage 5をV2 native形式へ実際に変換するfixtureを作る
+11. `Action` をV2 native StageDataから動かす
+12. Legacy Enemy `-2..-6` → ObjectSpawn変換
+13. Goal / StageProgress → GameData / Save / WorldMap
+14. Boss / Event
+15. 旧Map / Block runtime撤去
 
 ---
 
@@ -73,7 +74,7 @@ Fish / WallCrawler / SeaAnemone / MaririまでNative化済み。
 
 ### Version1現役機能
 
-- Enemy: WalkingEnemy1/2、CarrotMan、BallSlime、FlyingEnemy 4種、Kameen、Pikachii、Chikorarashi、Fish、WallCrawler、SeaAnemone、MaririはNative化済み。HSP 3 / 8..10 / 15..19 / 28等は未移植
+- Enemy: WalkingEnemy1/2、CarrotMan、BallSlime、FlyingEnemy 4種、Kameen、Pikachii、Chikorarashi、Fish、WallCrawler、SeaAnemone、MaririはNative化済み。HSP 3 / 8..10 / 15..19は未移植。28はPR #60で実装・実機確認済み
 - Lift / moving object
 - Boss
 - presentation effect
@@ -128,7 +129,7 @@ Terrain / Visual / Object / Eventを分ける。
 
 ## 6. ステージデータの未決事項
 
-PR #30〜#58はdevへマージ済み。Native StageData、WalkingEnemy、Camera lifecycle、ProjectileSystem、BallSlimeおよびHSP特殊Enemyの多くまでNativeObjectRuntimeへ接続済み。PR #59はopenだが実装・実機確認済み。
+PR #30〜#59はdevへマージ済み。Native StageData、WalkingEnemy、Camera lifecycle、ProjectileSystem、BallSlimeおよびHSP特殊Enemyの多くまでNativeObjectRuntimeへ接続済み。PR #60はopenだが実装・実機確認済み。
 
 - JSON + CSVをauthoring/native v1として採用済み。将来binary/export formatを追加するか
 - TileLayer CSVを将来full grid / sparse / chunkedへ最適化するか
