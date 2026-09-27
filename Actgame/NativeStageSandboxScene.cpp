@@ -1184,6 +1184,19 @@ void NativeStageSandboxScene::DrawObjectLayer(
 						Object->Id.c_str(),
 						Object->Direction < 0 ? "^" : "v",
 						Object->Velocity.Y);
+				} else if (Object->Variant == 4) {
+					DrawFormatString(
+						X, Y + 34,
+						GetColor(180, 245, 255),
+						"%s V-WAVE %s vy=%.1f",
+						Object->Id.c_str(),
+						Object->Direction < 0 ? "<" : ">",
+						Object->Velocity.Y);
+					DrawFormatString(
+						X, Y + 50,
+						GetColor(180, 245, 255),
+						"phase=%.2f",
+						Object->BehaviorPhase);
 				} else {
 					DrawFormatString(
 						X, Y + 34,
