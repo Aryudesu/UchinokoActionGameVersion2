@@ -283,7 +283,8 @@ CarrotManはVersion1を正本としてPR #46でNative runtimeへ移植済み。
 | 20..25 | BallSlime + BehaviorState | merged |
 | 26..27 | TransformingWalker | merged |
 | 3 | BulletEnemy | merged |
-| 8..9 | JumpingEnemy variant 1/2 | PR #62 open / 実機確認済み |
+| 8..9 | JumpingEnemy variant 1/2 | merged |
+| 18 | PipeEnemy | merged |
 | 28 | UnstompableWalker | merged |
 | 29..30 | Kameen WAIT / CHASE | merged |
 | 31..32 | Pikachii + Direction | merged |
@@ -293,7 +294,7 @@ CarrotManはVersion1を正本としてPR #46でNative runtimeへ移植済み。
 | 38..39 | WallCrawler variant 1/2 | merged |
 | 40..41 | SeaAnemone variant 1/2 | merged |
 
-未移植なのは主に enemyf 10、15..19。enemyf 3はPR #61でmerge済み、enemyf 8/9はPR #62で実装・実機確認済み、enemyf 28はPR #60でmerge済み。次は18を優先し、16 / 17はLift / path movement基盤の後で扱う方針。
+未移植なのは主に enemyf 10、15..17、19。enemyf 3はPR #61、8/9はPR #62、18はPR #63、28はPR #60でmerge済み。今回優先していた3 / 8 / 9 / 18 / 28は完了し、Enemy追加は一旦区切る。16 / 17はLift / path movement基盤の後で扱う方針。
 
 Projectile側はHSPの挙動をそのままID化せず、
 `ProjectileMotion` / `ProjectileTerrainResponse` へ意味を分離している。
@@ -307,6 +308,8 @@ Projectile側はHSPの挙動をそのままID化せず、
 - terrain Split
 - terrain無視
 - Ballisticのpositive MaxFallSpeed clamp
+
+PipeEnemy 18はHSPで `enemyvx` をtimer/stateとして流用していたが、V2では `BehaviorState / BehaviorTimer` に分離。timer<=50では接触無効、timer>50で接触・stomp有効、timer=100で飛び出し、着地後timer=0へ戻るcycleとして整理した。
 
 WallCrawler 38/39はHSPの多数の方向別ifをそのまま移植せず、
 4方向vectorの90度回転を用いるwall followerとして一般化した。
