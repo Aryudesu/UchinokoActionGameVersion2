@@ -62,7 +62,8 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #59 | HSP26/27の一回踏むと変化する敵をTransformingWalker化 | merged / 実機確認済み |
 | #60 | HSP28の踏めない崖反転EnemyをUnstompableWalker化 | merged / 実機確認済み |
 | #61 | HSP3のキラー的な直進EnemyをBulletEnemy化 | merged / 実機確認済み |
-| #62 | HSP8/9の自動ジャンプEnemyをJumpingEnemy化 | open / 実機確認済み |
+| #62 | HSP8/9の自動ジャンプEnemyをJumpingEnemy化 | merged / 実機確認済み |
+| #63 | HSP18の土管から飛び出すEnemyをPipeEnemy化 | merged / 実機確認済み |
 
 ## 読み方
 
@@ -160,7 +161,10 @@ UnstompableWalker 28（merged / 実機確認済み）
 BulletEnemy 3（merged / 実機確認済み）
 
 #62
-JumpingEnemy 8/9（open / 実機確認済み）
+JumpingEnemy 8/9（merged / 実機確認済み）
+
+#63
+PipeEnemy 18（merged / 実機確認済み）
 ```
 
 という流れです。
@@ -220,4 +224,8 @@ PR #60のUnstompableWalkerはdevへマージ済み。HSP28相当の崖手前反�
 
 PR #61のBulletEnemyはdevへマージ済み。HSP3相当の水平直進・重力なし・Solid貫通・踏みつけ撃破・接触damageまで実機確認済み。
 
-PR #62のJumpingEnemyはopenで、HSP8/9相当の連続ジャンプ・壁反転・踏みつけ撃破、およびenemyf=9の `-18 → 次frameで-9 clamp` まで実機/自動テストで確認済み。
+PR #62のJumpingEnemyはdevへマージ済み。HSP8/9相当の連続ジャンプ・壁反転・踏みつけ撃破、およびenemyf=9の `-18 → 次frameで-9 clamp` まで実機/自動テストで確認済み。
+
+PR #63のPipeEnemyもdevへマージ済み。HSP18相当の近距離待機・timer進行・接触ON・上方飛び出し・着地後の待機復帰まで実機確認済み。
+
+これで今回優先していた enemyf=3 / 8 / 9 / 18 / 28 は完了。Enemy追加フェーズはいったん区切り、次はEnemy以外のruntime基盤へ進む。
