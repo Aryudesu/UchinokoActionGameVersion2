@@ -30,11 +30,11 @@ Fish / WallCrawler / SeaAnemone / MaririまでNative化済み。
 
 現在のopen実装PR:
 
-- PR #59: HSP26/27 TransformingWalker
+- PR #59: HSP26/27 TransformingWalker（実装・実機確認済み、未マージ）
 
 推奨順:
 
-1. PR #59のTransformingWalkerを確認・必要ならmerge
+1. PR #59のTransformingWalkerをmerge
 2. HSP未移植Enemy 3 / 8..10 / 15..19 / 28を順次整理
 3. Enemy死亡演出 / Score / SEをruntime effectへ分離
 4. Lift Stand判定 / moving platform runtimeを完成
@@ -128,7 +128,7 @@ Terrain / Visual / Object / Eventを分ける。
 
 ## 6. ステージデータの未決事項
 
-PR #30〜#58はdevへマージ済み。Native StageData、WalkingEnemy、Camera lifecycle、ProjectileSystem、BallSlimeおよびHSP特殊Enemyの多くまでNativeObjectRuntimeへ接続済み。PR #59はopen。
+PR #30〜#58はdevへマージ済み。Native StageData、WalkingEnemy、Camera lifecycle、ProjectileSystem、BallSlimeおよびHSP特殊Enemyの多くまでNativeObjectRuntimeへ接続済み。PR #59はopenだが実装・実機確認済み。
 
 - JSON + CSVをauthoring/native v1として採用済み。将来binary/export formatを追加するか
 - TileLayer CSVを将来full grid / sparse / chunkedへ最適化するか
