@@ -52,6 +52,7 @@ void ProjectileSystem::Spawn(
 	Projectile.Speed = Request.Speed;
 	Projectile.Angle = Request.Angle;
 	Projectile.Gravity = Request.Gravity;
+	Projectile.MaxFallSpeed = Request.MaxFallSpeed;
 	Projectile.TerrainResponse = Request.TerrainResponse;
 	Projectile.SplitCount = Request.SplitCount;
 	Projectile.SplitSpeed = Request.SplitSpeed;
@@ -109,6 +110,10 @@ void ProjectileSystem::Update(
 			Projectile.Motion == ProjectileMotion::Ballistic) {
 			if (Projectile.Motion == ProjectileMotion::Ballistic) {
 				Projectile.Velocity.Y += Projectile.Gravity;
+				if (Projectile.MaxFallSpeed > 0.0f &&
+					Projectile.Velocity.Y > Projectile.MaxFallSpeed) {
+					Projectile.Velocity.Y = Projectile.MaxFallSpeed;
+				}
 			}
 
 			const WorldPosition Previous = Projectile.Position;
