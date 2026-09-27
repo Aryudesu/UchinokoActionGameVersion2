@@ -74,6 +74,9 @@ constexpr int WallCrawlerCounterClockwise = 1;
 constexpr int WallCrawlerClockwise = 2;
 constexpr float WallCrawlerSpeed = 1.0f;
 
+constexpr int TransformingWalkerOriginal = 0;
+constexpr int TransformingWalkerChanged = 1;
+
 constexpr int SeaAnemoneRightFan = 1;
 constexpr int SeaAnemoneLeftFan = 2;
 constexpr float SeaAnemoneTriggerDistance = 32.0f * 6.0f;
@@ -134,7 +137,8 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 }
 
 bool IsWalkingCollisionEnemy(const NativeObjectRuntime& Object) {
-	if (Object.TypeId == "WalkingEnemy") return true;
+	if (Object.TypeId == "WalkingEnemy" ||
+		Object.TypeId == "TransformingWalker") return true;
 	if (Object.TypeId == "CarrotMan") {
 		return Object.BehaviorState != CarrotHidden;
 	}
@@ -732,6 +736,21 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.MoveSpeed = 2.0f;
 		Runtime.Gravity = 0.5f;
 		Runtime.MaxFallSpeed = 12.0f;
+	} else if (Spawn.TypeId == "TransformingWalker") {
+		// HSP enemyf=26/27:
+		// movement before stomp is identical to enemyf=1/2 respectively.
+		Runtime.HitboxOffset = {8.0f, 1.0f};
+		Runtime.HitboxSize = {16.0f, 31.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.ContactEnabled = true;
+		Runtime.Stompable = true;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.Variant = 1;
+		Runtime.MoveSpeed = 2.0f;
+		Runtime.Gravity = 0.5f;
+		Runtime.MaxFallSpeed = 12.0f;
+		Runtime.BehaviorState = TransformingWalkerOriginal;
 	} else if (Spawn.TypeId == "FlyingEnemy") {
 		// HSP enemyf=4: gravityを使わず一定高度を横移動する飛行Enemy。
 		Runtime.HitboxOffset = {8.0f, 1.0f};
@@ -1086,6 +1105,7 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 	}
 
 	if (Spawn.TypeId == "WalkingEnemy" ||
+		Spawn.TypeId == "TransformingWalker" ||
 		Spawn.TypeId == "BallSlime") {
 		std::string Direction =
 			Runtime.Direction < 0 ? "left" : "right";
@@ -1241,7 +1261,15 @@ void NativeObjectSystem::ResetToSpawn(
 	Object.Acceleration = {0.0f, 0.0f};
 	Object.Grounded = false;
 
-	if (Object.TypeId == "Mariri") {
+	if (Object.TypeId == "TransformingWalker") {
+		Object.BehaviorState = TransformingWalkerOriginal;
+		Object.ContactEnabled = true;
+		Object.Stompable = true;
+		Object.ContactDamage = 1;
+		Object.MoveSpeed = 2.0f;
+		Object.Gravity = 0.5f;
+		Object.MaxFallSpeed = 12.0f;
+	} else if (Object.TypeId == "Mariri") {
 		Object.BehaviorTimer = 0;
 		Object.ContactEnabled = true;
 		Object.Stompable = true;
@@ -2228,7 +2256,8 @@ void NativeObjectSystem::Update(
 	WorldPosition PlayerPosition) {
 	for (NativeObjectRuntime& Object : Objects_) {
 		if (!Object.Active) continue;
-		if (Object.TypeId == "WalkingEnemy") {
+		if (Object.TypeId == "WalkingEnemy" ||
+			Object.TypeId == "TransformingWalker") {
 			UpdateWalkingEnemy(Object, Map, Catalog);
 		} else if (Object.TypeId == "FlyingEnemy") {
 			UpdateFlyingEnemy(
@@ -2384,6 +2413,20 @@ bool NativeObjectSystem::HandleStomp(
 	const std::string& ObjectId) {
 	NativeObjectRuntime* Object = Find(ObjectId);
 	if (Object == nullptr || !Object->Active) return false;
+
+	if (Object->TypeId == "TransformingWalker") {
+		if (Object->BehaviorState == TransformingWalkerOriginal) {
+			// HSP enemyf=26 -> 1, enemyf=27 -> 2.
+			// movement variant is already the destination WalkingEnemy variant,
+			// so the first stomp only switches visual/behavior state.
+			Object->BehaviorState = TransformingWalkerChanged;
+			Object->ContactEnabled = true;
+			Object->Stompable = true;
+			Object->ContactDamage = 1;
+			return true;
+		}
+		return Deactivate(ObjectId);
+	}
 
 	if (Object->TypeId != "BallSlime") {
 		return Deactivate(ObjectId);
