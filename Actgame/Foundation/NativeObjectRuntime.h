@@ -113,6 +113,10 @@ private:
 		NativeObjectRuntime& Object,
 		const TileMap& Map,
 		const TileCatalog& Catalog);
+	static void UpdateFlyingEnemy(
+		NativeObjectRuntime& Object,
+		const TileMap& Map,
+		const TileCatalog& Catalog);
 	static void UpdateCarrotMan(
 		NativeObjectRuntime& Object,
 		const TileMap& Map,
