@@ -546,7 +546,7 @@
         {
           "id": "objects", "name": "HSP3 BulletEnemy Test Objects", "zOrder": 10,
           "objects": [
-            { "id": "bullet-enemy-3", "type": "BulletEnemy", "position": [320,128], "properties": { "direction": "left", "speed": 3 } }
+            { "id": "bullet-enemy-3", "type": "BulletEnemy", "position": [320,160], "properties": { "direction": "left", "speed": 3 } }
           ]
         }
       ],
