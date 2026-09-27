@@ -60,8 +60,17 @@ class CharacterController {
 public:
 	CharacterController() = default;
 	explicit CharacterController(CharacterBody Body, CharacterMotion Motion = CharacterMotion());
-	void Step(float HorizontalInput, bool JumpPressed, const TileMap& Map, const TileCatalog& Catalog);
-	void Step(const CharacterInput& Input, const TileMap& Map, const TileCatalog& Catalog);
+	void Step(
+		float HorizontalInput,
+		bool JumpPressed,
+		const TileMap& Map,
+		const TileCatalog& Catalog,
+		bool ExternalGroundSupport = false);
+	void Step(
+		const CharacterInput& Input,
+		const TileMap& Map,
+		const TileCatalog& Catalog,
+		bool ExternalGroundSupport = false);
 	// 入力を受け付けない演出中などに、現在の縦速度と重力だけで物理を継続する。
 	void StepWithoutInput(const TileMap& Map, const TileCatalog& Catalog);
 	const CharacterBody& Body() const { return Body_; }
@@ -69,6 +78,9 @@ public:
 	void Reposition(WorldPosition Position, bool ResetVelocity = true);
 	// 外部gameplay反応（踏みつけbounce等）から速度を変更し、内部の10倍固定小数状態も同期する。
 	void SetVelocity(WorldPosition Velocity);
+	// MovingPlatform等、TileMap外の上面へ着地したときに使う。
+	// Y座標・接地状態・内部固定小数の縦速度を同期する。
+	void LandOnExternalSurface(float SurfaceY);
 	const std::vector<TileInteraction>& Interactions() const { return Interactions_; }
 	// TileTrigger::Touch は見た目32x32より狭い、中央16x32の判定を使う。
 	CharacterTouchBounds TouchBounds() const;

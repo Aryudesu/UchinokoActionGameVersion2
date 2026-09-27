@@ -410,6 +410,44 @@ void NativeStageSandboxScene::ApplyTerrainEffects() {
 	ApplyEffectList(ItemEffects);
 }
 
+void NativeStageSandboxScene::StepPlayerWithPlatforms(
+	const uchinoko::CharacterInput& Input) {
+	const uchinoko::CharacterTouchBounds BeforeTouch = Player_.TouchBounds();
+	uchinoko::ObjectHitBounds BeforeBounds;
+	BeforeBounds.Position = {BeforeTouch.Left, BeforeTouch.Top};
+	BeforeBounds.Size = {
+		BeforeTouch.Right - BeforeTouch.Left,
+		BeforeTouch.Bottom - BeforeTouch.Top
+	};
+
+	const bool HasExternalSupport =
+		Objects_.HasPlatformSupport(BeforeBounds);
+
+	Player_.Step(
+		Input,
+		TerrainLayer_->Map,
+		TerrainCatalog_,
+		HasExternalSupport);
+
+	const uchinoko::CharacterTouchBounds AfterTouch = Player_.TouchBounds();
+	uchinoko::ObjectHitBounds AfterBounds;
+	AfterBounds.Position = {AfterTouch.Left, AfterTouch.Top};
+	AfterBounds.Size = {
+		AfterTouch.Right - AfterTouch.Left,
+		AfterTouch.Bottom - AfterTouch.Top
+	};
+
+	float SurfaceY = 0.0f;
+	if (!Player_.IsGravityUp() &&
+		Objects_.FindPlatformLanding(
+			BeforeBounds,
+			AfterBounds,
+			Player_.Body().Velocity.Y,
+			SurfaceY)) {
+		Player_.LandOnExternalSurface(SurfaceY);
+	}
+}
+
 void NativeStageSandboxScene::ApplyObjectContacts() {
 	const uchinoko::CharacterTouchBounds Touch = Player_.TouchBounds();
 	const uchinoko::WorldPosition PlayerPosition = {
@@ -691,10 +729,7 @@ void NativeStageSandboxScene::update() {
 	if (DamageReaction_.Active()) {
 		uchinoko::CharacterInput DamageInput;
 		DamageInput.Horizontal = DamageReaction_.AdvanceFrame();
-		Player_.Step(
-			DamageInput,
-			TerrainLayer_->Map,
-			TerrainCatalog_);
+		StepPlayerWithPlatforms(DamageInput);
 		ApplyTerrainEffects();
 		if (Dead_) return;
 		Objects_.UpdateLifecycle(Camera_.Position(), Camera_.ViewSize());
@@ -725,7 +760,7 @@ void NativeStageSandboxScene::update() {
 		return;
 	}
 
-	Player_.Step(Input, TerrainLayer_->Map, TerrainCatalog_);
+	StepPlayerWithPlatforms(Input);
 	ApplyTerrainEffects();
 	if (Dead_) return;
 	Objects_.UpdateLifecycle(Camera_.Position(), Camera_.ViewSize());
@@ -1051,7 +1086,32 @@ void NativeStageSandboxScene::DrawObjectLayer(
 		const int X = ScreenX(Object->Position.X);
 		const int Y = ScreenY(Object->Position.Y);
 
-		if (Object->TypeId == "TransformingWalker") {
+		if (Object->TypeId == "MovingPlatform") {
+			const int Width =
+				static_cast<int>(Object->HitboxSize.X);
+			const int Height =
+				static_cast<int>(Object->HitboxSize.Y);
+			DrawBox(
+				X, Y,
+				X + Width, Y + Height,
+				GetColor(120, 190, 240), TRUE);
+			DrawBox(
+				X, Y,
+				X + Width, Y + Height,
+				GetColor(210, 240, 255), FALSE);
+			const int Tiles =
+				static_cast<int>(Object->HitboxSize.X / 32.0f);
+			for (int Tile = 1; Tile < Tiles; ++Tile) {
+				DrawLine(
+					X + Tile * 32, Y,
+					X + Tile * 32, Y + Height,
+					GetColor(180, 225, 250), 1);
+			}
+			DrawFormatString(
+				X + 3, Y - 18,
+				GetColor(190, 235, 255),
+				"P%d", Tiles);
+		} else if (Object->TypeId == "TransformingWalker") {
 			const bool Changed = Object->BehaviorState != 0;
 			DrawBox(
 				X + 2, Y + 2, X + 30, Y + 30,
@@ -1272,7 +1332,14 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					? GetColor(255, 255, 255)
 					: GetColor(255, 90, 220),
 				FALSE);
-			if (Object->TypeId == "TransformingWalker") {
+			if (Object->TypeId == "MovingPlatform") {
+				DrawFormatString(
+					X, Y + 18,
+					GetColor(190, 235, 255),
+					"%s PLATFORM width=%.0f",
+					Object->Id.c_str(),
+					Object->HitboxSize.X / 32.0f);
+			} else if (Object->TypeId == "TransformingWalker") {
 				DrawFormatString(
 					X, Y + 34,
 					GetColor(255, 220, 150),
