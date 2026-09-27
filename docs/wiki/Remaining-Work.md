@@ -1,6 +1,6 @@
 # 残件・未移植・設計判断
 
-2026-09-26時点。
+2026-09-27時点。
 
 ---
 
@@ -25,25 +25,29 @@ PR #28は現時点で未マージ。
 
 ## 2. 次の優先残件
 
-PR #40〜#46までで、Native Sandbox上のWalkingEnemy / Camera / lifecycle / CarrotManまで実装済み。
+PR #47〜#58までで、BallSlime / Projectile / HSP FlyingEnemy / Kameen /
+Fish / WallCrawler / SeaAnemone / MaririまでNative化済み。
+
+現在のopen実装PR:
+
+- PR #59: HSP26/27 TransformingWalker
 
 推奨順:
 
-1. Version1 `BallSlime / BallSlime2` をBehaviorStateベースで移植
-2. Enemy死亡演出 / Score / SEをruntime effectへ分離
-3. HSP由来の飛行Enemy・ジャンプEnemyをNative Enemy型として整理
-4. Projectile基盤を作り、固定砲台 / ピカチー等の射撃Enemyへ展開
-5. Lift Stand判定 / moving platform runtimeを完成
-6. external Stage transition / Stage loader責務を設計
-7. PR #28を旧ARY parser / converter入力として整理
-8. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
-9. V1 Block ID 0..45 → V2 native Tile定義への変換mapping
-10. 旧Stage 5をV2 native形式へ実際に変換するfixtureを作る
-11. `Action` をV2 native StageDataから動かす
-12. Legacy Enemy `-2..-6` → ObjectSpawn変換
-13. Goal / StageProgress → GameData / Save / WorldMap
-14. Boss / Event
-15. 旧Map / Block runtime撤去
+1. PR #59のTransformingWalkerを確認・必要ならmerge
+2. HSP未移植Enemy 3 / 8..10 / 15..19 / 28を順次整理
+3. Enemy死亡演出 / Score / SEをruntime effectへ分離
+4. Lift Stand判定 / moving platform runtimeを完成
+5. external Stage transition / Stage loader責務を設計
+6. PR #28を旧ARY parser / converter入力として整理
+7. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
+8. V1 Block ID 0..45 → V2 native Tile定義への変換mapping
+9. 旧Stage 5をV2 native形式へ実際に変換するfixtureを作る
+10. `Action` をV2 native StageDataから動かす
+11. Legacy Enemy `-2..-6` → ObjectSpawn変換
+12. Goal / StageProgress → GameData / Save / WorldMap
+13. Boss / Event
+14. 旧Map / Block runtime撤去
 
 ---
 
@@ -69,7 +73,7 @@ PR #40〜#46までで、Native Sandbox上のWalkingEnemy / Camera / lifecycle / 
 
 ### Version1現役機能
 
-- Enemy: WalkingEnemy1/2とCarrotManはNative化済み。BallSlime系・HSP特殊Enemyは未移植
+- Enemy: WalkingEnemy1/2、CarrotMan、BallSlime、FlyingEnemy 4種、Kameen、Pikachii、Chikorarashi、Fish、WallCrawler、SeaAnemone、MaririはNative化済み。HSP 3 / 8..10 / 15..19 / 28等は未移植
 - Lift / moving object
 - Boss
 - presentation effect
@@ -124,7 +128,7 @@ Terrain / Visual / Object / Eventを分ける。
 
 ## 6. ステージデータの未決事項
 
-PR #30〜#46はdevへマージ済み。WalkingEnemy1/2、踏みつけ、Enemy同士衝突、Enemy対象Damage terrain、Camera lifecycle、CarrotManまでNativeObjectRuntimeへ接続済み。
+PR #30〜#58はdevへマージ済み。Native StageData、WalkingEnemy、Camera lifecycle、ProjectileSystem、BallSlimeおよびHSP特殊Enemyの多くまでNativeObjectRuntimeへ接続済み。PR #59はopen。
 
 - JSON + CSVをauthoring/native v1として採用済み。将来binary/export formatを追加するか
 - TileLayer CSVを将来full grid / sparse / chunkedへ最適化するか
