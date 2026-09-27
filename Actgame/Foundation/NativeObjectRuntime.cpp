@@ -151,9 +151,11 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 		Object.TypeId == "TransformingWalker" ||
 		Object.TypeId == "UnstompableWalker" ||
 		Object.TypeId == "BulletEnemy" ||
-		Object.TypeId == "JumpingEnemy" ||
-		Object.TypeId == "PipeEnemy") {
+		Object.TypeId == "JumpingEnemy") {
 		return true;
+	}
+	if (Object.TypeId == "PipeEnemy") {
+		return Object.ContactEnabled;
 	}
 	if (Object.TypeId == "Kameen") {
 		return Object.BehaviorState == KameenChasing;
