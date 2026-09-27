@@ -1179,10 +1179,19 @@ void NativeStageSandboxScene::DrawObjectLayer(
 				DrawFormatString(
 					X, Y + 34,
 					GetColor(180, 245, 255),
-					"%s H-FLY %s vx=%.1f",
+					Object->Variant == 2
+						? "%s H-WAVE %s vx=%.1f"
+						: "%s H-FLY %s vx=%.1f",
 					Object->Id.c_str(),
 					Object->Direction < 0 ? "<" : ">",
 					Object->Velocity.X);
+				if (Object->Variant == 2) {
+					DrawFormatString(
+						X, Y + 50,
+						GetColor(180, 245, 255),
+						"phase=%.2f",
+						Object->BehaviorPhase);
+				}
 			} else if (Object->TypeId == "CarrotMan") {
 				const char* State =
 					Object->BehaviorState == 0 ? "HIDDEN" :
