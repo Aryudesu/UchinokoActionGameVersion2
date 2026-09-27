@@ -84,6 +84,10 @@ constexpr float SeaAnemoneProjectileSpeed = 6.0f;
 constexpr float SeaAnemoneProjectileGravity = 0.4f / 3.0f;
 constexpr float SeaAnemoneProjectileMaxFallSpeed = 8.0f / 2.0f;
 
+constexpr int MaririJumpTimer = 100;
+constexpr float MaririMoveSpeed = 3.0f;
+constexpr float MaririJumpSpeed = 9.0f;
+
 bool IsBallSlime(const NativeObjectRuntime& Object) {
 	return Object.TypeId == "BallSlime";
 }
@@ -104,7 +108,8 @@ bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 		Object.TypeId == "Kameen" ||
 		Object.TypeId == "FishEnemy" ||
 		Object.TypeId == "WallCrawler" ||
-		Object.TypeId == "SeaAnemone";
+		Object.TypeId == "SeaAnemone" ||
+		Object.TypeId == "Mariri";
 }
 
 bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
@@ -115,7 +120,8 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 		Object.TypeId == "FlyingEnemy" ||
 		Object.TypeId == "FishEnemy" ||
 		Object.TypeId == "WallCrawler" ||
-		Object.TypeId == "SeaAnemone") {
+		Object.TypeId == "SeaAnemone" ||
+		Object.TypeId == "Mariri") {
 		return true;
 	}
 	if (Object.TypeId == "Kameen") {
@@ -738,6 +744,18 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.MoveSpeed = 2.0f;
 		Runtime.Gravity = 0.0f;
 		Runtime.MaxFallSpeed = 0.0f;
+	} else if (Spawn.TypeId == "Mariri") {
+		Runtime.HitboxOffset = {8.0f, 1.0f};
+		Runtime.HitboxSize = {16.0f, 31.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.ContactEnabled = true;
+		Runtime.Stompable = true;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.MoveSpeed = MaririMoveSpeed;
+		Runtime.Gravity = 0.4f;
+		Runtime.MaxFallSpeed = 9.0f;
+		Runtime.BehaviorTimer = 0;
 	} else if (Spawn.TypeId == "SeaAnemone") {
 		Runtime.HitboxOffset = {0.0f, 0.0f};
 		Runtime.HitboxSize = {32.0f, 32.0f};
@@ -1223,7 +1241,15 @@ void NativeObjectSystem::ResetToSpawn(
 	Object.Acceleration = {0.0f, 0.0f};
 	Object.Grounded = false;
 
-	if (Object.TypeId == "SeaAnemone") {
+	if (Object.TypeId == "Mariri") {
+		Object.BehaviorTimer = 0;
+		Object.ContactEnabled = true;
+		Object.Stompable = true;
+		Object.ContactDamage = 1;
+		Object.MoveSpeed = MaririMoveSpeed;
+		Object.Gravity = 0.4f;
+		Object.MaxFallSpeed = 9.0f;
+	} else if (Object.TypeId == "SeaAnemone") {
 		Object.BehaviorTimer = 0;
 		Object.BehaviorPhase = 0.0f;
 		Object.ContactEnabled = true;
@@ -1614,6 +1640,63 @@ void NativeObjectSystem::UpdateFishEnemy(
 				static_cast<float>(Object.Direction) *
 				Object.MoveSpeed;
 		}
+	}
+}
+
+void NativeObjectSystem::UpdateMariri(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog,
+	WorldPosition PlayerPosition) {
+	if (!Object.Active) return;
+
+	// HSP enemyf=34:
+	// enemyvxは水平速度ではなく「次のjumpまでのtimer」として使われる。
+	// timer>=100の間だけ空中で3px/frame横移動する。
+	if (Object.BehaviorTimer >= MaririJumpTimer) {
+		Object.Velocity.X =
+			static_cast<float>(Object.Direction) * MaririMoveSpeed;
+		Object.Position.X += Object.Velocity.X;
+		if (ResolveWalkingEnemySide(Object, Map, Catalog)) {
+			Object.Velocity.X =
+				static_cast<float>(Object.Direction) * MaririMoveSpeed;
+		}
+	} else {
+		Object.Velocity.X = 0.0f;
+	}
+
+	++Object.BehaviorTimer;
+
+	// HSPはtimerが100になったframeに -jump(-9) を設定してから
+	// gravity(+0.4)を適用するため、最初の実移動量は -8.6。
+	if (Object.BehaviorTimer == MaririJumpTimer) {
+		Object.Velocity.Y = -MaririJumpSpeed;
+		Object.Grounded = false;
+	}
+
+	ResolveWalkingEnemyVertical(Object, Map, Catalog);
+
+	// 着地した時点でjump cycle終了。
+	// HSPではtimer>100のときだけ0へ戻し、次の100frame待機へ入る。
+	if (Object.Grounded &&
+		Object.BehaviorTimer > MaririJumpTimer) {
+		Object.BehaviorTimer = 0;
+		Object.Velocity.X = 0.0f;
+		Object.Direction =
+			Object.Position.X >= PlayerPosition.X ? -1 : 1;
+	}
+
+	// 待機中は常にPlayerの方向を向き、
+	// jump開始時のDirectionがそのまま空中水平移動方向になる。
+	if (Object.BehaviorTimer < MaririJumpTimer) {
+		Object.Direction =
+			Object.Position.X >= PlayerPosition.X ? -1 : 1;
+	}
+
+	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
+		Object.LifeState = ObjectLifeState::Defeated;
+		Object.Active = false;
+		Object.Velocity = {0.0f, 0.0f};
 	}
 }
 
@@ -2154,6 +2237,9 @@ void NativeObjectSystem::Update(
 			UpdateWallCrawler(Object, Map, Catalog);
 		} else if (Object.TypeId == "FishEnemy") {
 			UpdateFishEnemy(
+				Object, Map, Catalog, PlayerPosition);
+		} else if (Object.TypeId == "Mariri") {
+			UpdateMariri(
 				Object, Map, Catalog, PlayerPosition);
 		} else if (Object.TypeId == "Kameen") {
 			UpdateKameen(Object, PlayerPosition);
