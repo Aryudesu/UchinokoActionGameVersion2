@@ -946,14 +946,22 @@ void NativeStageSandboxScene::DrawRuntimeEffects() {
 		const int X = ScreenX(Projectile.Position.X);
 		const int Y = ScreenY(Projectile.Position.Y);
 		const unsigned int Color =
-			Projectile.Motion == uchinoko::ProjectileMotion::Straight
-				? GetColor(255, 120, 120)
-				: Projectile.Motion == uchinoko::ProjectileMotion::Ballistic
-					? GetColor(120, 255, 150)
+			Projectile.TerrainResponse ==
+				uchinoko::ProjectileTerrainResponse::Bounce
+				? GetColor(255, 190, 90)
+				: Projectile.TerrainResponse ==
+					uchinoko::ProjectileTerrainResponse::Split
+					? GetColor(255, 120, 220)
 					: Projectile.Motion ==
-						uchinoko::ProjectileMotion::SpiralClockwise
-						? GetColor(140, 190, 255)
-						: GetColor(210, 140, 255);
+						uchinoko::ProjectileMotion::Straight
+						? GetColor(255, 120, 120)
+						: Projectile.Motion ==
+							uchinoko::ProjectileMotion::Ballistic
+							? GetColor(120, 255, 150)
+							: Projectile.Motion ==
+								uchinoko::ProjectileMotion::SpiralClockwise
+								? GetColor(140, 190, 255)
+								: GetColor(210, 140, 255);
 		DrawCircle(
 			X,
 			Y,
