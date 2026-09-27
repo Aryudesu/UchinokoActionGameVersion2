@@ -1417,7 +1417,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
 	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
-	assert(Data.Areas.size() == 15);
+	assert(Data.Areas.size() == 17);
 
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
@@ -1881,8 +1881,57 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NearlyEqual(
 		MaririObjects->Objects[0].Position.Y, 192.0f));
 	assert(MaririArea->Transitions.size() == 1);
-	assert(MaririArea->Transitions[0].Id == "pipe-mariri-main");
-	assert(MaririArea->Transitions[0].TargetAreaId == "main");
+	assert(MaririArea->Transitions[0].Id ==
+		"pipe-mariri-transform-fall");
+	assert(MaririArea->Transitions[0].TargetAreaId ==
+		"transform-fall");
+
+	const StageArea* TransformFall =
+		Data.FindArea("transform-fall");
+	assert(TransformFall != nullptr);
+	assert(TransformFall->Width == 16);
+	assert(TransformFall->Height == 8);
+	assert(TransformFall->TerrainLayer() != nullptr);
+	assert(*TransformFall->TerrainLayer()->Map.TryGet({6, 4}) == 2);
+	assert(*TransformFall->TerrainLayer()->Map.TryGet({10, 4}) == 0);
+	const ObjectLayer* TransformFallObjects =
+		TransformFall->FindObjectLayer("objects");
+	assert(TransformFallObjects != nullptr);
+	assert(TransformFallObjects->Objects.size() == 1);
+	assert(TransformFallObjects->Objects[0].Id ==
+		"transform-fall-enemy");
+	assert(TransformFallObjects->Objects[0].TypeId ==
+		"TransformingWalker");
+	int TransformVariant = 0;
+	assert(TransformFallObjects->Objects[0]
+		.Properties.at("variant")
+		.TryGetInteger(TransformVariant));
+	assert(TransformVariant == 1);
+	assert(TransformFall->Transitions.size() == 1);
+	assert(TransformFall->Transitions[0].Id ==
+		"pipe-transform-fall-turn");
+	assert(TransformFall->Transitions[0].TargetAreaId ==
+		"transform-turn");
+
+	const StageArea* TransformTurn =
+		Data.FindArea("transform-turn");
+	assert(TransformTurn != nullptr);
+	const ObjectLayer* TransformTurnObjects =
+		TransformTurn->FindObjectLayer("objects");
+	assert(TransformTurnObjects != nullptr);
+	assert(TransformTurnObjects->Objects.size() == 1);
+	assert(TransformTurnObjects->Objects[0].Id ==
+		"transform-turn-enemy");
+	assert(TransformTurnObjects->Objects[0].TypeId ==
+		"TransformingWalker");
+	assert(TransformTurnObjects->Objects[0]
+		.Properties.at("variant")
+		.TryGetInteger(TransformVariant));
+	assert(TransformVariant == 2);
+	assert(TransformTurn->Transitions.size() == 1);
+	assert(TransformTurn->Transitions[0].Id ==
+		"pipe-transform-turn-main");
+	assert(TransformTurn->Transitions[0].TargetAreaId == "main");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -3898,6 +3947,205 @@ void TestBallisticProjectileAppliesGravityAndIgnoresTerrain() {
 	Projectiles.Update(Map, Catalog);
 	assert(Projectiles.Projectiles()[0].Active);
 	assert(Projectiles.Projectiles()[0].Position.Y > 32.0f);
+}
+
+void TestNativeTransformingWalkerFirstStompChangesSecondDefeats() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "transform";
+	Spawn.TypeId = "TransformingWalker";
+	Spawn.Position = {64.0f, 96.0f};
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(1);
+	Spawn.Properties["direction"] =
+		StagePropertyValue::String("right");
+	Spawn.Properties["speed"] =
+		StagePropertyValue::Float(2.0f);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	const NativeObjectRuntime* Enemy = Objects.Find("transform");
+	assert(Enemy != nullptr);
+	assert(Enemy->Variant == 1);
+	assert(Enemy->BehaviorState == 0);
+	assert(Enemy->Stompable);
+	assert(Enemy->ContactDamage == 1);
+
+	Objects.Update(Map, Catalog, {0.0f, 0.0f});
+	Enemy = Objects.Find("transform");
+	assert(Enemy->Position.X > 64.0f);
+
+	// HSP enemyf=26 -> enemyf=1.
+	assert(Objects.HandleStomp("transform"));
+	Enemy = Objects.Find("transform");
+	assert(Enemy->Active);
+	assert(Enemy->BehaviorState == 1);
+	assert(Enemy->Variant == 1);
+	assert(Enemy->Stompable);
+	assert(Enemy->ContactDamage == 1);
+
+	// 変化後は通常enemyf=1相当なので、もう一度踏むと倒れる。
+	assert(Objects.HandleStomp("transform"));
+	Enemy = Objects.Find("transform");
+	assert(!Enemy->Active);
+	assert(Enemy->LifeState == ObjectLifeState::Defeated);
+}
+
+void TestNativeTransformingWalkerVariantsKeepCliffBehavior() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 1, 1, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+
+	ObjectSpawn Fall;
+	Fall.Id = "fall";
+	Fall.TypeId = "TransformingWalker";
+	Fall.Position = {64.0f, 64.0f};
+	Fall.Properties["variant"] =
+		StagePropertyValue::Integer(1);
+	Fall.Properties["direction"] =
+		StagePropertyValue::String("right");
+	Layer.Objects.push_back(Fall);
+
+	ObjectSpawn Turn = Fall;
+	Turn.Id = "turn";
+	Turn.Position = {64.0f, 64.0f};
+	Turn.Properties["variant"] =
+		StagePropertyValue::Integer(2);
+	Layer.Objects.push_back(Turn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Falling;
+	StageArea FallArea = Area;
+	FallArea.ObjectLayers[0].Objects.erase(
+		FallArea.ObjectLayers[0].Objects.begin() + 1);
+	assert(Falling.Reset(FallArea).IsSuccess());
+
+	NativeObjectSystem Turning;
+	StageArea TurnArea = Area;
+	TurnArea.ObjectLayers[0].Objects.erase(
+		TurnArea.ObjectLayers[0].Objects.begin());
+	assert(Turning.Reset(TurnArea).IsSuccess());
+
+	// 最初のvertical resolveでplatform上にGroundedさせる。
+	Falling.Update(Map, Catalog);
+	Turning.Update(Map, Catalog);
+
+	bool FallLeftPlatform = false;
+	bool TurnedAtCliff = false;
+	for (int Frame = 0; Frame < 80; ++Frame) {
+		Falling.Update(Map, Catalog);
+		Turning.Update(Map, Catalog);
+
+		const NativeObjectRuntime* F = Falling.Find("fall");
+		const NativeObjectRuntime* T = Turning.Find("turn");
+		if (F != nullptr && F->Position.Y > 64.5f) {
+			FallLeftPlatform = true;
+		}
+		if (T != nullptr && T->Direction < 0) {
+			TurnedAtCliff = true;
+		}
+	}
+	assert(FallLeftPlatform);
+	assert(TurnedAtCliff);
+
+	// 踏んで変化してもvariant 2の崖反転特性は保持する。
+	assert(Turning.HandleStomp("turn"));
+	assert(Turning.Find("turn")->BehaviorState == 1);
+	assert(Turning.Find("turn")->Variant == 2);
+}
+
+void TestNativeTransformingWalkerLifecycleRestoresOriginalState() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "transform-reset";
+	Spawn.TypeId = "TransformingWalker";
+	Spawn.Position = {64.0f, 64.0f};
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(2);
+	Spawn.Properties["direction"] =
+		StagePropertyValue::String("right");
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	assert(Objects.HandleStomp("transform-reset"));
+	NativeObjectRuntime* Enemy =
+		Objects.Find("transform-reset");
+	assert(Enemy != nullptr);
+	assert(Enemy->BehaviorState == 1);
+	Enemy->Position = {900.0f, 900.0f};
+
+	Objects.UpdateLifecycle(
+		{0.0f, 0.0f},
+		{512.0f, 320.0f});
+	Enemy = Objects.Find("transform-reset");
+	assert(Enemy->LifeState == ObjectLifeState::Dormant);
+	assert(!Enemy->Active);
+	assert(Enemy->BehaviorState == 0);
+	assert(Enemy->Variant == 2);
+	assert(Enemy->Direction == 1);
+	assert(NearlyEqual(Enemy->Position.X, 64.0f));
+	assert(NearlyEqual(Enemy->Position.Y, 64.0f));
+}
+
+void TestNativeTransformingWalkerRejectsUnknownVariant() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "transform-bad";
+	Spawn.TypeId = "TransformingWalker";
+	Spawn.Properties["variant"] =
+		StagePropertyValue::Integer(3);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	const Result<bool> Reset = Objects.Reset(Area);
+	assert(Reset.IsFailure());
+	assert(Reset.Error().find("variant must be 1 or 2") !=
+		std::string::npos);
 }
 
 void TestNativeMaririWaitsThenJumpsTowardPlayer() {
@@ -7989,6 +8237,10 @@ int main(int argc, char* argv[]) {
 	TestNativeWallCrawlerClockwiseFollowsOuterCorner();
 	TestNativeWallCrawlerTurnsAtBlockedInnerCornerAndResets();
 	TestNativeWallCrawlerRejectsUnknownVariant();
+	TestNativeTransformingWalkerFirstStompChangesSecondDefeats();
+	TestNativeTransformingWalkerVariantsKeepCliffBehavior();
+	TestNativeTransformingWalkerLifecycleRestoresOriginalState();
+	TestNativeTransformingWalkerRejectsUnknownVariant();
 	TestNativeMaririWaitsThenJumpsTowardPlayer();
 	TestNativeMaririTurnsAtWallDuringJump();
 	TestNativeMaririLifecycleResetRestoresWaitState();
@@ -8085,6 +8337,10 @@ int main(int argc, char* argv[]) {
 	TestNativeWallCrawlerClockwiseFollowsOuterCorner();
 	TestNativeWallCrawlerTurnsAtBlockedInnerCornerAndResets();
 	TestNativeWallCrawlerRejectsUnknownVariant();
+	TestNativeTransformingWalkerFirstStompChangesSecondDefeats();
+	TestNativeTransformingWalkerVariantsKeepCliffBehavior();
+	TestNativeTransformingWalkerLifecycleRestoresOriginalState();
+	TestNativeTransformingWalkerRejectsUnknownVariant();
 	TestNativeMaririWaitsThenJumpsTowardPlayer();
 	TestNativeMaririTurnsAtWallDuringJump();
 	TestNativeMaririLifecycleResetRestoresWaitState();

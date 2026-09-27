@@ -1051,7 +1051,24 @@ void NativeStageSandboxScene::DrawObjectLayer(
 		const int X = ScreenX(Object->Position.X);
 		const int Y = ScreenY(Object->Position.Y);
 
-		if (Object->TypeId == "WalkingEnemy") {
+		if (Object->TypeId == "TransformingWalker") {
+			const bool Changed = Object->BehaviorState != 0;
+			DrawBox(
+				X + 2, Y + 2, X + 30, Y + 30,
+				Changed
+					? GetColor(240, 90, 90)
+					: (Object->Variant == 1
+						? GetColor(245, 180, 80)
+						: GetColor(110, 210, 120)),
+				FALSE);
+			DrawString(
+				X + 8, Y + 8,
+				Changed ? "E" :
+					(Object->Variant == 1 ? "26" : "27"),
+				Changed
+					? GetColor(255, 170, 170)
+					: GetColor(255, 245, 210));
+		} else if (Object->TypeId == "WalkingEnemy") {
 			DrawBox(
 				X + 2, Y + 2, X + 30, Y + 30,
 				GetColor(240, 90, 90), FALSE);
@@ -1226,7 +1243,16 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					? GetColor(255, 255, 255)
 					: GetColor(255, 90, 220),
 				FALSE);
-			if (Object->TypeId == "WalkingEnemy") {
+			if (Object->TypeId == "TransformingWalker") {
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(255, 220, 150),
+					"%s HSP%d %s dir=%d",
+					Object->Id.c_str(),
+					Object->Variant == 1 ? 26 : 27,
+					Object->BehaviorState == 0 ? "ORIGINAL" : "CHANGED",
+					Object->Direction);
+			} else if (Object->TypeId == "WalkingEnemy") {
 				DrawFormatString(
 					X, Y + 34,
 					Touching
