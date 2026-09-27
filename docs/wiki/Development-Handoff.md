@@ -116,7 +116,7 @@ devへmerge済みのEnemy系はPR #58まで。
 - #57 SeaAnemone 40/41
 - #58 Mariri 34
 
-PR #59 TransformingWalker 26/27はopenで、devには未マージ。
+PR #59 TransformingWalker 26/27はopenで、devには未マージ。variant 1/2の移動差、1回目stompで変化、2回目stompで撃破まで実機確認済み。
 
 特殊Enemyを追加するときは次を優先する。
 
@@ -128,6 +128,7 @@ PR #59 TransformingWalker 26/27はopenで、devには未マージ。
 6. Camera lifecycleとの関係を明示する
 7. 専用test Areaを既存の確認chainの後ろへつなぐ
 8. Playerが次のAreaへ進める通路をfixtureで塞がない
+9. Playerより高い位置に確認対象Enemyを置く場合は、通常ジャンプで到達できる地面から1〜2段程度を目安にする
 
 特にWallCrawlerは、HSPの方向別if列挙ではなく、
 4方向vectorと90度回転によるwall followerとして実装している。
