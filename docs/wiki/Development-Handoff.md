@@ -103,7 +103,7 @@ Version2 C++ソースでは、日本語コメントを追加したファイル�
 
 ## 8. 2026-09-27 現在地
 
-devへmerge済みのEnemy系はPR #58まで。
+devへmerge済みのEnemy系はPR #59まで。
 
 - #47 BallSlime / BallSlime2
 - #48 ProjectileSystem / StationaryShooter / Pikachii
@@ -115,8 +115,11 @@ devへmerge済みのEnemy系はPR #58まで。
 - #56 WallCrawler 38/39
 - #57 SeaAnemone 40/41
 - #58 Mariri 34
+- #59 TransformingWalker 26/27
 
-PR #59 TransformingWalker 26/27はopenで、devには未マージ。variant 1/2の移動差、1回目stompで変化、2回目stompで撃破まで実機確認済み。
+PR #60 UnstompableWalker 28はopenで、崖手前反転・踏みつけ不可・接触damageまで実機確認済み。
+
+次のEnemy候補はHSP 3 / 8 / 9 / 18を優先する。16 / 17の線移動EnemyはLift / path movement基盤の後で扱う。
 
 特殊Enemyを追加するときは次を優先する。
 
