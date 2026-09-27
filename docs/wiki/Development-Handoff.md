@@ -103,7 +103,7 @@ Version2 C++ソースでは、日本語コメントを追加したファイル�
 
 ## 8. 2026-09-27 現在地
 
-devへmerge済みのEnemy系はPR #60まで。
+devへmerge済みのEnemy系はPR #61まで。
 
 - #47 BallSlime / BallSlime2
 - #48 ProjectileSystem / StationaryShooter / Pikachii
@@ -117,10 +117,11 @@ devへmerge済みのEnemy系はPR #60まで。
 - #58 Mariri 34
 - #59 TransformingWalker 26/27
 - #60 UnstompableWalker 28
+- #61 BulletEnemy 3
 
-PR #61 BulletEnemy 3はopenで、水平直進・重力なし・Solid貫通・踏みつけ撃破・接触damageまで実機確認済み。
+PR #62 JumpingEnemy 8/9はopenで、連続ジャンプ・壁反転・踏みつけ撃破まで実機確認済み。enemyf=9の着地直後 `vy=-18` と次frame `-9` clampも自動テストで固定済み。
 
-次のEnemy候補はHSP 8 / 9 / 18を優先する。16 / 17の線移動EnemyはLift / path movement基盤の後で扱う。
+次のEnemy候補はHSP 18を優先する。16 / 17の線移動EnemyはLift / path movement基盤の後で扱う。
 
 特殊Enemyを追加するときは次を優先する。
 
