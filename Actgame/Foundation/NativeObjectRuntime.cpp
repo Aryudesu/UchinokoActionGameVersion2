@@ -65,14 +65,16 @@ bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 		Object.TypeId == "BallSlime" ||
 		Object.TypeId == "StationaryShooter" ||
 		Object.TypeId == "Pikachii" ||
-		Object.TypeId == "Chikorarashi";
+		Object.TypeId == "Chikorarashi" ||
+		Object.TypeId == "FlyingEnemy";
 }
 
 bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 	if (Object.TypeId == "WalkingEnemy" ||
 		Object.TypeId == "StationaryShooter" ||
 		Object.TypeId == "Pikachii" ||
-		Object.TypeId == "Chikorarashi") {
+		Object.TypeId == "Chikorarashi" ||
+		Object.TypeId == "FlyingEnemy") {
 		return true;
 	}
 	if (Object.TypeId == "CarrotMan") {
@@ -522,6 +524,17 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.MoveSpeed = 2.0f;
 		Runtime.Gravity = 0.5f;
 		Runtime.MaxFallSpeed = 12.0f;
+	} else if (Spawn.TypeId == "FlyingEnemy") {
+		// HSP enemyf=4: gravityを使わず一定高度を横移動する飛行Enemy。
+		Runtime.HitboxOffset = {8.0f, 1.0f};
+		Runtime.HitboxSize = {16.0f, 31.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.Stompable = true;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.MoveSpeed = 2.0f;
+		Runtime.Gravity = 0.0f;
+		Runtime.MaxFallSpeed = 0.0f;
 	} else if (Spawn.TypeId == "CarrotMan") {
 		// V1 CarrotMan: 近づくまでは地中待機し、
 		// 31frame目に上へ飛び出してから通常歩行へ移る。
@@ -623,6 +636,39 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 			Error,
 			Spawn.Id)) {
 		return Result<NativeObjectRuntime>::Failure(Error);
+	}
+
+	if (Spawn.TypeId == "FlyingEnemy") {
+		std::string Direction =
+			Runtime.Direction < 0 ? "left" : "right";
+		if (!TryReadString(
+			Spawn.Properties,
+			"direction",
+			Direction,
+			Error,
+			Spawn.Id) ||
+			!TryReadFloat(
+				Spawn.Properties,
+				"speed",
+				Runtime.MoveSpeed,
+				Error,
+				Spawn.Id)) {
+			return Result<NativeObjectRuntime>::Failure(Error);
+		}
+		if (Direction == "left") {
+			Runtime.Direction = -1;
+		} else if (Direction == "right") {
+			Runtime.Direction = 1;
+		} else {
+			return Result<NativeObjectRuntime>::Failure(
+				"FlyingEnemy direction must be left or right: " +
+				Spawn.Id);
+		}
+		Runtime.InitialDirection = Runtime.Direction;
+		if (Runtime.MoveSpeed <= 0.0f) {
+			return Result<NativeObjectRuntime>::Failure(
+				"FlyingEnemy speed must be positive: " + Spawn.Id);
+		}
 	}
 
 	if (Spawn.TypeId == "WalkingEnemy" ||
@@ -808,6 +854,10 @@ void NativeObjectSystem::ResetToSpawn(
 		Object.ContactEnabled = true;
 		Object.Stompable = true;
 		Object.ContactDamage = 1;
+	} else if (Object.TypeId == "FlyingEnemy") {
+		Object.ContactEnabled = true;
+		Object.Stompable = true;
+		Object.ContactDamage = 1;
 	}
 }
 
@@ -906,6 +956,33 @@ void NativeObjectSystem::UpdateWalkingEnemy(
 
 	// Damage / InstantDeath はデータ上は区別したまま保持する。
 	// 現在のWalkingEnemyはHPを持たないため、どちらも接触時に非Active化する。
+	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
+		Object.LifeState = ObjectLifeState::Defeated;
+		Object.Active = false;
+		Object.Velocity = {0.0f, 0.0f};
+	}
+}
+
+void NativeObjectSystem::UpdateFlyingEnemy(
+	NativeObjectRuntime& Object,
+	const TileMap& Map,
+	const TileCatalog& Catalog) {
+	if (!Object.Active || Object.MoveSpeed <= 0.0f) return;
+
+	Object.Velocity.X =
+		static_cast<float>(Object.Direction) * Object.MoveSpeed;
+	Object.Velocity.Y = 0.0f;
+	Object.Position.X += Object.Velocity.X;
+
+	const bool HitWall =
+		ResolveWalkingEnemySide(Object, Map, Catalog);
+	if (HitWall) {
+		Object.Velocity.X =
+			static_cast<float>(Object.Direction) * Object.MoveSpeed;
+	}
+
+	// HSP enemyf=4は重力を適用せず、spawn時の高度を維持する。
+	// damage/instant-death terrainへ直接触れた場合だけ通常Enemy同様に撃破する。
 	if (TouchesEnemyDamageTerrain(Object, Map, Catalog)) {
 		Object.LifeState = ObjectLifeState::Defeated;
 		Object.Active = false;
@@ -1307,6 +1384,8 @@ void NativeObjectSystem::Update(
 		if (!Object.Active) continue;
 		if (Object.TypeId == "WalkingEnemy") {
 			UpdateWalkingEnemy(Object, Map, Catalog);
+		} else if (Object.TypeId == "FlyingEnemy") {
+			UpdateFlyingEnemy(Object, Map, Catalog);
 		} else if (Object.TypeId == "CarrotMan") {
 			UpdateCarrotMan(Object, Map, Catalog, PlayerPosition);
 		} else if (Object.TypeId == "BallSlime") {
