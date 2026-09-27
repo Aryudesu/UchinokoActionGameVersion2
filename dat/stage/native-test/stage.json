@@ -636,7 +636,39 @@
       ],
       "regionLayers": [],
       "transitions": [
-        { "id": "pipe-pipe-enemy-main", "type": "Pipe", "entry": { "shape": "point", "position": [448,192] }, "targetArea": "main", "exitPosition": [192,128], "enterDirection": "down", "exitDirection": "up" }
+        { "id": "pipe-pipe-enemy-moving-platform", "type": "Pipe", "entry": { "shape": "point", "position": [448,192] }, "targetArea": "moving-platform", "exitPosition": [32,320], "enterDirection": "down", "exitDirection": "up" }
+      ]
+    },
+    {
+      "id": "moving-platform",
+      "size": [24, 12],
+      "tileSize": [32, 32],
+      "settings": {
+        "timeLimitSeconds": 0,
+        "bgm": "test-moving-platform-bgm",
+        "background": "test-moving-platform-sky",
+        "properties": { "cameraMode": "follow" }
+      },
+      "tileLayers": [
+        { "id": "background", "name": "Background", "role": "visual", "zOrder": -10, "source": "moving-platform/background.csv", "tileSet": "native-test" },
+        { "id": "terrain", "name": "Terrain", "role": "terrain", "zOrder": 0, "source": "moving-platform/terrain.csv", "tileSet": "native-test" },
+        { "id": "foreground", "name": "Foreground", "role": "visual", "zOrder": 20, "source": "moving-platform/foreground.csv", "tileSet": "native-test" }
+      ],
+      "objectLayers": [
+        {
+          "id": "objects", "name": "Moving Platform Width Test Objects", "zOrder": 10,
+          "objects": [
+            { "id": "platform-w1", "type": "MovingPlatform", "position": [96,288], "properties": { "widthTiles": 1 } },
+            { "id": "platform-w2", "type": "MovingPlatform", "position": [160,256], "properties": { "widthTiles": 2 } },
+            { "id": "platform-w3", "type": "MovingPlatform", "position": [256,224], "properties": { "widthTiles": 3 } },
+            { "id": "platform-w4", "type": "MovingPlatform", "position": [384,192], "properties": { "widthTiles": 4 } },
+            { "id": "platform-w5", "type": "MovingPlatform", "position": [544,160], "properties": { "widthTiles": 5 } }
+          ]
+        }
+      ],
+      "regionLayers": [],
+      "transitions": [
+        { "id": "pipe-moving-platform-main", "type": "Pipe", "entry": { "shape": "point", "position": [704,320] }, "targetArea": "main", "exitPosition": [192,128], "enterDirection": "down", "exitDirection": "up" }
       ]
     }
   ],
