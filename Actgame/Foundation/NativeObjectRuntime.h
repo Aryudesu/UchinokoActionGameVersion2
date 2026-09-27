@@ -129,6 +129,11 @@ private:
 		const TileMap& Map,
 		const TileCatalog& Catalog,
 		WorldPosition PlayerPosition);
+	static void UpdateMariri(
+		NativeObjectRuntime& Object,
+		const TileMap& Map,
+		const TileCatalog& Catalog,
+		WorldPosition PlayerPosition);
 	static void UpdateKameen(
 		NativeObjectRuntime& Object,
 		WorldPosition PlayerPosition);

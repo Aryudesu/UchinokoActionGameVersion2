@@ -1069,6 +1069,17 @@ void NativeStageSandboxScene::DrawObjectLayer(
 			DrawString(
 				X + 10, Y + 8, "F",
 				GetColor(200, 250, 255));
+		} else if (Object->TypeId == "Mariri") {
+			DrawBox(
+				X + 4, Y + 4, X + 28, Y + 30,
+				GetColor(245, 185, 90), FALSE);
+			DrawString(
+				X + 9, Y + 9, "M",
+				GetColor(255, 245, 210));
+			DrawLine(
+				X + 16, Y + 16,
+				X + 16 + Object->Direction * 10, Y + 16,
+				GetColor(255, 235, 180), 2);
 		} else if (Object->TypeId == "SeaAnemone") {
 			DrawBox(
 				X + 6, Y + 12, X + 26, Y + 30,
@@ -1273,6 +1284,21 @@ void NativeStageSandboxScene::DrawObjectLayer(
 							Object->BehaviorPhase);
 					}
 				}
+			} else if (Object->TypeId == "Mariri") {
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(255, 220, 150),
+					"%s t=%d dir=%s",
+					Object->Id.c_str(),
+					Object->BehaviorTimer,
+					Object->Direction < 0 ? "<" : ">");
+				DrawFormatString(
+					X, Y + 50,
+					GetColor(255, 220, 150),
+					"v=(%.1f,%.1f) %s",
+					Object->Velocity.X,
+					Object->Velocity.Y,
+					Object->Grounded ? "GROUND" : "AIR");
 			} else if (Object->TypeId == "SeaAnemone") {
 				DrawFormatString(
 					X, Y + 34,

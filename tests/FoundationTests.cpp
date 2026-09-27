@@ -1417,7 +1417,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
 	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
-	assert(Data.Areas.size() == 14);
+	assert(Data.Areas.size() == 15);
 
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
@@ -1862,8 +1862,27 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(AnemoneVariant == 2);
 	assert(AnemoneLeft->Transitions.size() == 1);
 	assert(AnemoneLeft->Transitions[0].Id ==
-		"pipe-anemone-left-main");
-	assert(AnemoneLeft->Transitions[0].TargetAreaId == "main");
+		"pipe-anemone-left-mariri");
+	assert(AnemoneLeft->Transitions[0].TargetAreaId == "mariri");
+
+	const StageArea* MaririArea = Data.FindArea("mariri");
+	assert(MaririArea != nullptr);
+	assert(MaririArea->Width == 16);
+	assert(MaririArea->Height == 8);
+	assert(MaririArea->TerrainLayer() != nullptr);
+	const ObjectLayer* MaririObjects =
+		MaririArea->FindObjectLayer("objects");
+	assert(MaririObjects != nullptr);
+	assert(MaririObjects->Objects.size() == 1);
+	assert(MaririObjects->Objects[0].Id == "mariri-hop");
+	assert(MaririObjects->Objects[0].TypeId == "Mariri");
+	assert(NearlyEqual(
+		MaririObjects->Objects[0].Position.X, 320.0f));
+	assert(NearlyEqual(
+		MaririObjects->Objects[0].Position.Y, 192.0f));
+	assert(MaririArea->Transitions.size() == 1);
+	assert(MaririArea->Transitions[0].Id == "pipe-mariri-main");
+	assert(MaririArea->Transitions[0].TargetAreaId == "main");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -3879,6 +3898,189 @@ void TestBallisticProjectileAppliesGravityAndIgnoresTerrain() {
 	Projectiles.Update(Map, Catalog);
 	assert(Projectiles.Projectiles()[0].Active);
 	assert(Projectiles.Projectiles()[0].Position.Y > 32.0f);
+}
+
+void TestNativeMaririWaitsThenJumpsTowardPlayer() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "mariri";
+	Spawn.TypeId = "Mariri";
+	Spawn.Position = {128.0f, 192.0f};
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	const NativeObjectRuntime* Mariri = Objects.Find("mariri");
+	assert(Mariri != nullptr);
+	assert(Mariri->Stompable);
+	assert(NearlyEqual(Mariri->MoveSpeed, 3.0f));
+	assert(NearlyEqual(Mariri->Gravity, 0.4f));
+	assert(NearlyEqual(Mariri->MaxFallSpeed, 9.0f));
+
+	// 待機中はPlayerの方向を向くだけでXは動かない。
+	for (int Frame = 0; Frame < 99; ++Frame) {
+		Objects.Update(Map, Catalog, {32.0f, 192.0f});
+	}
+	Mariri = Objects.Find("mariri");
+	assert(Mariri->BehaviorTimer == 99);
+	assert(Mariri->Direction == -1);
+	assert(NearlyEqual(Mariri->Position.X, 128.0f));
+	assert(Mariri->Grounded);
+
+	// 100frame目: HSP同様、このframeではまだ水平移動せずjump開始。
+	Objects.Update(Map, Catalog, {32.0f, 192.0f});
+	Mariri = Objects.Find("mariri");
+	assert(Mariri->BehaviorTimer == 100);
+	assert(NearlyEqual(Mariri->Position.X, 128.0f));
+	assert(NearlyEqual(Mariri->Velocity.Y, -8.6f));
+	assert(!Mariri->Grounded);
+
+	// 次frameから3px/frameでjump時に決めた方向へ移動する。
+	Objects.Update(Map, Catalog, {240.0f, 192.0f});
+	Mariri = Objects.Find("mariri");
+	assert(Mariri->BehaviorTimer == 101);
+	assert(NearlyEqual(Mariri->Position.X, 125.0f));
+	assert(Mariri->Direction == -1);
+	assert(NearlyEqual(Mariri->Velocity.X, -3.0f));
+	assert(NearlyEqual(Mariri->Velocity.Y, -8.2f));
+
+	// 空中ではPlayerが反対側へ移動しても方向変更しない。
+	for (int Frame = 0; Frame < 100 &&
+		!Objects.Find("mariri")->Grounded; ++Frame) {
+		Objects.Update(Map, Catalog, {240.0f, 192.0f});
+	}
+	Mariri = Objects.Find("mariri");
+	assert(Mariri->Grounded);
+	assert(Mariri->BehaviorTimer == 0);
+	assert(NearlyEqual(Mariri->Velocity.X, 0.0f));
+	// 着地時には再びPlayer方向へ向き直す。
+	assert(Mariri->Direction == 1);
+
+	const std::vector<NativeObjectContact> Stomp =
+		Objects.FindContacts(
+			{Mariri->Position.X, Mariri->Position.Y - 21.0f},
+			{16.0f, 32.0f},
+			4.0f);
+	assert(Stomp.size() == 1);
+	assert(Stomp[0].Kind == NativeObjectContactKind::Stomp);
+}
+
+void TestNativeMaririTurnsAtWallDuringJump() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0},
+		{0, 1, 0, 0, 0, 0},
+		{0, 1, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "mariri-wall";
+	Spawn.TypeId = "Mariri";
+	Spawn.Position = {96.0f, 192.0f};
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	for (int Frame = 0; Frame < 100; ++Frame) {
+		Objects.Update(Map, Catalog, {0.0f, 192.0f});
+	}
+	assert(Objects.Find("mariri-wall")->Direction == -1);
+
+	bool Turned = false;
+	for (int Frame = 0; Frame < 40; ++Frame) {
+		Objects.Update(Map, Catalog, {0.0f, 192.0f});
+		if (Objects.Find("mariri-wall")->Direction == 1) {
+			Turned = true;
+			break;
+		}
+	}
+	assert(Turned);
+	assert(Objects.Find("mariri-wall")->Velocity.X > 0.0f);
+}
+
+void TestNativeMaririLifecycleResetRestoresWaitState() {
+	TileMap Map = MakeMap({
+		{0, 0, 0},
+		{0, 0, 0},
+		{1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "mariri-reset";
+	Spawn.TypeId = "Mariri";
+	Spawn.Position = {32.0f, 32.0f};
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	NativeObjectRuntime* Mariri = Objects.Find("mariri-reset");
+	assert(Mariri != nullptr);
+	Mariri->BehaviorTimer = 123;
+	Mariri->Velocity = {3.0f, 4.0f};
+	Mariri->Position = {900.0f, 900.0f};
+
+	Objects.UpdateLifecycle({0.0f, 0.0f}, {512.0f, 320.0f});
+	Mariri = Objects.Find("mariri-reset");
+	assert(Mariri->LifeState == ObjectLifeState::Dormant);
+	assert(Mariri->BehaviorTimer == 0);
+	assert(NearlyEqual(Mariri->Position.X, 32.0f));
+	assert(NearlyEqual(Mariri->Position.Y, 32.0f));
+	assert(NearlyEqual(Mariri->Velocity.X, 0.0f));
+	assert(NearlyEqual(Mariri->Velocity.Y, 0.0f));
 }
 
 void TestNativeSeaAnemoneChargesThenEmitsHspFan() {
@@ -7787,6 +7989,9 @@ int main(int argc, char* argv[]) {
 	TestNativeWallCrawlerClockwiseFollowsOuterCorner();
 	TestNativeWallCrawlerTurnsAtBlockedInnerCornerAndResets();
 	TestNativeWallCrawlerRejectsUnknownVariant();
+	TestNativeMaririWaitsThenJumpsTowardPlayer();
+	TestNativeMaririTurnsAtWallDuringJump();
+	TestNativeMaririLifecycleResetRestoresWaitState();
 	TestNativeSeaAnemoneChargesThenEmitsHspFan();
 	TestNativeSeaAnemoneVariant2MirrorsFan();
 	TestBallisticProjectileClampsPositiveFallSpeed();
@@ -7880,6 +8085,9 @@ int main(int argc, char* argv[]) {
 	TestNativeWallCrawlerClockwiseFollowsOuterCorner();
 	TestNativeWallCrawlerTurnsAtBlockedInnerCornerAndResets();
 	TestNativeWallCrawlerRejectsUnknownVariant();
+	TestNativeMaririWaitsThenJumpsTowardPlayer();
+	TestNativeMaririTurnsAtWallDuringJump();
+	TestNativeMaririLifecycleResetRestoresWaitState();
 	TestNativeSeaAnemoneChargesThenEmitsHspFan();
 	TestNativeSeaAnemoneVariant2MirrorsFan();
 	TestBallisticProjectileClampsPositiveFallSpeed();
