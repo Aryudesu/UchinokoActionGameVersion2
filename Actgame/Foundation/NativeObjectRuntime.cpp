@@ -58,6 +58,12 @@ constexpr float FlyingOscillationPhaseStep = 0.1f;
 constexpr float FlyingOscillationPhaseLimit = 6.28f * 2.0f;
 constexpr float FlyingOscillationSpeed = 5.0f;
 
+constexpr int KameenWaiting = 0;
+constexpr int KameenChasing = 1;
+constexpr float KameenTriggerDistance = 32.0f * 8.0f;
+constexpr float KameenAcceleration = 0.2f;
+constexpr float KameenMaxSpeed = 8.0f;
+
 bool IsBallSlime(const NativeObjectRuntime& Object) {
 	return Object.TypeId == "BallSlime";
 }
@@ -74,7 +80,8 @@ bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 		Object.TypeId == "StationaryShooter" ||
 		Object.TypeId == "Pikachii" ||
 		Object.TypeId == "Chikorarashi" ||
-		Object.TypeId == "FlyingEnemy";
+		Object.TypeId == "FlyingEnemy" ||
+		Object.TypeId == "Kameen";
 }
 
 bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
@@ -84,6 +91,9 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 		Object.TypeId == "Chikorarashi" ||
 		Object.TypeId == "FlyingEnemy") {
 		return true;
+	}
+	if (Object.TypeId == "Kameen") {
+		return Object.BehaviorState == KameenChasing;
 	}
 	if (Object.TypeId == "CarrotMan") {
 		return Object.BehaviorState != CarrotHidden;
@@ -626,6 +636,17 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.MoveSpeed = 2.0f;
 		Runtime.Gravity = 0.0f;
 		Runtime.MaxFallSpeed = 0.0f;
+	} else if (Spawn.TypeId == "Kameen") {
+		Runtime.HitboxOffset = {0.0f, 0.0f};
+		Runtime.HitboxSize = {32.0f, 32.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.ContactEnabled = false;
+		Runtime.Stompable = false;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.Gravity = 0.0f;
+		Runtime.MaxFallSpeed = 0.0f;
+		Runtime.BehaviorState = KameenWaiting;
 	} else if (Spawn.TypeId == "CarrotMan") {
 		// V1 CarrotMan: 近づくまでは地中待機し、
 		// 31frame目に上へ飛び出してから通常歩行へ移る。
@@ -949,9 +970,15 @@ void NativeObjectSystem::ResetToSpawn(
 	Object.Position = Object.InitialPosition;
 	Object.Direction = Object.InitialDirection;
 	Object.Velocity = {0.0f, 0.0f};
+	Object.Acceleration = {0.0f, 0.0f};
 	Object.Grounded = false;
 
-	if (Object.TypeId == "CarrotMan") {
+	if (Object.TypeId == "Kameen") {
+		Object.BehaviorState = KameenWaiting;
+		Object.ContactEnabled = false;
+		Object.Stompable = false;
+		Object.ContactDamage = 1;
+	} else if (Object.TypeId == "CarrotMan") {
 		Object.BehaviorState = CarrotHidden;
 		Object.BehaviorTimer = 0;
 		Object.ContactEnabled = false;
@@ -1013,6 +1040,14 @@ void NativeObjectSystem::UpdateLifecycle(
 			// 着地してWAITへ戻るまでは更新を継続する。
 			if (Object.TypeId == "Pikachii" &&
 				Object.BehaviorState != PikachiiWaiting) {
+				continue;
+			}
+
+			// HSP enemyf=29のKameenは起動後、画面外へ出ても追尾を継続する。
+			// CHASE中に共通Camera lifecycleでDormantへ戻すと、
+			// 画面端を越えた瞬間にspawnへresetされてしまうため除外する。
+			if (Object.TypeId == "Kameen" &&
+				Object.BehaviorState == KameenChasing) {
 				continue;
 			}
 
@@ -1171,6 +1206,75 @@ void NativeObjectSystem::UpdateFlyingEnemy(
 		Object.LifeState = ObjectLifeState::Defeated;
 		Object.Active = false;
 		Object.Velocity = {0.0f, 0.0f};
+	}
+}
+
+void NativeObjectSystem::UpdateKameen(
+	NativeObjectRuntime& Object,
+	WorldPosition PlayerPosition) {
+	if (!Object.Active) return;
+
+	const float DeltaX = PlayerPosition.X - Object.Position.X;
+	const float DeltaY = PlayerPosition.Y - Object.Position.Y;
+	const float DistanceSquared =
+		DeltaX * DeltaX + DeltaY * DeltaY;
+
+	if (Object.BehaviorState == KameenWaiting) {
+		Object.Velocity = {0.0f, 0.0f};
+		Object.Acceleration = {0.0f, 0.0f};
+		Object.ContactEnabled = false;
+
+		if (DistanceSquared <
+			KameenTriggerDistance * KameenTriggerDistance) {
+			Object.BehaviorState = KameenChasing;
+		}
+		return;
+	}
+
+	Object.ContactEnabled = true;
+
+	// HSP enemyf=29をそのまま寄せる。
+	// Playerが右/下の場合だけatan由来のcos/sin成分を使い、
+	// 左/上の場合は各axisへ直接 -0.2 を入れる。
+	if (PlayerPosition.X > Object.Position.X) {
+		const float Angle = std::atan2(
+			PlayerPosition.Y - Object.Position.Y,
+			PlayerPosition.X - Object.Position.X);
+		Object.Acceleration.X =
+			KameenAcceleration * std::cos(Angle);
+	} else if (PlayerPosition.X < Object.Position.X) {
+		Object.Acceleration.X = -KameenAcceleration;
+	}
+
+	if (PlayerPosition.Y > Object.Position.Y) {
+		const float Angle = std::atan2(
+			PlayerPosition.Y - Object.Position.Y,
+			PlayerPosition.X - Object.Position.X);
+		Object.Acceleration.Y =
+			KameenAcceleration * std::sin(Angle);
+	} else if (PlayerPosition.Y < Object.Position.Y) {
+		Object.Acceleration.Y = -KameenAcceleration;
+	}
+
+	Object.Velocity.X = (std::clamp)(
+		Object.Velocity.X + Object.Acceleration.X,
+		-KameenMaxSpeed,
+		KameenMaxSpeed);
+	Object.Velocity.Y = (std::clamp)(
+		Object.Velocity.Y + Object.Acceleration.Y,
+		-KameenMaxSpeed,
+		KameenMaxSpeed);
+
+	// HSPは int(enemyv + enemyPos) を毎frame代入する。
+	Object.Position.X = static_cast<float>(
+		static_cast<int>(Object.Position.X + Object.Velocity.X));
+	Object.Position.Y = static_cast<float>(
+		static_cast<int>(Object.Position.Y + Object.Velocity.Y));
+
+	if (Object.Velocity.X < 0.0f) {
+		Object.Direction = -1;
+	} else if (Object.Velocity.X > 0.0f) {
+		Object.Direction = 1;
 	}
 }
 
@@ -1571,6 +1675,8 @@ void NativeObjectSystem::Update(
 		} else if (Object.TypeId == "FlyingEnemy") {
 			UpdateFlyingEnemy(
 				Object, Map, Catalog, PlayerPosition);
+		} else if (Object.TypeId == "Kameen") {
+			UpdateKameen(Object, PlayerPosition);
 		} else if (Object.TypeId == "CarrotMan") {
 			UpdateCarrotMan(Object, Map, Catalog, PlayerPosition);
 		} else if (Object.TypeId == "BallSlime") {

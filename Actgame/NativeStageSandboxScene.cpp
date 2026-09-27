@@ -1069,6 +1069,23 @@ void NativeStageSandboxScene::DrawObjectLayer(
 			DrawString(
 				X + 10, Y + 8, "F",
 				GetColor(200, 250, 255));
+		} else if (Object->TypeId == "Kameen") {
+			DrawCircle(
+				X + 16, Y + 16, 14,
+				Object->BehaviorState == 0
+					? GetColor(140, 140, 180)
+					: GetColor(110, 230, 235),
+				FALSE);
+			DrawString(
+				X + 10, Y + 8, "K",
+				Object->BehaviorState == 0
+					? GetColor(210, 210, 235)
+					: GetColor(210, 255, 255));
+			DrawLine(
+				X + 16, Y + 16,
+				X + 16 + Object->Direction * 10,
+				Y + 16,
+				GetColor(210, 255, 255), 2);
 		} else if (Object->TypeId == "CarrotMan") {
 			if (Object->BehaviorState == 0) {
 				DrawBox(
@@ -1215,6 +1232,21 @@ void NativeStageSandboxScene::DrawObjectLayer(
 							Object->BehaviorPhase);
 					}
 				}
+			} else if (Object->TypeId == "Kameen") {
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(180, 250, 250),
+					"%s %s v=(%.1f,%.1f)",
+					Object->Id.c_str(),
+					Object->BehaviorState == 0 ? "WAIT" : "CHASE",
+					Object->Velocity.X,
+					Object->Velocity.Y);
+				DrawFormatString(
+					X, Y + 50,
+					GetColor(180, 250, 250),
+					"a=(%.2f,%.2f)",
+					Object->Acceleration.X,
+					Object->Acceleration.Y);
 			} else if (Object->TypeId == "CarrotMan") {
 				const char* State =
 					Object->BehaviorState == 0 ? "HIDDEN" :
