@@ -1,6 +1,6 @@
 # HSP → Version1 → Version2 移植対応表
 
-2026-09-26時点。
+2026-09-27時点。
 
 | 機能 | HSP | Version1 | Version2 |
 |---|---|---|---|
@@ -38,7 +38,7 @@
 | Enemy配置 | 501..600 | map -2..-6 | Native ObjectSpawn実装済み。Legacy変換は未完 |
 | WalkingEnemy | No.1/2相当 | WalkingEnemy1/2 | NativeObjectRuntime実装済み |
 | CarrotMan | 地面飛び出し型あり | CarrotMan | Native BehaviorStateで移植済み |
-| BallSlime / 甲羅 | No.20..25相当 | BallSlime/BallSlime2 | 未移植 |
+| BallSlime / 甲羅 | No.20..25相当 | BallSlime/BallSlime2 | BallSlime + BehaviorStateで実装済み |
 | Enemy lifecycle | 画面周辺のみ更新 | OnField / InitInScreen | Active/Dormant/Defeated + Camera基準で実装済み |
 | Enemy踏みつけ | sattack等 | Treaded | Touch/Stomp分離済み |
 | Enemy同士衝突 | 個別処理 | ColliSide2Obj | WalkingEnemy系の横反転実装済み |
@@ -52,7 +52,18 @@
 | Save | savedata.save | SaveData.dat | StageProgressあり、Save統合未実装 |
 | WorldMap | wmcstage | BeatLevel | StageProgressへの移行未実装 |
 | 通常/裏clear履歴 | STClearFlag等 | BeatLevelで区別消失 | StageClearStateで分離済み |
-| Shooting | sshoot.hsp等 | 一部/別系統 | 未移植 |
+| 固定砲台11..14 | enemyf 11..14 | 一部/別系統 | StationaryShooter 4 pattern実装済み |
+| Pikachii31/32 | enemyf 31/32 | 旧Enemy | Pikachii + Direction実装済み |
+| Chikorarashi33 | enemyf 33 | 旧Enemy | Chikorarashi + Ballistic実装済み |
+| Mariri34 | enemyf 34 | 旧Enemy | Mariri実装済み |
+| 魚35..37 | enemyf 35..37 | 旧Enemy | FishEnemy 3 variant実装済み |
+| 壁伝い38/39 | enemyf 38/39 | 旧Enemy | WallCrawler CW/CCW実装済み |
+| イソギンチャク40/41 | enemyf 40/41 | 旧Enemy | SeaAnemone 2 variant実装済み |
+| FlyingEnemy4..7 | enemyf 4..7 | 旧Enemy | FlyingEnemy 4 variant実装済み |
+| Kameen29/30 | enemyf 29/30 | 旧Enemy | Kameen WAIT/CHASE実装済み |
+| TransformingWalker26/27 | enemyf 26/27 | 旧Enemy | PR #59 open |
+| Projectile | enemyshoot.hsp | 一部/別系統 | Straight/Spiral/Ballistic/Bounce/Split実装済み |
+| Shooting | sshoot.hsp等 | 一部/別系統 | 一部Projectile基盤あり。STG mode全体は未移植 |
 | STG mode | あり | 別実装/限定 | 未移植 |
 
 ## ステータスの読み方
