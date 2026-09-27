@@ -1056,6 +1056,19 @@ void NativeStageSandboxScene::DrawObjectLayer(
 				X + 2, Y + 2, X + 30, Y + 30,
 				GetColor(240, 90, 90), FALSE);
 			DrawString(X + 10, Y + 8, "E", GetColor(255, 170, 170));
+		} else if (Object->TypeId == "FlyingEnemy") {
+			DrawBox(
+				X + 3, Y + 5, X + 29, Y + 27,
+				GetColor(100, 220, 255), FALSE);
+			DrawLine(
+				X + 3, Y + 10, X - 4, Y + 5,
+				GetColor(160, 240, 255), 2);
+			DrawLine(
+				X + 29, Y + 10, X + 36, Y + 5,
+				GetColor(160, 240, 255), 2);
+			DrawString(
+				X + 10, Y + 8, "F",
+				GetColor(200, 250, 255));
 		} else if (Object->TypeId == "CarrotMan") {
 			if (Object->BehaviorState == 0) {
 				DrawBox(
@@ -1162,6 +1175,14 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					"vy=%.1f%s",
 					Object->Velocity.Y,
 					Object->Grounded ? " G" : "");
+			} else if (Object->TypeId == "FlyingEnemy") {
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(180, 245, 255),
+					"%s H-FLY %s vx=%.1f",
+					Object->Id.c_str(),
+					Object->Direction < 0 ? "<" : ">",
+					Object->Velocity.X);
 			} else if (Object->TypeId == "CarrotMan") {
 				const char* State =
 					Object->BehaviorState == 0 ? "HIDDEN" :
