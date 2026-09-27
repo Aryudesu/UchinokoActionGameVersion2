@@ -1417,7 +1417,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
 	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
-	assert(Data.Areas.size() == 6);
+	assert(Data.Areas.size() == 7);
 
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
@@ -1686,8 +1686,26 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(VerticalWaveVariant == 4);
 	assert(AirVerticalWave->Transitions.size() == 1);
 	assert(AirVerticalWave->Transitions[0].Id ==
-		"pipe-air-vertical-wave-main");
-	assert(AirVerticalWave->Transitions[0].TargetAreaId == "main");
+		"pipe-air-vertical-wave-kameen");
+	assert(AirVerticalWave->Transitions[0].TargetAreaId == "kameen");
+
+	const StageArea* KameenArea = Data.FindArea("kameen");
+	assert(KameenArea != nullptr);
+	assert(KameenArea->Width == 16);
+	assert(KameenArea->Height == 8);
+	assert(KameenArea->TerrainLayer() != nullptr);
+	assert(*KameenArea->TerrainLayer()->Map.TryGet({0, 7}) == 2);
+	const ObjectLayer* KameenTests =
+		KameenArea->FindObjectLayer("objects");
+	assert(KameenTests != nullptr);
+	assert(KameenTests->Objects.size() == 1);
+	assert(KameenTests->Objects[0].Id == "kameen-wait");
+	assert(KameenTests->Objects[0].TypeId == "Kameen");
+	assert(NearlyEqual(KameenTests->Objects[0].Position.X, 320.0f));
+	assert(NearlyEqual(KameenTests->Objects[0].Position.Y, 96.0f));
+	assert(KameenArea->Transitions.size() == 1);
+	assert(KameenArea->Transitions[0].Id == "pipe-kameen-main");
+	assert(KameenArea->Transitions[0].TargetAreaId == "main");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -2453,6 +2471,105 @@ void TestNativeFlyingEnemyVerticalOscillationMatchesHspMotion() {
 	assert(NearlyEqual(Enemy->BehaviorPhase, 0.0f));
 	assert(NearlyEqual(Enemy->Position.X, 256.0f));
 	assert(NearlyEqual(Enemy->Position.Y, 128.0f));
+}
+
+void TestNativeKameenWaitsThenAcceleratesTowardPlayer() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "kameen";
+	Spawn.TypeId = "Kameen";
+	Spawn.Position = {320.0f, 96.0f};
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	const NativeObjectRuntime* Enemy = Objects.Find("kameen");
+	assert(Enemy != nullptr);
+	assert(Enemy->BehaviorState == 0);
+	assert(!Enemy->ContactEnabled);
+	assert(!Enemy->Stompable);
+	assert(Enemy->ContactDamage == 1);
+	assert(NearlyEqual(Enemy->Velocity.X, 0.0f));
+	assert(NearlyEqual(Enemy->Velocity.Y, 0.0f));
+
+	// 8 tiles (256px)より遠い間はenemyf=30相当の待機を続ける。
+	Objects.Update(Map, Catalog, {32.0f, 192.0f});
+	Enemy = Objects.Find("kameen");
+	assert(Enemy->BehaviorState == 0);
+	assert(!Enemy->ContactEnabled);
+	assert(NearlyEqual(Enemy->Position.X, 320.0f));
+	assert(NearlyEqual(Enemy->Position.Y, 96.0f));
+
+	// 範囲内へ入ったframeはenemyf=29へ切り替わるだけ。
+	Objects.Update(Map, Catalog, {128.0f, 0.0f});
+	Enemy = Objects.Find("kameen");
+	assert(Enemy->BehaviorState == 1);
+	assert(!Enemy->ContactEnabled);
+	assert(NearlyEqual(Enemy->Position.X, 320.0f));
+	assert(NearlyEqual(Enemy->Position.Y, 96.0f));
+
+	// 次frameからHSP同様にaxisごと -0.2 加速し、
+	// int(enemyv + position) の切り捨てで座標を更新する。
+	Objects.Update(Map, Catalog, {128.0f, 0.0f});
+	Enemy = Objects.Find("kameen");
+	assert(Enemy->ContactEnabled);
+	assert(NearlyEqual(Enemy->Acceleration.X, -0.2f));
+	assert(NearlyEqual(Enemy->Acceleration.Y, -0.2f));
+	assert(NearlyEqual(Enemy->Velocity.X, -0.2f));
+	assert(NearlyEqual(Enemy->Velocity.Y, -0.2f));
+	assert(NearlyEqual(Enemy->Position.X, 319.0f));
+	assert(NearlyEqual(Enemy->Position.Y, 95.0f));
+	assert(Enemy->Direction == -1);
+
+	// 踏めないEnemyなので接触は下降中でもTouch。
+	const std::vector<NativeObjectContact> Touch =
+		Objects.FindContacts(
+			Enemy->Position,
+			{16.0f, 32.0f},
+			4.0f);
+	assert(Touch.size() == 1);
+	assert(Touch[0].Kind == NativeObjectContactKind::Touch);
+	assert(Touch[0].ContactDamage == 1);
+
+	// 加速は各axis ±8でclampされる。
+	for (int Frame = 0; Frame < 60; ++Frame) {
+		Objects.Update(Map, Catalog, {-1000.0f, -1000.0f});
+	}
+	Enemy = Objects.Find("kameen");
+	assert(NearlyEqual(Enemy->Velocity.X, -8.0f));
+	assert(NearlyEqual(Enemy->Velocity.Y, -8.0f));
+
+	// Camera lifecycle resetで待機状態・速度・加速度へ戻る。
+	NativeObjectRuntime* Mutable = Objects.Find("kameen");
+	assert(Mutable != nullptr);
+	Mutable->Position = {900.0f, 900.0f};
+	Objects.UpdateLifecycle({0.0f, 0.0f}, {512.0f, 320.0f});
+	Enemy = Objects.Find("kameen");
+	assert(Enemy->LifeState == ObjectLifeState::Dormant);
+	assert(Enemy->BehaviorState == 0);
+	assert(!Enemy->ContactEnabled);
+	assert(NearlyEqual(Enemy->Position.X, 320.0f));
+	assert(NearlyEqual(Enemy->Position.Y, 96.0f));
+	assert(NearlyEqual(Enemy->Velocity.X, 0.0f));
+	assert(NearlyEqual(Enemy->Velocity.Y, 0.0f));
+	assert(NearlyEqual(Enemy->Acceleration.X, 0.0f));
+	assert(NearlyEqual(Enemy->Acceleration.Y, 0.0f));
 }
 
 void TestNativeFlyingEnemyRejectsWrongDirectionForVariant() {
@@ -6937,6 +7054,7 @@ int main(int argc, char* argv[]) {
 	TestNativeFlyingEnemyHorizontalOscillationMatchesHspMotion();
 	TestNativeFlyingEnemyMovesVerticallyAndTurnsAtFloorCeiling();
 	TestNativeFlyingEnemyVerticalOscillationMatchesHspMotion();
+	TestNativeKameenWaitsThenAcceleratesTowardPlayer();
 	TestNativeFlyingEnemyRejectsWrongDirectionForVariant();
 		TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery();
 		TestNativeBallSlimeVariant2TurnsAtCliffOnlyWhileWalking();
@@ -7018,6 +7136,7 @@ int main(int argc, char* argv[]) {
 	TestNativeFlyingEnemyHorizontalOscillationMatchesHspMotion();
 	TestNativeFlyingEnemyMovesVerticallyAndTurnsAtFloorCeiling();
 	TestNativeFlyingEnemyVerticalOscillationMatchesHspMotion();
+	TestNativeKameenWaitsThenAcceleratesTowardPlayer();
 	TestNativeFlyingEnemyRejectsWrongDirectionForVariant();
 	TestNativeWalkingEnemyLifecycleUsesCameraAndKeepsDefeatedState();
 	TestNativeCarrotManWaitsEmergesAndStartsWalking();
