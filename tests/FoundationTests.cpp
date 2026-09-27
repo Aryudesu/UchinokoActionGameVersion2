@@ -1417,7 +1417,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
 	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
-	assert(Data.Areas.size() == 2);
+	assert(Data.Areas.size() == 3);
 
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
@@ -1524,7 +1524,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 
 	assert(Area->RegionLayers.empty());
 
-	assert(Area->Transitions.size() == 1);
+	assert(Area->Transitions.size() == 2);
 	const StageTransition& Pipe = Area->Transitions[0];
 	assert(Pipe.Id == "pipe-main-sub");
 	assert(Pipe.TargetStageId.empty());
@@ -1536,6 +1536,17 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(Pipe.ExitDirection == StageDirection::Up);
 	assert(NearlyEqual(Pipe.ExitPosition.X, 32.0f));
 	assert(NearlyEqual(Pipe.ExitPosition.Y, 128.0f));
+
+	const StageTransition& AirPipe = Area->Transitions[1];
+	assert(AirPipe.Id == "pipe-main-air");
+	assert(AirPipe.TargetAreaId == "air");
+	assert(AirPipe.Entry.Shape == StageRegionShape::Point);
+	assert(NearlyEqual(AirPipe.Entry.Position.X, 192.0f));
+	assert(NearlyEqual(AirPipe.Entry.Position.Y, 128.0f));
+	assert(AirPipe.EnterDirection == StageDirection::Down);
+	assert(AirPipe.ExitDirection == StageDirection::Up);
+	assert(NearlyEqual(AirPipe.ExitPosition.X, 32.0f));
+	assert(NearlyEqual(AirPipe.ExitPosition.Y, 192.0f));
 
 	const StageArea* Sub = Data.FindArea("sub");
 	assert(Sub != nullptr);
@@ -1564,6 +1575,32 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 		.Properties.at("pattern")
 		.TryGetString(ProjectilePattern));
 	assert(ProjectilePattern == "splitDown");
+
+	const StageArea* Air = Data.FindArea("air");
+	assert(Air != nullptr);
+	assert(Air->Width == 16);
+	assert(Air->Height == 8);
+	assert(Air->TerrainLayer() != nullptr);
+	assert(*Air->TerrainLayer()->Map.TryGet({0, 7}) == 2);
+	assert(*Air->TerrainLayer()->Map.TryGet({12, 3}) == 2);
+	const ObjectLayer* FlyingTests = Air->FindObjectLayer("objects");
+	assert(FlyingTests != nullptr);
+	assert(FlyingTests->Objects.size() == 1);
+	assert(FlyingTests->Objects[0].Id == "flying-horizontal");
+	assert(FlyingTests->Objects[0].TypeId == "FlyingEnemy");
+	std::string FlyingDirection;
+	float FlyingSpeed = 0.0f;
+	assert(FlyingTests->Objects[0]
+		.Properties.at("direction")
+		.TryGetString(FlyingDirection));
+	assert(FlyingDirection == "right");
+	assert(FlyingTests->Objects[0]
+		.Properties.at("speed")
+		.TryGetFloat(FlyingSpeed));
+	assert(NearlyEqual(FlyingSpeed, 2.0f));
+	assert(Air->Transitions.size() == 1);
+	assert(Air->Transitions[0].Id == "pipe-air-main");
+	assert(Air->Transitions[0].TargetAreaId == "main");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -1980,6 +2017,76 @@ void TestNativeObjectRuntimeUsesPlayerCentralTouchBounds() {
 	assert(Contacts[0].ContactDamage == 1);
 }
 
+
+void TestNativeFlyingEnemyMovesHorizontallyAndTurnsAtWall() {
+	TileMap Map = MakeMap({
+		{1, 1, 1, 1, 1, 1},
+		{1, 0, 0, 0, 0, 1},
+		{1, 0, 0, 0, 0, 1},
+		{1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "flyer";
+	Spawn.TypeId = "FlyingEnemy";
+	Spawn.Position = {64.0f, 48.0f};
+	Spawn.Properties["direction"] =
+		StagePropertyValue::String("right");
+	Spawn.Properties["speed"] =
+		StagePropertyValue::Float(2.0f);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	const NativeObjectRuntime* Enemy = Objects.Find("flyer");
+	assert(Enemy != nullptr);
+	assert(Enemy->TypeId == "FlyingEnemy");
+	assert(Enemy->Direction == 1);
+	assert(NearlyEqual(Enemy->MoveSpeed, 2.0f));
+	assert(NearlyEqual(Enemy->Gravity, 0.0f));
+	assert(Enemy->Stompable);
+	assert(Enemy->ContactDamage == 1);
+
+	const float StartY = Enemy->Position.Y;
+	Objects.Update(Map, Catalog);
+	Enemy = Objects.Find("flyer");
+	assert(Enemy->Position.X > 64.0f);
+	assert(NearlyEqual(Enemy->Position.Y, StartY));
+	assert(NearlyEqual(Enemy->Velocity.Y, 0.0f));
+
+	// 右壁へ到達すると高度を変えずに反転する。
+	for (int Frame = 0; Frame < 80 && Objects.Find("flyer")->Direction > 0; ++Frame) {
+		Objects.Update(Map, Catalog);
+	}
+	Enemy = Objects.Find("flyer");
+	assert(Enemy->Direction == -1);
+	assert(NearlyEqual(Enemy->Position.Y, StartY));
+	assert(Enemy->Velocity.X < 0.0f);
+
+	// HSP enemyf=4同様、上からなら踏みつけ判定になる。
+	const ObjectHitBounds Bounds = Enemy->HitBounds();
+	const std::vector<NativeObjectContact> Stomp =
+		Objects.FindContacts(
+			{Bounds.Position.X, Bounds.Position.Y - 30.0f},
+			{16.0f, 32.0f},
+			4.0f);
+	assert(Stomp.size() == 1);
+	assert(Stomp[0].Kind == NativeObjectContactKind::Stomp);
+}
 
 void TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage() {
 	StageArea Area;
@@ -6438,6 +6545,7 @@ int main(int argc, char* argv[]) {
 		TestNativeObjectRuntimeUsesPlayerCentralTouchBounds();
 		TestNativeObjectContactComposesWithDamageReaction();
 		TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage();
+	TestNativeFlyingEnemyMovesHorizontallyAndTurnsAtWall();
 		TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery();
 		TestNativeBallSlimeVariant2TurnsAtCliffOnlyWhileWalking();
 		TestNativeKickedBallSlimeDefeatsOtherEnemyAndLifecycleResetsShell();
@@ -6514,6 +6622,7 @@ int main(int argc, char* argv[]) {
 	TestNativeObjectRuntimeUsesPlayerCentralTouchBounds();
 	TestNativeObjectContactComposesWithDamageReaction();
 	TestNativeWalkingEnemyClassifiesStompSeparatelyFromDamage();
+	TestNativeFlyingEnemyMovesHorizontallyAndTurnsAtWall();
 	TestNativeWalkingEnemyLifecycleUsesCameraAndKeepsDefeatedState();
 	TestNativeCarrotManWaitsEmergesAndStartsWalking();
 	TestNativeBallSlimeTransitionsWalkingShellKickAndRecovery();
