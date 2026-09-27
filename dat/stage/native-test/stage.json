@@ -322,7 +322,7 @@
         {
           "id": "objects", "name": "Counter Clockwise Wall Crawler Test Objects", "zOrder": 10,
           "objects": [
-            { "id": "wall-crawler-ccw", "type": "WallCrawler", "position": [320,64], "properties": { "variant": 1 } }
+            { "id": "wall-crawler-ccw", "type": "WallCrawler", "position": [320,32], "properties": { "variant": 1 } }
           ]
         }
       ],
@@ -350,7 +350,7 @@
         {
           "id": "objects", "name": "Clockwise Wall Crawler Test Objects", "zOrder": 10,
           "objects": [
-            { "id": "wall-crawler-cw", "type": "WallCrawler", "position": [192,64], "properties": { "variant": 2 } }
+            { "id": "wall-crawler-cw", "type": "WallCrawler", "position": [192,32], "properties": { "variant": 2 } }
           ]
         }
       ],
