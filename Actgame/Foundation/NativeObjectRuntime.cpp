@@ -214,6 +214,38 @@ bool TryObjectSurfaceY(
 		SurfaceY);
 }
 
+struct CardinalDirection {
+	int X = 0;
+	int Y = 0;
+};
+
+CardinalDirection WallCrawlerDirection(
+	const NativeObjectRuntime& Object) {
+	if (Object.Velocity.X < 0.0f) return {-1, 0};
+	if (Object.Velocity.X > 0.0f) return {1, 0};
+	if (Object.Velocity.Y < 0.0f) return {0, -1};
+	if (Object.Velocity.Y > 0.0f) return {0, 1};
+	return {0, 0};
+}
+
+CardinalDirection RotateClockwise(
+	CardinalDirection Direction) {
+	return {-Direction.Y, Direction.X};
+}
+
+CardinalDirection RotateCounterClockwise(
+	CardinalDirection Direction) {
+	return {Direction.Y, -Direction.X};
+}
+
+WorldPosition ToWallCrawlerVelocity(
+	CardinalDirection Direction) {
+	return {
+		static_cast<float>(Direction.X) * WallCrawlerSpeed,
+		static_cast<float>(Direction.Y) * WallCrawlerSpeed
+	};
+}
+
 bool IsWallCrawlerBlocked(
 	const TileMap& Map,
 	const TileCatalog& Catalog,
@@ -243,6 +275,19 @@ bool IsWallCrawlerBlocked(
 		Center,
 		Map.TileWidth(),
 		Map.TileHeight());
+}
+
+bool IsWallCrawlerBlocked(
+	const TileMap& Map,
+	const TileCatalog& Catalog,
+	int Column,
+	int Row,
+	CardinalDirection Direction) {
+	return IsWallCrawlerBlocked(
+		Map,
+		Catalog,
+		Column + Direction.X,
+		Row + Direction.Y);
 }
 
 bool FindObjectGround(
@@ -1404,81 +1449,42 @@ void NativeObjectSystem::UpdateWallCrawler(
 
 	const int Column = X / Map.TileWidth();
 	const int Row = Y / Map.TileHeight();
-	const bool Left =
-		IsWallCrawlerBlocked(Map, Catalog, Column - 1, Row);
-	const bool Right =
-		IsWallCrawlerBlocked(Map, Catalog, Column + 1, Row);
-	const bool Up =
-		IsWallCrawlerBlocked(Map, Catalog, Column, Row - 1);
-	const bool Down =
-		IsWallCrawlerBlocked(Map, Catalog, Column, Row + 1);
+	const CardinalDirection Forward =
+		WallCrawlerDirection(Object);
+	if (Forward.X == 0 && Forward.Y == 0) return;
 
-	const bool MovingLeft =
-		Object.Velocity.X < 0.0f && Object.Velocity.Y == 0.0f;
-	const bool MovingRight =
-		Object.Velocity.X > 0.0f && Object.Velocity.Y == 0.0f;
-	const bool MovingUp =
-		Object.Velocity.Y < 0.0f && Object.Velocity.X == 0.0f;
-	const bool MovingDown =
-		Object.Velocity.Y > 0.0f && Object.Velocity.X == 0.0f;
+	// 壁に片手を付けたまま進むwall followerとして扱う。
+	// CCWは進行方向の反時計側、CWは時計側を「壁側」とする。
+	const bool CounterClockwise =
+		Object.Variant == WallCrawlerCounterClockwise;
+	const CardinalDirection WallSide =
+		CounterClockwise
+			? RotateCounterClockwise(Forward)
+			: RotateClockwise(Forward);
+	const CardinalDirection AwayFromWall =
+		CounterClockwise
+			? RotateClockwise(Forward)
+			: RotateCounterClockwise(Forward);
 
 	bool Turned = false;
-	if (Object.Variant == WallCrawlerCounterClockwise) {
-		if (MovingLeft && !Down) {
-			Object.Velocity = {0.0f, WallCrawlerSpeed};
-			Turned = true;
-		} else if (MovingRight && !Up) {
-			Object.Velocity = {0.0f, -WallCrawlerSpeed};
-			Turned = true;
-		} else if (MovingUp && !Left) {
-			Object.Velocity = {-WallCrawlerSpeed, 0.0f};
-			Turned = true;
-		} else if (MovingDown && !Right) {
-			Object.Velocity = {WallCrawlerSpeed, 0.0f};
-			Turned = true;
-		} else if (MovingLeft && Left) {
-			Object.Velocity = {0.0f, -WallCrawlerSpeed};
-			Turned = true;
-		} else if (MovingRight && Right) {
-			Object.Velocity = {0.0f, WallCrawlerSpeed};
-			Turned = true;
-		} else if (MovingUp && Up) {
-			Object.Velocity = {WallCrawlerSpeed, 0.0f};
-			Turned = true;
-		} else if (MovingDown && Down) {
-			Object.Velocity = {-WallCrawlerSpeed, 0.0f};
-			Turned = true;
-		}
-	} else {
-		if (MovingLeft && !Up) {
-			Object.Velocity = {0.0f, -WallCrawlerSpeed};
-			Turned = true;
-		} else if (MovingRight && !Down) {
-			Object.Velocity = {0.0f, WallCrawlerSpeed};
-			Turned = true;
-		} else if (MovingUp && !Right) {
-			Object.Velocity = {WallCrawlerSpeed, 0.0f};
-			Turned = true;
-		} else if (MovingDown && !Left) {
-			Object.Velocity = {-WallCrawlerSpeed, 0.0f};
-			Turned = true;
-		} else if (MovingLeft && Left) {
-			Object.Velocity = {0.0f, WallCrawlerSpeed};
-			Turned = true;
-		} else if (MovingRight && Right) {
-			Object.Velocity = {0.0f, -WallCrawlerSpeed};
-			Turned = true;
-		} else if (MovingUp && Up) {
-			Object.Velocity = {-WallCrawlerSpeed, 0.0f};
-			Turned = true;
-		} else if (MovingDown && Down) {
-			Object.Velocity = {WallCrawlerSpeed, 0.0f};
-			Turned = true;
-		}
+
+	// 外角: 壁側のtileが空いたら、その方向へ回り込む。
+	if (!IsWallCrawlerBlocked(
+		Map, Catalog, Column, Row, WallSide)) {
+		Object.Velocity =
+			ToWallCrawlerVelocity(WallSide);
+		Turned = true;
+	}
+	// 内角: 正面が塞がれたら、壁から離れる側へ90度turnする。
+	else if (IsWallCrawlerBlocked(
+		Map, Catalog, Column, Row, Forward)) {
+		Object.Velocity =
+			ToWallCrawlerVelocity(AwayFromWall);
+		Turned = true;
 	}
 
-	// HSP enemyf=38/39はturnした同じframeに新しい方向へ
-	// さらに1px進める。
+	// HSP enemyf=38/39はturnした同じframeに、
+	// 新しい方向へさらに1px進む。
 	if (Turned) {
 		Object.Position.X += Object.Velocity.X;
 		Object.Position.Y += Object.Velocity.Y;
