@@ -113,7 +113,8 @@ bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 		Object.TypeId == "WallCrawler" ||
 		Object.TypeId == "SeaAnemone" ||
 		Object.TypeId == "Mariri" ||
-		Object.TypeId == "TransformingWalker";
+		Object.TypeId == "TransformingWalker" ||
+		Object.TypeId == "UnstompableWalker";
 }
 
 bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
@@ -126,7 +127,8 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 		Object.TypeId == "WallCrawler" ||
 		Object.TypeId == "SeaAnemone" ||
 		Object.TypeId == "Mariri" ||
-		Object.TypeId == "TransformingWalker") {
+		Object.TypeId == "TransformingWalker" ||
+		Object.TypeId == "UnstompableWalker") {
 		return true;
 	}
 	if (Object.TypeId == "Kameen") {
@@ -140,7 +142,8 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 
 bool IsWalkingCollisionEnemy(const NativeObjectRuntime& Object) {
 	if (Object.TypeId == "WalkingEnemy" ||
-		Object.TypeId == "TransformingWalker") return true;
+		Object.TypeId == "TransformingWalker" ||
+		Object.TypeId == "UnstompableWalker") return true;
 	if (Object.TypeId == "CarrotMan") {
 		return Object.BehaviorState != CarrotHidden;
 	}
@@ -753,6 +756,19 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.Gravity = 0.5f;
 		Runtime.MaxFallSpeed = 12.0f;
 		Runtime.BehaviorState = TransformingWalkerOriginal;
+	} else if (Spawn.TypeId == "UnstompableWalker") {
+		// HSP enemyf=28: enemyf=2と同じ崖反転歩行だが踏めない。
+		Runtime.HitboxOffset = {8.0f, 1.0f};
+		Runtime.HitboxSize = {16.0f, 31.0f};
+		Runtime.ContactDamage = 1;
+		Runtime.ContactEnabled = true;
+		Runtime.Stompable = false;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.Variant = 2;
+		Runtime.MoveSpeed = 2.0f;
+		Runtime.Gravity = 0.5f;
+		Runtime.MaxFallSpeed = 12.0f;
 	} else if (Spawn.TypeId == "FlyingEnemy") {
 		// HSP enemyf=4: gravityを使わず一定高度を横移動する飛行Enemy。
 		Runtime.HitboxOffset = {8.0f, 1.0f};
@@ -1108,6 +1124,7 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 
 	if (Spawn.TypeId == "WalkingEnemy" ||
 		Spawn.TypeId == "TransformingWalker" ||
+		Spawn.TypeId == "UnstompableWalker" ||
 		Spawn.TypeId == "BallSlime") {
 		std::string Direction =
 			Runtime.Direction < 0 ? "left" : "right";
@@ -1157,7 +1174,12 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 			return Result<NativeObjectRuntime>::Failure(Error);
 		}
 
-		if (Runtime.Variant != 1 &&
+		if (Spawn.TypeId == "UnstompableWalker") {
+			if (Runtime.Variant != 2) {
+				return Result<NativeObjectRuntime>::Failure(
+					"UnstompableWalker variant must be 2: " + Spawn.Id);
+			}
+		} else if (Runtime.Variant != 1 &&
 			Runtime.Variant != 2) {
 			return Result<NativeObjectRuntime>::Failure(
 				Spawn.TypeId + " variant must be 1 or 2: " +
@@ -2256,7 +2278,8 @@ void NativeObjectSystem::Update(
 	for (NativeObjectRuntime& Object : Objects_) {
 		if (!Object.Active) continue;
 		if (Object.TypeId == "WalkingEnemy" ||
-			Object.TypeId == "TransformingWalker") {
+			Object.TypeId == "TransformingWalker" ||
+			Object.TypeId == "UnstompableWalker") {
 			UpdateWalkingEnemy(Object, Map, Catalog);
 		} else if (Object.TypeId == "FlyingEnemy") {
 			UpdateFlyingEnemy(
@@ -2412,6 +2435,11 @@ bool NativeObjectSystem::HandleStomp(
 	const std::string& ObjectId) {
 	NativeObjectRuntime* Object = Find(ObjectId);
 	if (Object == nullptr || !Object->Active) return false;
+
+	if (Object->TypeId == "UnstompableWalker") {
+		// HSP enemyf=28は踏みつけ不可。接触分類を迂回して直接呼ばれても倒さない。
+		return false;
+	}
 
 	if (Object->TypeId == "TransformingWalker") {
 		if (Object->BehaviorState == TransformingWalkerOriginal) {

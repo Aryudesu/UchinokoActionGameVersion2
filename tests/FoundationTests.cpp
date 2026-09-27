@@ -1417,7 +1417,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
 	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
-	assert(Data.Areas.size() == 17);
+	assert(Data.Areas.size() == 18);
 
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
@@ -1930,8 +1930,32 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(TransformVariant == 2);
 	assert(TransformTurn->Transitions.size() == 1);
 	assert(TransformTurn->Transitions[0].Id ==
-		"pipe-transform-turn-main");
-	assert(TransformTurn->Transitions[0].TargetAreaId == "main");
+		"pipe-transform-turn-unstompable");
+	assert(TransformTurn->Transitions[0].TargetAreaId ==
+		"unstompable-walker");
+
+	const StageArea* Unstompable =
+		Data.FindArea("unstompable-walker");
+	assert(Unstompable != nullptr);
+	assert(Unstompable->Width == 16);
+	assert(Unstompable->Height == 8);
+	assert(Unstompable->TerrainLayer() != nullptr);
+	const ObjectLayer* UnstompableObjects =
+		Unstompable->FindObjectLayer("objects");
+	assert(UnstompableObjects != nullptr);
+	assert(UnstompableObjects->Objects.size() == 1);
+	assert(UnstompableObjects->Objects[0].Id ==
+		"unstompable-walker-enemy");
+	assert(UnstompableObjects->Objects[0].TypeId ==
+		"UnstompableWalker");
+	assert(NearlyEqual(
+		UnstompableObjects->Objects[0].Position.X, 224.0f));
+	assert(NearlyEqual(
+		UnstompableObjects->Objects[0].Position.Y, 128.0f));
+	assert(Unstompable->Transitions.size() == 1);
+	assert(Unstompable->Transitions[0].Id ==
+		"pipe-unstompable-main");
+	assert(Unstompable->Transitions[0].TargetAreaId == "main");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -4146,6 +4170,69 @@ void TestNativeTransformingWalkerRejectsUnknownVariant() {
 	assert(Reset.IsFailure());
 	assert(Reset.Error().find("variant must be 1 or 2") !=
 		std::string::npos);
+}
+
+void TestNativeUnstompableWalkerTurnsAtCliffAndRejectsStomp() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 1, 1, 0, 0, 0, 0},
+		{1, 1, 1, 1, 1, 1, 1, 1}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+	TileDefinition Solid;
+	Solid.Id = 1;
+	Solid.Collision = CollisionShape::Solid;
+	assert(Catalog.Register(Solid).IsSuccess());
+
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "unstompable";
+	Spawn.TypeId = "UnstompableWalker";
+	Spawn.Position = {64.0f, 64.0f};
+	Spawn.Properties["direction"] =
+		StagePropertyValue::String("right");
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	const NativeObjectRuntime* Enemy = Objects.Find("unstompable");
+	assert(Enemy != nullptr);
+	assert(Enemy->Variant == 2);
+	assert(!Enemy->Stompable);
+	assert(Enemy->ContactDamage == 1);
+
+	// 上から下降して浅く重なってもStompではなくTouchになる。
+	const std::vector<NativeObjectContact> Contacts =
+		Objects.FindContacts({72.0f, 40.0f}, {16.0f, 32.0f}, 3.0f);
+	assert(Contacts.size() == 1);
+	assert(Contacts[0].Kind == NativeObjectContactKind::Touch);
+	assert(Contacts[0].ContactDamage == 1);
+
+	// 接触分類を迂回して直接呼ばれても、HSP28は踏みつけで倒れない。
+	assert(!Objects.HandleStomp("unstompable"));
+	assert(Objects.Find("unstompable")->Active);
+
+	// enemyf=2相当の移動なので崖手前で反転する。
+	Objects.Update(Map, Catalog);
+	bool TurnedAtCliff = false;
+	for (int Frame = 0; Frame < 80; ++Frame) {
+		Objects.Update(Map, Catalog);
+		Enemy = Objects.Find("unstompable");
+		if (Enemy != nullptr && Enemy->Direction < 0) {
+			TurnedAtCliff = true;
+			break;
+		}
+	}
+	assert(TurnedAtCliff);
 }
 
 void TestNativeMaririWaitsThenJumpsTowardPlayer() {
@@ -8241,6 +8328,7 @@ int main(int argc, char* argv[]) {
 	TestNativeTransformingWalkerVariantsKeepCliffBehavior();
 	TestNativeTransformingWalkerLifecycleRestoresOriginalState();
 	TestNativeTransformingWalkerRejectsUnknownVariant();
+	TestNativeUnstompableWalkerTurnsAtCliffAndRejectsStomp();
 	TestNativeMaririWaitsThenJumpsTowardPlayer();
 	TestNativeMaririTurnsAtWallDuringJump();
 	TestNativeMaririLifecycleResetRestoresWaitState();
@@ -8341,6 +8429,7 @@ int main(int argc, char* argv[]) {
 	TestNativeTransformingWalkerVariantsKeepCliffBehavior();
 	TestNativeTransformingWalkerLifecycleRestoresOriginalState();
 	TestNativeTransformingWalkerRejectsUnknownVariant();
+	TestNativeUnstompableWalkerTurnsAtCliffAndRejectsStomp();
 	TestNativeMaririWaitsThenJumpsTowardPlayer();
 	TestNativeMaririTurnsAtWallDuringJump();
 	TestNativeMaririLifecycleResetRestoresWaitState();

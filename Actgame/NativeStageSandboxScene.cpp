@@ -1068,6 +1068,11 @@ void NativeStageSandboxScene::DrawObjectLayer(
 				Changed
 					? GetColor(255, 170, 170)
 					: GetColor(255, 245, 210));
+		} else if (Object->TypeId == "UnstompableWalker") {
+			DrawBox(
+				X + 2, Y + 2, X + 30, Y + 30,
+				GetColor(190, 110, 240), FALSE);
+			DrawString(X + 7, Y + 8, "28", GetColor(245, 220, 255));
 		} else if (Object->TypeId == "WalkingEnemy") {
 			DrawBox(
 				X + 2, Y + 2, X + 30, Y + 30,
@@ -1251,6 +1256,13 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					Object->Id.c_str(),
 					Object->Variant == 1 ? 26 : 27,
 					Object->BehaviorState == 0 ? "ORIGINAL" : "CHANGED",
+					Object->Direction);
+			} else if (Object->TypeId == "UnstompableWalker") {
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(230, 190, 255),
+					"%s HSP28 NO-STOMP dir=%d",
+					Object->Id.c_str(),
 					Object->Direction);
 			} else if (Object->TypeId == "WalkingEnemy") {
 				DrawFormatString(
