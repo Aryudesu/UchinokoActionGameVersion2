@@ -99,6 +99,18 @@ public:
 		WorldPosition Size,
 		float PlayerVerticalVelocity = 0.0f) const;
 
+	// MovingPlatformはEnemy接触とは分離し、上面だけを支持面として扱う。
+	bool HasPlatformSupport(
+		const ObjectHitBounds& ActorBounds,
+		float Tolerance = 1.0f) const;
+	bool FindPlatformLanding(
+		const ObjectHitBounds& PreviousBounds,
+		const ObjectHitBounds& CurrentBounds,
+		float VerticalVelocity,
+		float& SurfaceY,
+		std::string* PlatformId = nullptr,
+		float Tolerance = 1.0f) const;
+
 	std::vector<ProjectileSpawnRequest> TakeProjectileSpawns();
 
 	bool Deactivate(const std::string& ObjectId);
@@ -109,7 +121,8 @@ public:
 
 private:
 	static Result<NativeObjectRuntime> BuildRuntime(
-		const ObjectSpawn& Spawn);
+		const ObjectSpawn& Spawn,
+		int TileWidth);
 	static void ResetToSpawn(NativeObjectRuntime& Object);
 	static void UpdateWalkingEnemy(
 		NativeObjectRuntime& Object,

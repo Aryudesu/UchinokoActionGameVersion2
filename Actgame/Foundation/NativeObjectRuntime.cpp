@@ -109,6 +109,10 @@ constexpr float PipeEnemyLaunchSpeed = 18.0f;
 constexpr float PipeEnemyGravity = 0.4f;
 constexpr float PipeEnemyMaxVerticalSpeed = 9.0f;
 
+constexpr int MovingPlatformMinWidthTiles = 1;
+constexpr int MovingPlatformMaxWidthTiles = 5;
+constexpr float MovingPlatformHeight = 8.0f;
+
 bool IsBallSlime(const NativeObjectRuntime& Object) {
 	return Object.TypeId == "BallSlime";
 }
@@ -748,14 +752,29 @@ ObjectHitBounds NativeObjectRuntime::HitBounds() const {
 }
 
 Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
-	const ObjectSpawn& Spawn) {
+	const ObjectSpawn& Spawn,
+	int TileWidth) {
 	NativeObjectRuntime Runtime;
 	Runtime.Id = Spawn.Id;
 	Runtime.TypeId = Spawn.TypeId;
 	Runtime.Position = Spawn.Position;
 	Runtime.InitialPosition = Spawn.Position;
 
-	if (Spawn.TypeId == "WalkingEnemy") {
+	if (Spawn.TypeId == "MovingPlatform") {
+		// HSP版は1マス幅。V2ではauthoring時に1～5マスを選べる。
+		// Side/Bottom collisionは持たず、上面Stand専用のObjectとする。
+		Runtime.HitboxOffset = {0.0f, 0.0f};
+		Runtime.HitboxSize = {
+			static_cast<float>(TileWidth),
+			MovingPlatformHeight
+		};
+		Runtime.ContactDamage = 0;
+		Runtime.ContactEnabled = false;
+		Runtime.Stompable = false;
+		Runtime.MoveSpeed = 0.0f;
+		Runtime.Gravity = 0.0f;
+		Runtime.MaxFallSpeed = 0.0f;
+	} else if (Spawn.TypeId == "WalkingEnemy") {
 		// V1 WalkingEnemy1:
 		// 32x32 sprite, gap.x=8 / gap.y=1
 		// => contact rectangle is approximately 16x31.
@@ -1191,6 +1210,26 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		}
 	}
 
+	if (Spawn.TypeId == "MovingPlatform") {
+		int WidthTiles = MovingPlatformMinWidthTiles;
+		if (!TryReadInteger(
+			Spawn.Properties,
+			"widthTiles",
+			WidthTiles,
+			Error,
+			Spawn.Id)) {
+			return Result<NativeObjectRuntime>::Failure(Error);
+		}
+		if (WidthTiles < MovingPlatformMinWidthTiles ||
+			WidthTiles > MovingPlatformMaxWidthTiles) {
+			return Result<NativeObjectRuntime>::Failure(
+				"MovingPlatform widthTiles must be between 1 and 5: " +
+				Spawn.Id);
+		}
+		Runtime.HitboxSize.X =
+			static_cast<float>(TileWidth * WidthTiles);
+	}
+
 	if (Spawn.TypeId == "PipeEnemy") {
 		if (!TryReadFloat(
 			Spawn.Properties,
@@ -1429,7 +1468,7 @@ Result<bool> NativeObjectSystem::Reset(const StageArea& Area) {
 			if (Spawn.TypeId == "PlayerSpawn") continue;
 
 			Result<NativeObjectRuntime> Built =
-				BuildRuntime(Spawn);
+				BuildRuntime(Spawn, Area.TileWidth);
 			if (Built.IsFailure()) {
 				Objects_.clear();
 				return Result<bool>::Failure(Built.Error());
@@ -2732,6 +2771,77 @@ void NativeObjectSystem::Update(
 			}
 		}
 	}
+}
+
+bool NativeObjectSystem::HasPlatformSupport(
+	const ObjectHitBounds& ActorBounds,
+	float Tolerance) const {
+	const float ActorLeft = ActorBounds.Position.X;
+	const float ActorRight = ActorLeft + ActorBounds.Size.X;
+	const float ActorBottom = ActorBounds.Position.Y + ActorBounds.Size.Y;
+
+	for (const NativeObjectRuntime& Object : Objects_) {
+		if (!Object.Active || Object.TypeId != "MovingPlatform") continue;
+		const ObjectHitBounds Platform = Object.HitBounds();
+		const float PlatformLeft = Platform.Position.X;
+		const float PlatformRight = PlatformLeft + Platform.Size.X;
+		const bool HorizontalOverlap =
+			ActorLeft < PlatformRight && ActorRight > PlatformLeft;
+		if (!HorizontalOverlap) continue;
+		if (std::fabs(ActorBottom - Platform.Position.Y) <= Tolerance) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool NativeObjectSystem::FindPlatformLanding(
+	const ObjectHitBounds& PreviousBounds,
+	const ObjectHitBounds& CurrentBounds,
+	float VerticalVelocity,
+	float& SurfaceY,
+	std::string* PlatformId,
+	float Tolerance) const {
+	if (VerticalVelocity < 0.0f) return false;
+
+	const float CurrentLeft = CurrentBounds.Position.X;
+	const float CurrentRight = CurrentLeft + CurrentBounds.Size.X;
+	const float PreviousBottom =
+		PreviousBounds.Position.Y + PreviousBounds.Size.Y;
+	const float CurrentBottom =
+		CurrentBounds.Position.Y + CurrentBounds.Size.Y;
+
+	bool Found = false;
+	float BestSurfaceY = 0.0f;
+	const NativeObjectRuntime* BestPlatform = nullptr;
+	for (const NativeObjectRuntime& Object : Objects_) {
+		if (!Object.Active || Object.TypeId != "MovingPlatform") continue;
+		const ObjectHitBounds Platform = Object.HitBounds();
+		const float PlatformLeft = Platform.Position.X;
+		const float PlatformRight = PlatformLeft + Platform.Size.X;
+		const bool HorizontalOverlap =
+			CurrentLeft < PlatformRight && CurrentRight > PlatformLeft;
+		if (!HorizontalOverlap) continue;
+
+		const float Top = Platform.Position.Y;
+		if (PreviousBottom > Top + Tolerance ||
+			CurrentBottom < Top - Tolerance) {
+			continue;
+		}
+
+		if (!Found || Top < BestSurfaceY) {
+			Found = true;
+			BestSurfaceY = Top;
+			BestPlatform = &Object;
+		}
+	}
+
+	if (!Found) return false;
+	SurfaceY = BestSurfaceY;
+	if (PlatformId != nullptr && BestPlatform != nullptr) {
+		*PlatformId = BestPlatform->Id;
+	}
+	return true;
 }
 
 std::vector<NativeObjectContact> NativeObjectSystem::FindContacts(

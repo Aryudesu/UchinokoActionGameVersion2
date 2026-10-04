@@ -1417,7 +1417,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(NativeCatalog.IsSuccess());
 	assert(NativeCatalog.Value().Find(2) != nullptr);
 	assert(NativeCatalog.Value().Find(2)->Collision == CollisionShape::Solid);
-	assert(Data.Areas.size() == 22);
+	assert(Data.Areas.size() == 23);
 
 	const StageArea* Area = Data.FindArea("main");
 	assert(Area != nullptr);
@@ -2033,8 +2033,31 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 		PipeEnemyObjects->Objects[0].Position.Y, 160.0f));
 	assert(PipeEnemyArea->Transitions.size() == 1);
 	assert(PipeEnemyArea->Transitions[0].Id ==
-		"pipe-pipe-enemy-main");
-	assert(PipeEnemyArea->Transitions[0].TargetAreaId == "main");
+		"pipe-pipe-enemy-moving-platform");
+	assert(PipeEnemyArea->Transitions[0].TargetAreaId ==
+		"moving-platform");
+
+	const StageArea* PlatformArea = Data.FindArea("moving-platform");
+	assert(PlatformArea != nullptr);
+	assert(PlatformArea->Width == 24);
+	assert(PlatformArea->Height == 12);
+	const ObjectLayer* PlatformObjects =
+		PlatformArea->FindObjectLayer("objects");
+	assert(PlatformObjects != nullptr);
+	assert(PlatformObjects->Objects.size() == 5);
+	for (int Index = 0; Index < 5; ++Index) {
+		const ObjectSpawn& Platform =
+			PlatformObjects->Objects[static_cast<std::size_t>(Index)];
+		assert(Platform.TypeId == "MovingPlatform");
+		int WidthTiles = 0;
+		assert(Platform.Properties.at("widthTiles")
+			.TryGetInteger(WidthTiles));
+		assert(WidthTiles == Index + 1);
+	}
+	assert(PlatformArea->Transitions.size() == 1);
+	assert(PlatformArea->Transitions[0].Id ==
+		"pipe-moving-platform-main");
+	assert(PlatformArea->Transitions[0].TargetAreaId == "main");
 }
 
 void TestNativeStageCharacterControllerUsesTerrainSemantics() {
@@ -4523,6 +4546,138 @@ void TestNativeJumpingEnemyRejectsUnknownVariant() {
 	assert(Reset.IsFailure());
 	assert(Reset.Error().find("variant must be 1 or 2") !=
 		std::string::npos);
+}
+
+void TestNativeMovingPlatformSupportsWidthsOneToFive() {
+	StageArea Area;
+	Area.TileWidth = 32;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	for (int WidthTiles = 1; WidthTiles <= 5; ++WidthTiles) {
+		ObjectSpawn Spawn;
+		Spawn.Id = "platform-" + std::to_string(WidthTiles);
+		Spawn.TypeId = "MovingPlatform";
+		Spawn.Position = {
+			32.0f,
+			static_cast<float>(WidthTiles * 32)
+		};
+		Spawn.Properties["widthTiles"] =
+			StagePropertyValue::Integer(WidthTiles);
+		Layer.Objects.push_back(Spawn);
+	}
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	for (int WidthTiles = 1; WidthTiles <= 5; ++WidthTiles) {
+		const NativeObjectRuntime* Platform =
+			Objects.Find("platform-" + std::to_string(WidthTiles));
+		assert(Platform != nullptr);
+		assert(Platform->TypeId == "MovingPlatform");
+		assert(NearlyEqual(
+			Platform->HitboxSize.X,
+			static_cast<float>(WidthTiles * 32)));
+		assert(NearlyEqual(Platform->HitboxSize.Y, 8.0f));
+		assert(!Platform->ContactEnabled);
+		assert(!Platform->Stompable);
+	}
+}
+
+void TestNativeMovingPlatformRejectsWidthOutsideOneToFive() {
+	auto MakeArea = [](int WidthTiles) {
+		StageArea Area;
+		ObjectLayer Layer;
+		Layer.Metadata.Id = "objects";
+		ObjectSpawn Spawn;
+		Spawn.Id = "bad-platform";
+		Spawn.TypeId = "MovingPlatform";
+		Spawn.Properties["widthTiles"] =
+			StagePropertyValue::Integer(WidthTiles);
+		Layer.Objects.push_back(Spawn);
+		Area.ObjectLayers.push_back(Layer);
+		return Area;
+	};
+
+	NativeObjectSystem TooNarrow;
+	assert(TooNarrow.Reset(MakeArea(0)).IsFailure());
+	NativeObjectSystem TooWide;
+	assert(TooWide.Reset(MakeArea(6)).IsFailure());
+}
+
+void TestNativeMovingPlatformOnlyLandsFromAbove() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "platform";
+	Spawn.TypeId = "MovingPlatform";
+	Spawn.Position = {64.0f, 96.0f};
+	Spawn.Properties["widthTiles"] =
+		StagePropertyValue::Integer(3);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	ObjectHitBounds Standing;
+	Standing.Position = {80.0f, 64.0f};
+	Standing.Size = {16.0f, 32.0f};
+	assert(Objects.HasPlatformSupport(Standing));
+
+	ObjectHitBounds Previous;
+	Previous.Position = {80.0f, 48.0f};
+	Previous.Size = {16.0f, 32.0f};
+	ObjectHitBounds Current = Previous;
+	Current.Position.Y = 70.0f;
+
+	float SurfaceY = 0.0f;
+	std::string PlatformId;
+	assert(Objects.FindPlatformLanding(
+		Previous, Current, 5.0f, SurfaceY, &PlatformId));
+	assert(NearlyEqual(SurfaceY, 96.0f));
+	assert(PlatformId == "platform");
+
+	// 上昇中は下面からすり抜ける。
+	assert(!Objects.FindPlatformLanding(
+		Previous, Current, -5.0f, SurfaceY));
+
+	// 横方向に重なっていなければ支持しない。
+	Current.Position.X = 200.0f;
+	assert(!Objects.FindPlatformLanding(
+		Previous, Current, 5.0f, SurfaceY));
+}
+
+void TestCharacterCanJumpFromExternalMovingPlatformSupport() {
+	TileMap Map = MakeMap({
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0}
+	});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	CharacterBody Body;
+	Body.Position = {80.0f, 64.0f};
+	Body.Velocity = {0.0f, 0.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	// RefreshGroundではTile支持がないためfalseになるが、
+	// MovingPlatform由来のExternalGroundSupportでjumpを許可する。
+	Player.Step(0.0f, true, Map, Catalog, true);
+	assert(!Player.Body().Grounded);
+	assert(Player.Body().Velocity.Y < 0.0f);
+	assert(Player.Body().Position.Y < 64.0f);
+
+	Player.LandOnExternalSurface(96.0f);
+	assert(Player.Body().Grounded);
+	assert(NearlyEqual(Player.Body().Position.Y, 64.0f));
+	assert(NearlyEqual(Player.Body().Velocity.Y, 0.0f));
 }
 
 void TestNativePipeEnemyWaitsActivatesLaunchesAndResets() {
@@ -8759,6 +8914,10 @@ int main(int argc, char* argv[]) {
 	TestNativeJumpingEnemyVariantsMatchHspJumpSpeeds();
 	TestNativeJumpingEnemyTurnsAtWallAndCanBeStomped();
 	TestNativeJumpingEnemyRejectsUnknownVariant();
+	TestNativeMovingPlatformSupportsWidthsOneToFive();
+	TestNativeMovingPlatformRejectsWidthOutsideOneToFive();
+	TestNativeMovingPlatformOnlyLandsFromAbove();
+	TestCharacterCanJumpFromExternalMovingPlatformSupport();
 	TestNativePipeEnemyWaitsActivatesLaunchesAndResets();
 	TestNativePipeEnemyContactOnlyAfterFrame50();
 	TestNativeMaririWaitsThenJumpsTowardPlayer();
@@ -8866,6 +9025,10 @@ int main(int argc, char* argv[]) {
 	TestNativeJumpingEnemyVariantsMatchHspJumpSpeeds();
 	TestNativeJumpingEnemyTurnsAtWallAndCanBeStomped();
 	TestNativeJumpingEnemyRejectsUnknownVariant();
+	TestNativeMovingPlatformSupportsWidthsOneToFive();
+	TestNativeMovingPlatformRejectsWidthOutsideOneToFive();
+	TestNativeMovingPlatformOnlyLandsFromAbove();
+	TestCharacterCanJumpFromExternalMovingPlatformSupport();
 	TestNativePipeEnemyWaitsActivatesLaunchesAndResets();
 	TestNativePipeEnemyContactOnlyAfterFrame50();
 	TestNativeMaririWaitsThenJumpsTowardPlayer();
