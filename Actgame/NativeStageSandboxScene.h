@@ -58,6 +58,7 @@ private:
 	bool BeginPlayerDamage(int Damage, float SourceCenterX);
 	void ApplyTerrainEffects();
 	void StepPlayerWithPlatforms(const uchinoko::CharacterInput& Input);
+	void ApplyPlatformCarry();
 	void ApplyObjectContacts();
 	void UpdateProjectilesAndContacts();
 	void CheckGoalRegions();
@@ -97,6 +98,7 @@ private:
 	std::string ActiveTransitionId_;
 	std::string ActiveTransitionTargetAreaId_;
 	std::vector<std::string> ActiveObjectContacts_;
+	std::string StandingPlatformId_;
 	bool PlayerReady_ = false;
 	int Coins_ = 0;
 	int Score_ = 0;
