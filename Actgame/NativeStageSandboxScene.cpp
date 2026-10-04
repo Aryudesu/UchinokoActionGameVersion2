@@ -9,6 +9,7 @@
 #include "SceneChanger.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 namespace {
