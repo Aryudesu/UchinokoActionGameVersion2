@@ -446,6 +446,48 @@ void NativeStageSandboxScene::StepPlayerWithPlatforms(
 			SurfaceY)) {
 		Player_.LandOnExternalSurface(SurfaceY);
 	}
+
+	StandingPlatformId_.clear();
+	if (!Player_.IsGravityUp()) {
+		const uchinoko::CharacterTouchBounds StandingTouch =
+			Player_.TouchBounds();
+		uchinoko::ObjectHitBounds StandingBounds;
+		StandingBounds.Position = {
+			StandingTouch.Left,
+			StandingTouch.Top
+		};
+		StandingBounds.Size = {
+			StandingTouch.Right - StandingTouch.Left,
+			StandingTouch.Bottom - StandingTouch.Top
+		};
+		Objects_.FindSupportingPlatform(
+			StandingBounds,
+			StandingPlatformId_);
+	}
+}
+
+void NativeStageSandboxScene::ApplyPlatformCarry() {
+	if (StandingPlatformId_.empty()) return;
+	const uchinoko::NativeObjectRuntime* Platform =
+		Objects_.Find(StandingPlatformId_);
+	if (Platform == nullptr || !Platform->Active ||
+		Platform->TypeId != "MovingPlatform") {
+		StandingPlatformId_.clear();
+		return;
+	}
+
+	const uchinoko::WorldPosition Delta = Platform->FrameDelta;
+	if (std::fabs(Delta.X) < 0.001f &&
+		std::fabs(Delta.Y) < 0.001f) {
+		return;
+	}
+
+	const uchinoko::CharacterBody Body = Player_.Body();
+	Player_.Reposition({
+		Body.Position.X + Delta.X,
+		Body.Position.Y + Delta.Y
+	}, false);
+	Player_.LandOnExternalSurface(Platform->HitBounds().Position.Y);
 }
 
 void NativeStageSandboxScene::ApplyObjectContacts() {
@@ -737,6 +779,7 @@ void NativeStageSandboxScene::update() {
 			TerrainLayer_->Map,
 			TerrainCatalog_,
 			Player_.Body().Position);
+		ApplyPlatformCarry();
 		UpdateProjectilesAndContacts();
 		if (Dead_) return;
 		ApplyObjectContacts();
@@ -768,6 +811,7 @@ void NativeStageSandboxScene::update() {
 		TerrainLayer_->Map,
 		TerrainCatalog_,
 		Player_.Body().Position);
+	ApplyPlatformCarry();
 	UpdateProjectilesAndContacts();
 	if (Dead_) return;
 	ApplyObjectContacts();
@@ -1336,9 +1380,19 @@ void NativeStageSandboxScene::DrawObjectLayer(
 				DrawFormatString(
 					X, Y + 18,
 					GetColor(190, 235, 255),
-					"%s PLATFORM width=%.0f",
+					"%s PLATFORM w=%.0f d=(%.0f,%.0f)",
 					Object->Id.c_str(),
-					Object->HitboxSize.X / 32.0f);
+					Object->HitboxSize.X / 32.0f,
+					Object->PathDelta.X,
+					Object->PathDelta.Y);
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(160, 220, 255),
+					"v=(%.1f,%.1f) phase=%.1f %s",
+					Object->FrameDelta.X,
+					Object->FrameDelta.Y,
+					Object->BehaviorPhase,
+					Object->BehaviorState >= 0 ? "->" : "<-");
 			} else if (Object->TypeId == "TransformingWalker") {
 				DrawFormatString(
 					X, Y + 34,
