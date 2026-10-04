@@ -34,6 +34,8 @@ struct NativeObjectRuntime {
 	WorldPosition InitialPosition;
 	WorldPosition Velocity;
 	WorldPosition Acceleration;
+	WorldPosition PathDelta;
+	WorldPosition FrameDelta;
 	WorldPosition HitboxOffset;
 	WorldPosition HitboxSize;
 	int ContactDamage = 0;
@@ -103,6 +105,10 @@ public:
 	bool HasPlatformSupport(
 		const ObjectHitBounds& ActorBounds,
 		float Tolerance = 1.0f) const;
+	bool FindSupportingPlatform(
+		const ObjectHitBounds& ActorBounds,
+		std::string& PlatformId,
+		float Tolerance = 1.0f) const;
 	bool FindPlatformLanding(
 		const ObjectHitBounds& PreviousBounds,
 		const ObjectHitBounds& CurrentBounds,
@@ -124,6 +130,8 @@ private:
 		const ObjectSpawn& Spawn,
 		int TileWidth);
 	static void ResetToSpawn(NativeObjectRuntime& Object);
+	static void UpdateMovingPlatform(
+		NativeObjectRuntime& Object);
 	static void UpdateWalkingEnemy(
 		NativeObjectRuntime& Object,
 		const TileMap& Map,
