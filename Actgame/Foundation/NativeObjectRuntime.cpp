@@ -630,6 +630,7 @@ void ResolveWalkingEnemyVertical(
 
 	if (!Found || Object.Velocity.Y < 0.0f) {
 		Object.Grounded = false;
+	Object.FrameDelta = {0.0f, 0.0f};
 		return;
 	}
 
@@ -772,6 +773,8 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.ContactEnabled = false;
 		Runtime.Stompable = false;
 		Runtime.MoveSpeed = 0.0f;
+		Runtime.PathDelta = {0.0f, 0.0f};
+		Runtime.FrameDelta = {0.0f, 0.0f};
 		Runtime.Gravity = 0.0f;
 		Runtime.MaxFallSpeed = 0.0f;
 	} else if (Spawn.TypeId == "WalkingEnemy") {
@@ -1217,7 +1220,19 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 			"widthTiles",
 			WidthTiles,
 			Error,
-			Spawn.Id)) {
+			Spawn.Id) ||
+			!TryReadVector2(
+				Spawn.Properties,
+				"pathDelta",
+				Runtime.PathDelta,
+				Error,
+				Spawn.Id) ||
+			!TryReadFloat(
+				Spawn.Properties,
+				"speed",
+				Runtime.MoveSpeed,
+				Error,
+				Spawn.Id)) {
 			return Result<NativeObjectRuntime>::Failure(Error);
 		}
 		if (WidthTiles < MovingPlatformMinWidthTiles ||
@@ -1228,6 +1243,20 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		}
 		Runtime.HitboxSize.X =
 			static_cast<float>(TileWidth * WidthTiles);
+
+		const float PathLength = std::sqrt(
+			Runtime.PathDelta.X * Runtime.PathDelta.X +
+			Runtime.PathDelta.Y * Runtime.PathDelta.Y);
+		if (PathLength > 0.0f && Runtime.MoveSpeed <= 0.0f) {
+			return Result<NativeObjectRuntime>::Failure(
+				"MovingPlatform speed must be positive when pathDelta is non-zero: " +
+				Spawn.Id);
+		}
+		if (PathLength <= 0.0f) {
+			Runtime.MoveSpeed = 0.0f;
+		}
+		Runtime.BehaviorState = 1;
+		Runtime.BehaviorPhase = 0.0f;
 	}
 
 	if (Spawn.TypeId == "PipeEnemy") {
@@ -1655,6 +1684,42 @@ void NativeObjectSystem::UpdateLifecycle(
 		Object.RespawnArmed = false;
 		ResetToSpawn(Object);
 	}
+}
+
+void NativeObjectSystem::UpdateMovingPlatform(
+	NativeObjectRuntime& Object) {
+	Object.FrameDelta = {0.0f, 0.0f};
+	Object.Velocity = {0.0f, 0.0f};
+	if (!Object.Active || Object.MoveSpeed <= 0.0f) return;
+
+	const float PathLength = std::sqrt(
+		Object.PathDelta.X * Object.PathDelta.X +
+		Object.PathDelta.Y * Object.PathDelta.Y);
+	if (PathLength <= 0.0f) return;
+
+	const WorldPosition Before = Object.Position;
+	const float Direction =
+		Object.BehaviorState >= 0 ? 1.0f : -1.0f;
+	Object.BehaviorPhase += Direction * Object.MoveSpeed;
+
+	if (Object.BehaviorPhase >= PathLength) {
+		Object.BehaviorPhase = PathLength;
+		Object.BehaviorState = -1;
+	} else if (Object.BehaviorPhase <= 0.0f) {
+		Object.BehaviorPhase = 0.0f;
+		Object.BehaviorState = 1;
+	}
+
+	const float Rate = Object.BehaviorPhase / PathLength;
+	Object.Position = {
+		Object.InitialPosition.X + Object.PathDelta.X * Rate,
+		Object.InitialPosition.Y + Object.PathDelta.Y * Rate
+	};
+	Object.FrameDelta = {
+		Object.Position.X - Before.X,
+		Object.Position.Y - Before.Y
+	};
+	Object.Velocity = Object.FrameDelta;
 }
 
 void NativeObjectSystem::UpdateWalkingEnemy(
@@ -2651,7 +2716,9 @@ void NativeObjectSystem::Update(
 	WorldPosition PlayerPosition) {
 	for (NativeObjectRuntime& Object : Objects_) {
 		if (!Object.Active) continue;
-		if (Object.TypeId == "WalkingEnemy" ||
+		if (Object.TypeId == "MovingPlatform") {
+			UpdateMovingPlatform(Object);
+		} else if (Object.TypeId == "WalkingEnemy" ||
 			Object.TypeId == "TransformingWalker" ||
 			Object.TypeId == "UnstompableWalker") {
 			UpdateWalkingEnemy(Object, Map, Catalog);
@@ -2771,6 +2838,32 @@ void NativeObjectSystem::Update(
 			}
 		}
 	}
+}
+
+bool NativeObjectSystem::FindSupportingPlatform(
+	const ObjectHitBounds& ActorBounds,
+	std::string& PlatformId,
+	float Tolerance) const {
+	const float ActorLeft = ActorBounds.Position.X;
+	const float ActorRight = ActorLeft + ActorBounds.Size.X;
+	const float ActorBottom =
+		ActorBounds.Position.Y + ActorBounds.Size.Y;
+
+	for (const NativeObjectRuntime& Object : Objects_) {
+		if (!Object.Active || Object.TypeId != "MovingPlatform") continue;
+		const ObjectHitBounds Platform = Object.HitBounds();
+		const float PlatformRight =
+			Platform.Position.X + Platform.Size.X;
+		if (ActorLeft >= PlatformRight ||
+			ActorRight <= Platform.Position.X) {
+			continue;
+		}
+		if (std::fabs(ActorBottom - Platform.Position.Y) <= Tolerance) {
+			PlatformId = Object.Id;
+			return true;
+		}
+	}
+	return false;
 }
 
 bool NativeObjectSystem::HasPlatformSupport(
