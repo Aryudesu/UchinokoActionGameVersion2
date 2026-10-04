@@ -251,6 +251,52 @@ Object propertyの `hitboxOffset` / `hitboxSize` / `contactDamage` でoverride�
 
 この段階では接触基盤まで。Enemy AI、踏みつけ、DamageReaction、LiftのStand判定は別PRで接続する。
 
+### PR #64 / #65: MovingPlatform Stand / carry
+
+Native `MovingPlatform` はObjectSpawnとして実装済み。
+
+現在のproperty:
+
+```text
+type = MovingPlatform
+widthTiles = 1..5
+pathDelta = [dx, dy]
+speed = px/frame
+```
+
+意味:
+
+- `widthTiles`: Platform上面幅。HSP互換の1セルLiftは1
+- `pathDelta`: spawnから単一直線の終点まで
+- `speed`: path上の移動速度
+- `pathDelta=[0,0]`: 静止Platform
+- 非0 pathは始点↔終点を往復
+
+runtimeでは `FrameDelta` を計算し、Stand中のPlayerへ同じ差分を適用してcarryする。
+
+この設計は**単純な直線往復**用として確定してよい。
+
+一方、HSP `gizf=49/50` の線追従は複数segmentを曲がりながら進むため、`pathDelta` を無理に拡張して表現しない。
+
+将来案:
+
+```text
+ObjectSpawn
+  ├ MovingPlatform properties
+  └ pathId (optional)
+          ↓
+       StagePath
+        ├ point[]
+        ├ segment[]
+        └ mode
+          ↓
+     PathFollower
+       ├ Platform
+       └ PathEnemy
+```
+
+HSPの `-1..-7` 等のguide tileはLegacy変換時だけ解釈し、V2 nativeでは明示Pathへ変換する。HSP enemyf=16/17もPathFollower共有候補。
+
 ### PR #39: DamageReaction / knockback接続
 
 Object contactの `contactDamage` とTerrainの `TileEffectType::Damage` を同じ `DamageReactionState` へ通す。
