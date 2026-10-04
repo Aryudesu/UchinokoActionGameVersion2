@@ -106,6 +106,62 @@ Player開始位置の `100 / 110` は読込後に空セルへ置き換えられ�
 
 細かい番号は時期によって変化しているため、Version2正式IDとしては使用しません。
 
+### HSP Lift / Moving floor整理
+
+`giz.hsp` のうち、Playerを運ぶ床・Lift系として確認できた主な `gizf` は次の通り。
+
+| gizf | HSP上の挙動 | V2での整理案 |
+|---:|---|---|
+| 3 | 左右リフト。地形へ当たると反転し、乗っているPlayerをX方向へcarry | `MovingPlatform` のhorizontal movement。HSP互換時だけterrain反転modeを検討 |
+| 4 | 上下リフト。地形へ当たると反転し、PlayerをY方向へcarry | `MovingPlatform` のvertical movement |
+| 5 | 乗るまでは静止。乗った後は重力で落下 | `TriggeredPlatform` / `MovingPlatform` のtriggered fall behavior候補 |
+| 6 | 乗るまでは静止。乗った後は上向き加速 | triggered rise behavior候補 |
+| 15..18 | 乗ると右へ動き始め、それぞれ19..22の途中phaseへ入る | timer / phase付きtriggered platformとして別behavior化 |
+| 19..22 | 右へ2px/frameで進み、60frame周期で次stateへ移行 | 15..18の内部state。正式TypeIdへ分けない |
+| 23 | 上記sequence最終段。右移動を続けながら重力落下 | triggered timed platformの最終phase |
+| 49 | 乗ると50へ移行して起動 | line-follow platformのWaiting state |
+| 50 | `yuka` 内の負数guide値を読み、上下左右へ曲がりながら線追従 | 将来のPathFollower / GuidePath系。単純`pathDelta`とは別 |
+
+HSP版の通常Liftは1セル幅だが、V2ではPR #64で `widthTiles=1..5` を採用した。HSP互換相当は `widthTiles=1` で表現する。
+
+PR #64 / #65でV2 `MovingPlatform` に以下を実装済み。
+
+- 1〜5マス幅
+- 上面Stand
+- 下からすり抜け
+- `pathDelta + speed` による直線往復
+- 水平 / 垂直movement
+- `FrameDelta` によるPlayer carry
+- jump / platform離脱時のcarry解除
+
+したがって、HSP `gizf=3/4` の「Playerを運ぶ」という本質部分は既にV2基盤で表現可能。ただしHSPでは**地形へ当たると反転**しており、V2の現行 `pathDelta` は明示端点往復なので、旧仕様を完全再現する必要がある場合のみterrain-driven反転modeを追加する。
+
+一方、`gizf=49/50` は単純往復ではない。HSPではguide tileを読んで、
+
+- `-2`: 横移動維持 / Y停止
+- `-3`: 縦移動維持 / X停止
+- `-4..-7` 等: 角で進行方向を90度変更
+- `-1`: 速度反転
+- 通常空間へ出ると重力挙動
+
+のように経路を決めている。
+
+これはHSPの1セル1値に強く依存した表現なので、V2では負数guide tileをruntimeへ復活させず、
+
+```text
+Path / waypoint / segment
+        ↓
+PathFollower
+        ↓
+MovingPlatform / PathEnemy
+```
+
+のような明示的path dataへ変換する方針が望ましい。
+
+HSP `enemyf=16/17` も `enemyvx/enemyvy` で2D移動し、地形へ入ると消滅する「線移動Enemy」なので、将来 `PathFollower` を作る際に `gizf=49/50` とmovement部分を共通化できる可能性が高い。ただしEnemy接触・damage責務はMovingPlatformとは分離する。
+
+---
+
 ---
 
 ## 4. Player移動
