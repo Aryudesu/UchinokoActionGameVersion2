@@ -2054,6 +2054,22 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 			.TryGetInteger(WidthTiles));
 		assert(WidthTiles == Index + 1);
 	}
+	WorldPosition PlatformPath;
+	float PlatformSpeed = 0.0f;
+	assert(PlatformObjects->Objects[3].Properties.at("pathDelta")
+		.TryGetVector2(PlatformPath));
+	assert(NearlyEqual(PlatformPath.X, 96.0f));
+	assert(NearlyEqual(PlatformPath.Y, 0.0f));
+	assert(PlatformObjects->Objects[3].Properties.at("speed")
+		.TryGetFloat(PlatformSpeed));
+	assert(NearlyEqual(PlatformSpeed, 2.0f));
+	assert(PlatformObjects->Objects[4].Properties.at("pathDelta")
+		.TryGetVector2(PlatformPath));
+	assert(NearlyEqual(PlatformPath.X, 0.0f));
+	assert(NearlyEqual(PlatformPath.Y, -96.0f));
+	assert(PlatformObjects->Objects[4].Properties.at("speed")
+		.TryGetFloat(PlatformSpeed));
+	assert(NearlyEqual(PlatformSpeed, 2.0f));
 	assert(PlatformArea->Transitions.size() == 1);
 	assert(PlatformArea->Transitions[0].Id ==
 		"pipe-moving-platform-main");
@@ -4678,6 +4694,140 @@ void TestCharacterCanJumpFromExternalMovingPlatformSupport() {
 	assert(Player.Body().Grounded);
 	assert(NearlyEqual(Player.Body().Position.Y, 64.0f));
 	assert(NearlyEqual(Player.Body().Velocity.Y, 0.0f));
+}
+
+void TestNativeMovingPlatformPingPongsAndReportsFrameDelta() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "moving";
+	Spawn.TypeId = "MovingPlatform";
+	Spawn.Position = {32.0f, 96.0f};
+	Spawn.Properties["widthTiles"] =
+		StagePropertyValue::Integer(2);
+	Spawn.Properties["pathDelta"] =
+		StagePropertyValue::Vector2({8.0f, 0.0f});
+	Spawn.Properties["speed"] =
+		StagePropertyValue::Float(2.0f);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	TileMap Map = MakeMap({{0}});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	const float ExpectedX[] = {
+		34.0f, 36.0f, 38.0f, 40.0f,
+		38.0f, 36.0f, 34.0f, 32.0f
+	};
+	for (int Frame = 0; Frame < 8; ++Frame) {
+		Objects.Update(Map, Catalog);
+		const NativeObjectRuntime* Platform = Objects.Find("moving");
+		assert(Platform != nullptr);
+		assert(NearlyEqual(Platform->Position.X, ExpectedX[Frame]));
+		assert(NearlyEqual(
+			Platform->FrameDelta.X,
+			Frame < 4 ? 2.0f : -2.0f));
+		assert(NearlyEqual(Platform->FrameDelta.Y, 0.0f));
+	}
+}
+
+void TestNativeMovingPlatformRequiresPositiveSpeedForPath() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "bad-moving";
+	Spawn.TypeId = "MovingPlatform";
+	Spawn.Properties["pathDelta"] =
+		StagePropertyValue::Vector2({32.0f, 0.0f});
+	Spawn.Properties["speed"] =
+		StagePropertyValue::Float(0.0f);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	const Result<bool> Reset = Objects.Reset(Area);
+	assert(Reset.IsFailure());
+	assert(Reset.Error().find("speed must be positive") !=
+		std::string::npos);
+}
+
+void TestCharacterCanBeCarriedByMovingPlatformDelta() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "carry";
+	Spawn.TypeId = "MovingPlatform";
+	Spawn.Position = {64.0f, 96.0f};
+	Spawn.Properties["widthTiles"] =
+		StagePropertyValue::Integer(3);
+	Spawn.Properties["pathDelta"] =
+		StagePropertyValue::Vector2({32.0f, 0.0f});
+	Spawn.Properties["speed"] =
+		StagePropertyValue::Float(2.0f);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+
+	CharacterBody Body;
+	Body.Position = {80.0f, 64.0f};
+	Body.Grounded = true;
+	CharacterController Player(Body);
+
+	CharacterTouchBounds Touch = Player.TouchBounds();
+	ObjectHitBounds PlayerBounds;
+	PlayerBounds.Position = {Touch.Left, Touch.Top};
+	PlayerBounds.Size = {
+		Touch.Right - Touch.Left,
+		Touch.Bottom - Touch.Top
+	};
+	std::string PlatformId;
+	assert(Objects.FindSupportingPlatform(
+		PlayerBounds, PlatformId));
+	assert(PlatformId == "carry");
+
+	TileMap Map = MakeMap({{0}});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	Objects.Update(Map, Catalog);
+	const NativeObjectRuntime* Platform = Objects.Find(PlatformId);
+	assert(Platform != nullptr);
+	assert(NearlyEqual(Platform->FrameDelta.X, 2.0f));
+
+	const CharacterBody Before = Player.Body();
+	Player.Reposition({
+		Before.Position.X + Platform->FrameDelta.X,
+		Before.Position.Y + Platform->FrameDelta.Y
+	}, false);
+	Player.LandOnExternalSurface(Platform->HitBounds().Position.Y);
+
+	assert(NearlyEqual(Player.Body().Position.X, 82.0f));
+	assert(NearlyEqual(Player.Body().Position.Y, 64.0f));
+	assert(Player.Body().Grounded);
+
+	// Platformからjumpした後はsupport判定から外れ、carry対象にならない。
+	Player.Step(0.0f, true, Map, Catalog, true);
+	Touch = Player.TouchBounds();
+	PlayerBounds.Position = {Touch.Left, Touch.Top};
+	PlayerBounds.Size = {
+		Touch.Right - Touch.Left,
+		Touch.Bottom - Touch.Top
+	};
+	assert(!Objects.HasPlatformSupport(PlayerBounds));
 }
 
 void TestNativePipeEnemyWaitsActivatesLaunchesAndResets() {
@@ -8917,6 +9067,9 @@ int main(int argc, char* argv[]) {
 	TestNativeMovingPlatformSupportsWidthsOneToFive();
 	TestNativeMovingPlatformRejectsWidthOutsideOneToFive();
 	TestNativeMovingPlatformOnlyLandsFromAbove();
+	TestNativeMovingPlatformPingPongsAndReportsFrameDelta();
+	TestNativeMovingPlatformRequiresPositiveSpeedForPath();
+	TestCharacterCanBeCarriedByMovingPlatformDelta();
 	TestCharacterCanJumpFromExternalMovingPlatformSupport();
 	TestNativePipeEnemyWaitsActivatesLaunchesAndResets();
 	TestNativePipeEnemyContactOnlyAfterFrame50();
@@ -9028,6 +9181,9 @@ int main(int argc, char* argv[]) {
 	TestNativeMovingPlatformSupportsWidthsOneToFive();
 	TestNativeMovingPlatformRejectsWidthOutsideOneToFive();
 	TestNativeMovingPlatformOnlyLandsFromAbove();
+	TestNativeMovingPlatformPingPongsAndReportsFrameDelta();
+	TestNativeMovingPlatformRequiresPositiveSpeedForPath();
+	TestCharacterCanBeCarriedByMovingPlatformDelta();
 	TestCharacterCanJumpFromExternalMovingPlatformSupport();
 	TestNativePipeEnemyWaitsActivatesLaunchesAndResets();
 	TestNativePipeEnemyContactOnlyAfterFrame50();
