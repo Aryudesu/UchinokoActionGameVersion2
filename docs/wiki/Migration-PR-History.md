@@ -64,6 +64,8 @@ Version2のFoundation移植がどの順番で進んだかを追うための索�
 | #61 | HSP3のキラー的な直進EnemyをBulletEnemy化 | merged / 実機確認済み |
 | #62 | HSP8/9の自動ジャンプEnemyをJumpingEnemy化 | merged / 実機確認済み |
 | #63 | HSP18の土管から飛び出すEnemyをPipeEnemy化 | merged / 実機確認済み |
+| #64 | 1〜5マス幅のMovingPlatform Stand基盤 | merged / 実機確認済み |
+| #65 | MovingPlatform往復移動 + Player carry | merged / 実機確認済み |
 
 ## 読み方
 
@@ -165,6 +167,9 @@ JumpingEnemy 8/9（merged / 実機確認済み）
 
 #63
 PipeEnemy 18（merged / 実機確認済み）
+
+#64-65
+MovingPlatform Stand / pathDelta往復 / Player carry（merged / 実機確認済み）
 ```
 
 という流れです。
@@ -229,3 +234,19 @@ PR #62のJumpingEnemyはdevへマージ済み。HSP8/9相当の連続ジャン�
 PR #63のPipeEnemyもdevへマージ済み。HSP18相当の近距離待機・timer進行・接触ON・上方飛び出し・着地後の待機復帰まで実機確認済み。
 
 これで今回優先していた enemyf=3 / 8 / 9 / 18 / 28 は完了。Enemy追加フェーズはいったん区切り、次はEnemy以外のruntime基盤へ進む。
+
+
+## 2026-10-05 MovingPlatform / HSP Lift整理
+
+PR #64 / #65で、Native MovingPlatformは1〜5マス幅、上面Stand、水平/垂直直線往復、Player carryまで実機確認済み。
+
+その後HSP `giz.hsp` を再調査し、Lift系を次のように分類した。
+
+- gizf 3/4: 左右 / 上下Lift
+- gizf 5/6: 乗ると落下 / 上昇
+- gizf 15..23: 乗ると起動するtimer/state型Platform
+- gizf 49→50: guide tileに沿う線追従Platform
+
+現行MovingPlatformの `pathDelta` は3/4相当の単純移動をV2向けに表現する基盤として扱う。
+49/50相当は負数guide tileをruntimeへ戻さず、将来のPathFollower / waypoint dataへ変換する方針。
+HSP enemyf=16/17もmovement部分はPathFollower共有候補とする。
