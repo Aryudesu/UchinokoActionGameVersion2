@@ -125,6 +125,17 @@ devへmerge済みのEnemy系はPR #63まで。
 
 Enemy追加フェーズはいったん区切る。次はEnemy死亡演出 / Score / SEなどの共通runtime effect、またはLift / moving platform基盤を優先する。16 / 17の線移動EnemyはLift / path movement基盤の後で扱う。
 
+PR #64 / #65でMovingPlatform基盤もdevへmerge済み。
+
+- #64: 1〜5マス幅、上面Stand、下からすり抜け、Lift上jump
+- #65: `pathDelta + speed` の水平/垂直往復、`FrameDelta` によるPlayer carry
+- P1〜P5 fixtureで実機確認済み
+- HSP版1マス幅は `widthTiles=1` で表現可能
+
+HSP Lift再調査では、`gizf=3/4` が左右/上下Lift、`5/6` が乗ると落下/上昇、`15..23` が乗ると起動するtimer/state列、`49→50` がguide tileに沿う線追従床と判明した。
+
+特に `gizf=49/50` は現行の単一直線 `pathDelta` では表現しない。HSPの負数guide tileをruntimeへ復活させず、将来PathFollower / waypoint形式へ変換する。enemyf=16/17の線移動Enemyもmovement部分は同じPathFollower共有候補。
+
 今後、未移植Enemyへ戻る場合は次を優先する。
 
 1. HSPの実コードからupdate順序まで確認
