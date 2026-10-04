@@ -1,6 +1,6 @@
 # 残件・未移植・設計判断
 
-2026-09-27時点。
+2026-10-05時点。
 
 ---
 
@@ -39,10 +39,11 @@ Fish / WallCrawler / SeaAnemone / Mariri / TransformingWalker / UnstompableWalke
 
 推奨順:
 
-1. Enemy死亡演出 / Score / SEをruntime effectへ分離
-2. Lift Stand判定 / moving platform runtimeを完成
-3. HSP 16 / 17はLift / path movement基盤の後で整理
-4. external Stage transition / Stage loader責務を設計
+1. HSP Liftのうち単純往復以外を整理・必要性判断
+2. PathFollower / waypoint表現を設計し、HSP gizf=49/50とenemyf=16/17で共有可能にする
+3. MovingPlatform carry時のterrain押し出し / 圧死を必要に応じて追加
+4. Enemy死亡演出 / Score / SEをruntime effectへ分離
+5. external Stage transition / Stage loader責務を設計
 7. PR #28を旧ARY parser / converter入力として整理
 8. Version1 `Data{detail}.inf` parserを変換ツール側へ追加
 9. V1 Block ID 0..45 → V2 native Tile定義への変換mapping
@@ -78,7 +79,7 @@ Fish / WallCrawler / SeaAnemone / Mariri / TransformingWalker / UnstompableWalke
 ### Version1現役機能
 
 - Enemy: WalkingEnemy1/2、CarrotMan、BallSlime、FlyingEnemy 4種、Kameen、Pikachii、Chikorarashi、Fish、WallCrawler、SeaAnemone、MaririはNative化済み。HSP 10 / 15..17 / 19は未移植。3はPR #61、8/9はPR #62、18はPR #63、28はPR #60でmerge済み
-- Lift / moving object
+- Lift / moving object: PR #64でStand + widthTiles=1..5、PR #65でpathDelta往復 + Player carryまでNative化済み。HSPのtriggered / guide-line系は未整理
 - Boss
 - presentation effect
 - Score popup
@@ -132,12 +133,12 @@ Terrain / Visual / Object / Eventを分ける。
 
 ## 6. ステージデータの未決事項
 
-PR #30〜#63はdevへマージ済み。Native StageData、WalkingEnemy、Camera lifecycle、ProjectileSystem、BallSlimeおよびHSP特殊Enemyの多くまでNativeObjectRuntimeへ接続済み。今回優先していたHSP Enemy 3 / 8 / 9 / 18 / 28はすべて実装・実機確認済み。
+PR #30〜#65はdevへマージ済み。Native StageData、WalkingEnemy、Camera lifecycle、ProjectileSystem、BallSlimeおよびHSP特殊Enemyの多くまでNativeObjectRuntimeへ接続済み。今回優先していたHSP Enemy 3 / 8 / 9 / 18 / 28はすべて実装・実機確認済み。
 
 - JSON + CSVをauthoring/native v1として採用済み。将来binary/export formatを追加するか
 - TileLayer CSVを将来full grid / sparse / chunkedへ最適化するか
 - TypeIdごとのproperty schema
-- Lift pathをObject propertyで持つかPath/Region等を別概念にするか
+- 単純直線往復は `MovingPlatform.pathDelta + speed` で実装済み。複数segment / guide-line追従はPath/waypoint等の別概念にするか
 - editor固有のvisibility / lock / selection等をstage dataと分離するか
 - Legacy parserは原則offline converter / 開発ツール側へ置き、製品runtimeには残さない
 
