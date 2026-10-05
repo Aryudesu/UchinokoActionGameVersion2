@@ -776,6 +776,9 @@ void NativeStageSandboxScene::update() {
 		ApplyTerrainEffects();
 		if (Dead_) return;
 		Objects_.UpdateLifecycle(Camera_.Position(), Camera_.ViewSize());
+		if (!StandingPlatformId_.empty()) {
+			Objects_.ActivateMovingPlatformOnStand(StandingPlatformId_);
+		}
 		Objects_.Update(
 			TerrainLayer_->Map,
 			TerrainCatalog_,
@@ -808,6 +811,9 @@ void NativeStageSandboxScene::update() {
 	ApplyTerrainEffects();
 	if (Dead_) return;
 	Objects_.UpdateLifecycle(Camera_.Position(), Camera_.ViewSize());
+	if (!StandingPlatformId_.empty()) {
+		Objects_.ActivateMovingPlatformOnStand(StandingPlatformId_);
+	}
 	Objects_.Update(
 		TerrainLayer_->Map,
 		TerrainCatalog_,
@@ -1132,6 +1138,44 @@ void NativeStageSandboxScene::DrawObjectLayer(
 		const int Y = ScreenY(Object->Position.Y);
 
 		if (Object->TypeId == "MovingPlatform") {
+			if (Object->RailVisible && Object->PathPoints.size() >= 2) {
+				const float RailOffsetX = Object->HitboxSize.X * 0.5f;
+				const float RailOffsetY = Object->HitboxSize.Y * 0.5f;
+				for (std::size_t Index = 1;
+					Index < Object->PathPoints.size(); ++Index) {
+					const uchinoko::WorldPosition FromRelative =
+						Object->PathPoints[Index - 1];
+					const uchinoko::WorldPosition ToRelative =
+						Object->PathPoints[Index];
+					const int FromX = ScreenX(
+						Object->InitialPosition.X +
+						FromRelative.X + RailOffsetX);
+					const int FromY = ScreenY(
+						Object->InitialPosition.Y +
+						FromRelative.Y + RailOffsetY);
+					const int ToX = ScreenX(
+						Object->InitialPosition.X +
+						ToRelative.X + RailOffsetX);
+					const int ToY = ScreenY(
+						Object->InitialPosition.Y +
+						ToRelative.Y + RailOffsetY);
+					DrawLine(
+						FromX, FromY, ToX, ToY,
+						GetColor(90, 110, 130), 4);
+					DrawLine(
+						FromX, FromY, ToX, ToY,
+						GetColor(190, 210, 225), 1);
+					DrawCircle(
+						FromX, FromY, 3,
+						GetColor(210, 230, 240), TRUE);
+					if (Index + 1 == Object->PathPoints.size()) {
+						DrawCircle(
+							ToX, ToY, 3,
+							GetColor(210, 230, 240), TRUE);
+					}
+				}
+			}
+
 			const int Width =
 				static_cast<int>(Object->HitboxSize.X);
 			const int Height =
@@ -1382,10 +1426,11 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					DrawFormatString(
 						X, Y + 18,
 						GetColor(190, 235, 255),
-						"%s PLATFORM w=%.0f path=%s",
+						"%s PLATFORM w=%.0f path=%s %s",
 						Object->Id.c_str(),
 						Object->HitboxSize.X / 32.0f,
-						Object->PathId.c_str());
+						Object->PathId.c_str(),
+						Object->PlatformStarted ? "RUN" : "WAIT");
 					DrawFormatString(
 						X, Y + 34,
 						GetColor(160, 220, 255),
