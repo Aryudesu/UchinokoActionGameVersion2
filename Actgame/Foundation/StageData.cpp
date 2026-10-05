@@ -199,6 +199,12 @@ Result<bool> ValidateEntityIdentity(
 	return Result<bool>::Success(true);
 }
 
+bool NearlySamePoint(WorldPosition Left, WorldPosition Right) {
+	const float Epsilon = 0.001f;
+	return std::fabs(Left.X - Right.X) <= Epsilon &&
+		std::fabs(Left.Y - Right.Y) <= Epsilon;
+}
+
 Result<bool> ValidateAreaBasics(const StageArea& Area) {
 	if (Area.Id.empty()) {
 		return Result<bool>::Failure("Area id must not be empty");
