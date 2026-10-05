@@ -1720,11 +1720,81 @@ void NativeObjectSystem::UpdateLifecycle(
 	}
 }
 
+bool NativeObjectSystem::UpdatePathFollower(
+	NativeObjectRuntime& Object) {
+	if (Object.PathPoints.size() < 2 ||
+		Object.PathPointIndex >= Object.PathPoints.size() ||
+		Object.MoveSpeed <= 0.0f) {
+		return false;
+	}
+
+	const WorldPosition Before = Object.Position;
+	float Remaining = Object.MoveSpeed;
+	const float Epsilon = 0.001f;
+	int Safety = 0;
+
+	while (Remaining > Epsilon && Safety < 64) {
+		++Safety;
+		const WorldPosition RelativeTarget =
+			Object.PathPoints[Object.PathPointIndex];
+		const WorldPosition Target = {
+			Object.InitialPosition.X + RelativeTarget.X,
+			Object.InitialPosition.Y + RelativeTarget.Y
+		};
+		const float DeltaX = Target.X - Object.Position.X;
+		const float DeltaY = Target.Y - Object.Position.Y;
+		const float Distance =
+			std::sqrt(DeltaX * DeltaX + DeltaY * DeltaY);
+
+		if (Distance <= Epsilon) {
+			if (Object.PathDirection > 0) {
+				if (Object.PathPointIndex + 1 >=
+					Object.PathPoints.size()) {
+					Object.PathDirection = -1;
+					Object.PathPointIndex =
+						Object.PathPoints.size() - 2;
+				} else {
+					++Object.PathPointIndex;
+				}
+			} else {
+				if (Object.PathPointIndex == 0) {
+					Object.PathDirection = 1;
+					Object.PathPointIndex = 1;
+				} else {
+					--Object.PathPointIndex;
+				}
+			}
+			continue;
+		}
+
+		const float Step = (std::min)(Remaining, Distance);
+		Object.Position.X += DeltaX / Distance * Step;
+		Object.Position.Y += DeltaY / Distance * Step;
+		Remaining -= Step;
+
+		if (Step + Epsilon >= Distance) {
+			Object.Position = Target;
+		}
+	}
+
+	Object.FrameDelta = {
+		Object.Position.X - Before.X,
+		Object.Position.Y - Before.Y
+	};
+	Object.Velocity = Object.FrameDelta;
+	return true;
+}
+
 void NativeObjectSystem::UpdateMovingPlatform(
 	NativeObjectRuntime& Object) {
 	Object.FrameDelta = {0.0f, 0.0f};
 	Object.Velocity = {0.0f, 0.0f};
 	if (!Object.Active || Object.MoveSpeed <= 0.0f) return;
+
+	if (!Object.PathPoints.empty()) {
+		UpdatePathFollower(Object);
+		return;
+	}
 
 	const float PathLength = std::sqrt(
 		Object.PathDelta.X * Object.PathDelta.X +
