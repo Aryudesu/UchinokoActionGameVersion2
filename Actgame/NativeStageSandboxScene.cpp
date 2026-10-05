@@ -1378,22 +1378,40 @@ void NativeStageSandboxScene::DrawObjectLayer(
 					: GetColor(255, 90, 220),
 				FALSE);
 			if (Object->TypeId == "MovingPlatform") {
-				DrawFormatString(
-					X, Y + 18,
-					GetColor(190, 235, 255),
-					"%s PLATFORM w=%.0f d=(%.0f,%.0f)",
-					Object->Id.c_str(),
-					Object->HitboxSize.X / 32.0f,
-					Object->PathDelta.X,
-					Object->PathDelta.Y);
-				DrawFormatString(
-					X, Y + 34,
-					GetColor(160, 220, 255),
-					"v=(%.1f,%.1f) phase=%.1f %s",
-					Object->FrameDelta.X,
-					Object->FrameDelta.Y,
-					Object->BehaviorPhase,
-					Object->BehaviorState >= 0 ? "->" : "<-");
+				if (!Object->PathId.empty()) {
+					DrawFormatString(
+						X, Y + 18,
+						GetColor(190, 235, 255),
+						"%s PLATFORM w=%.0f path=%s",
+						Object->Id.c_str(),
+						Object->HitboxSize.X / 32.0f,
+						Object->PathId.c_str());
+					DrawFormatString(
+						X, Y + 34,
+						GetColor(160, 220, 255),
+						"v=(%.1f,%.1f) target=%d %s",
+						Object->FrameDelta.X,
+						Object->FrameDelta.Y,
+						static_cast<int>(Object->PathPointIndex),
+						Object->PathDirection >= 0 ? "->" : "<-");
+				} else {
+					DrawFormatString(
+						X, Y + 18,
+						GetColor(190, 235, 255),
+						"%s PLATFORM w=%.0f d=(%.0f,%.0f)",
+						Object->Id.c_str(),
+						Object->HitboxSize.X / 32.0f,
+						Object->PathDelta.X,
+						Object->PathDelta.Y);
+					DrawFormatString(
+						X, Y + 34,
+						GetColor(160, 220, 255),
+						"v=(%.1f,%.1f) phase=%.1f %s",
+						Object->FrameDelta.X,
+						Object->FrameDelta.Y,
+						Object->BehaviorPhase,
+						Object->BehaviorState >= 0 ? "->" : "<-");
+				}
 			} else if (Object->TypeId == "TransformingWalker") {
 				DrawFormatString(
 					X, Y + 34,
