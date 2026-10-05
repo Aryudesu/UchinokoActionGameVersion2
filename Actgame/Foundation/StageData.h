@@ -84,6 +84,16 @@ struct TileLayer {
 	TileMap Map;
 };
 
+enum class StagePathMode {
+	PingPong
+};
+
+struct StagePath {
+	std::string Id;
+	std::vector<WorldPosition> Points;
+	StagePathMode Mode = StagePathMode::PingPong;
+};
+
 struct ObjectSpawn {
 	std::string Id;
 	std::string TypeId;
@@ -167,6 +177,7 @@ struct StageArea {
 	StageAreaSettings Settings;
 	std::vector<TileLayer> TileLayers;
 	std::vector<ObjectLayer> ObjectLayers;
+	std::vector<StagePath> Paths;
 	std::vector<RegionLayer> RegionLayers;
 	std::vector<StageTransition> Transitions;
 
@@ -176,6 +187,8 @@ struct StageArea {
 	TileLayer* TerrainLayer();
 	const ObjectLayer* FindObjectLayer(const std::string& LayerId) const;
 	ObjectLayer* FindObjectLayer(const std::string& LayerId);
+	const StagePath* FindPath(const std::string& PathId) const;
+	StagePath* FindPath(const std::string& PathId);
 	const RegionLayer* FindRegionLayer(const std::string& LayerId) const;
 	RegionLayer* FindRegionLayer(const std::string& LayerId);
 };
