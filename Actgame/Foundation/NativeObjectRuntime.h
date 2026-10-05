@@ -36,6 +36,10 @@ struct NativeObjectRuntime {
 	WorldPosition Acceleration;
 	WorldPosition PathDelta;
 	WorldPosition FrameDelta;
+	std::string PathId;
+	std::vector<WorldPosition> PathPoints;
+	std::size_t PathPointIndex = 0;
+	int PathDirection = 1;
 	WorldPosition HitboxOffset;
 	WorldPosition HitboxSize;
 	int ContactDamage = 0;
@@ -128,9 +132,11 @@ public:
 private:
 	static Result<NativeObjectRuntime> BuildRuntime(
 		const ObjectSpawn& Spawn,
-		int TileWidth);
+		const StageArea& Area);
 	static void ResetToSpawn(NativeObjectRuntime& Object);
 	static void UpdateMovingPlatform(
+		NativeObjectRuntime& Object);
+	static bool UpdatePathFollower(
 		NativeObjectRuntime& Object);
 	static void UpdateWalkingEnemy(
 		NativeObjectRuntime& Object,

@@ -576,6 +576,40 @@ ObjectLayer ReadObjectLayer(
 	return Layer;
 }
 
+StagePathMode ReadPathMode(
+	const Json& Object,
+	const std::string& Context) {
+	const std::string Mode =
+		OptionalString(Object, "mode", "pingPong", Context);
+	if (Mode == "pingPong") return StagePathMode::PingPong;
+	throw std::runtime_error(
+		Context + ".mode must be 'pingPong'");
+}
+
+StagePath ReadPath(
+	const Json& Object,
+	const std::string& Context) {
+	StagePath Path;
+	Path.Id = RequireString(Object, "id", Context);
+	Path.Mode = ReadPathMode(Object, Context);
+
+	const Json& Points = RequireField(Object, "points", Context);
+	if (!Points.is_array()) {
+		throw std::runtime_error(
+			Context + ".points must be an array");
+	}
+	std::size_t Index = 0;
+	for (const Json& Point : Points) {
+		Path.Points.push_back(
+			ReadVector2(
+				Point,
+				Context + ".points[" +
+				std::to_string(Index) + "]"));
+		++Index;
+	}
+	return Path;
+}
+
 StageRegion ReadRegion(
 	const Json& Object,
 	const std::string& Context) {
@@ -715,6 +749,23 @@ StageArea ReadArea(
 				ReadObjectLayer(
 					Layer,
 					Context + ".objectLayers[" +
+					std::to_string(Index) + "]"));
+			++Index;
+		}
+	}
+
+	const auto Paths = Object.find("paths");
+	if (Paths != Object.end()) {
+		if (!Paths->is_array()) {
+			throw std::runtime_error(
+				Context + ".paths must be an array");
+		}
+		std::size_t Index = 0;
+		for (const Json& Path : *Paths) {
+			Area.Paths.push_back(
+				ReadPath(
+					Path,
+					Context + ".paths[" +
 					std::to_string(Index) + "]"));
 			++Index;
 		}

@@ -1,5 +1,6 @@
 ﻿#include "StageData.h"
 
+#include <cmath>
 #include <unordered_set>
 #include <utility>
 
@@ -198,6 +199,12 @@ Result<bool> ValidateEntityIdentity(
 	return Result<bool>::Success(true);
 }
 
+bool NearlySamePoint(WorldPosition Left, WorldPosition Right) {
+	const float Epsilon = 0.001f;
+	return std::fabs(Left.X - Right.X) <= Epsilon &&
+		std::fabs(Left.Y - Right.Y) <= Epsilon;
+}
+
 Result<bool> ValidateAreaBasics(const StageArea& Area) {
 	if (Area.Id.empty()) {
 		return Result<bool>::Failure("Area id must not be empty");
@@ -221,6 +228,31 @@ Result<bool> ValidateAreaContent(const StageData& Data, const StageArea& Area) {
 	std::unordered_set<std::string> LayerIds;
 	std::unordered_set<std::string> EntityIds;
 	int TerrainLayerCount = 0;
+
+	std::unordered_set<std::string> PathIds;
+	for (const StagePath& Path : Area.Paths) {
+		if (Path.Id.empty()) {
+			return Result<bool>::Failure("Path id must not be empty");
+		}
+		if (!RegisterUnique(PathIds, Path.Id)) {
+			return Result<bool>::Failure(
+				"Duplicate path id in area: " + Path.Id);
+		}
+		if (Path.Points.size() < 2) {
+			return Result<bool>::Failure(
+				"Path must contain at least two points: " + Path.Id);
+		}
+		if (!NearlySamePoint(Path.Points.front(), {0.0f, 0.0f})) {
+			return Result<bool>::Failure(
+				"Path first point must be [0,0]: " + Path.Id);
+		}
+		for (std::size_t Index = 1; Index < Path.Points.size(); ++Index) {
+			if (NearlySamePoint(Path.Points[Index - 1], Path.Points[Index])) {
+				return Result<bool>::Failure(
+					"Path contains duplicate consecutive points: " + Path.Id);
+			}
+		}
+	}
 
 	for (const TileLayer& Layer : Area.TileLayers) {
 		Result<bool> MetadataResult =
@@ -284,6 +316,20 @@ Result<bool> ValidateAreaContent(const StageData& Data, const StageArea& Area) {
 			Result<bool> EntityResult = ValidateEntityIdentity(
 				Object.Id, Object.TypeId, EntityIds, "Object");
 			if (EntityResult.IsFailure()) return EntityResult;
+
+			auto PathProperty = Object.Properties.find("pathId");
+			if (PathProperty != Object.Properties.end()) {
+				std::string PathId;
+				if (!PathProperty->second.TryGetString(PathId)) {
+					return Result<bool>::Failure(
+						"Object pathId must be a string: " + Object.Id);
+				}
+				if (PathIds.find(PathId) == PathIds.end()) {
+					return Result<bool>::Failure(
+						"Object references unknown path: " +
+						Object.Id + " -> " + PathId);
+				}
+			}
 		}
 	}
 
@@ -363,6 +409,18 @@ const ObjectLayer* StageArea::FindObjectLayer(const std::string& LayerId) const 
 ObjectLayer* StageArea::FindObjectLayer(const std::string& LayerId) {
 	return const_cast<ObjectLayer*>(
 		static_cast<const StageArea&>(*this).FindObjectLayer(LayerId));
+}
+
+const StagePath* StageArea::FindPath(const std::string& PathId) const {
+	for (const StagePath& Path : Paths) {
+		if (Path.Id == PathId) return &Path;
+	}
+	return nullptr;
+}
+
+StagePath* StageArea::FindPath(const std::string& PathId) {
+	return const_cast<StagePath*>(
+		static_cast<const StageArea&>(*this).FindPath(PathId));
 }
 
 const RegionLayer* StageArea::FindRegionLayer(const std::string& LayerId) const {

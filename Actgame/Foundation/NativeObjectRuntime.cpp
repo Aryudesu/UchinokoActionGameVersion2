@@ -754,7 +754,8 @@ ObjectHitBounds NativeObjectRuntime::HitBounds() const {
 
 Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 	const ObjectSpawn& Spawn,
-	int TileWidth) {
+	const StageArea& Area) {
+	const int TileWidth = Area.TileWidth;
 	NativeObjectRuntime Runtime;
 	Runtime.Id = Spawn.Id;
 	Runtime.TypeId = Spawn.TypeId;
@@ -1227,6 +1228,12 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 				Runtime.PathDelta,
 				Error,
 				Spawn.Id) ||
+			!TryReadString(
+				Spawn.Properties,
+				"pathId",
+				Runtime.PathId,
+				Error,
+				Spawn.Id) ||
 			!TryReadFloat(
 				Spawn.Properties,
 				"speed",
@@ -1247,12 +1254,34 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		const float PathLength = std::sqrt(
 			Runtime.PathDelta.X * Runtime.PathDelta.X +
 			Runtime.PathDelta.Y * Runtime.PathDelta.Y);
-		if (PathLength > 0.0f && Runtime.MoveSpeed <= 0.0f) {
+		if (!Runtime.PathId.empty() && PathLength > 0.0f) {
 			return Result<NativeObjectRuntime>::Failure(
-				"MovingPlatform speed must be positive when pathDelta is non-zero: " +
+				"MovingPlatform cannot use both pathId and pathDelta: " +
 				Spawn.Id);
 		}
-		if (PathLength <= 0.0f) {
+
+		if (!Runtime.PathId.empty()) {
+			const StagePath* Path = Area.FindPath(Runtime.PathId);
+			if (Path == nullptr) {
+				return Result<NativeObjectRuntime>::Failure(
+					"MovingPlatform references unknown path: " +
+					Spawn.Id + " -> " + Runtime.PathId);
+			}
+			Runtime.PathPoints = Path->Points;
+			Runtime.PathPointIndex = 1;
+			Runtime.PathDirection = 1;
+			if (Runtime.MoveSpeed <= 0.0f) {
+				return Result<NativeObjectRuntime>::Failure(
+					"MovingPlatform speed must be positive when pathId is set: " +
+					Spawn.Id);
+			}
+		} else if (PathLength > 0.0f) {
+			if (Runtime.MoveSpeed <= 0.0f) {
+				return Result<NativeObjectRuntime>::Failure(
+					"MovingPlatform speed must be positive when pathDelta is non-zero: " +
+					Spawn.Id);
+			}
+		} else {
 			Runtime.MoveSpeed = 0.0f;
 		}
 		Runtime.BehaviorState = 1;
@@ -1497,7 +1526,7 @@ Result<bool> NativeObjectSystem::Reset(const StageArea& Area) {
 			if (Spawn.TypeId == "PlayerSpawn") continue;
 
 			Result<NativeObjectRuntime> Built =
-				BuildRuntime(Spawn, Area.TileWidth);
+				BuildRuntime(Spawn, Area);
 			if (Built.IsFailure()) {
 				Objects_.clear();
 				return Result<bool>::Failure(Built.Error());
@@ -1530,7 +1559,12 @@ void NativeObjectSystem::ResetToSpawn(
 	Object.Direction = Object.InitialDirection;
 	Object.Velocity = {0.0f, 0.0f};
 	Object.Acceleration = {0.0f, 0.0f};
+	Object.FrameDelta = {0.0f, 0.0f};
 	Object.Grounded = false;
+	if (!Object.PathPoints.empty()) {
+		Object.PathPointIndex = 1;
+		Object.PathDirection = 1;
+	}
 
 	if (Object.TypeId == "PipeEnemy") {
 		Object.BehaviorState = PipeEnemyWaiting;
@@ -1686,11 +1720,81 @@ void NativeObjectSystem::UpdateLifecycle(
 	}
 }
 
+bool NativeObjectSystem::UpdatePathFollower(
+	NativeObjectRuntime& Object) {
+	if (Object.PathPoints.size() < 2 ||
+		Object.PathPointIndex >= Object.PathPoints.size() ||
+		Object.MoveSpeed <= 0.0f) {
+		return false;
+	}
+
+	const WorldPosition Before = Object.Position;
+	float Remaining = Object.MoveSpeed;
+	const float Epsilon = 0.001f;
+	int Safety = 0;
+
+	while (Remaining > Epsilon && Safety < 64) {
+		++Safety;
+		const WorldPosition RelativeTarget =
+			Object.PathPoints[Object.PathPointIndex];
+		const WorldPosition Target = {
+			Object.InitialPosition.X + RelativeTarget.X,
+			Object.InitialPosition.Y + RelativeTarget.Y
+		};
+		const float DeltaX = Target.X - Object.Position.X;
+		const float DeltaY = Target.Y - Object.Position.Y;
+		const float Distance =
+			std::sqrt(DeltaX * DeltaX + DeltaY * DeltaY);
+
+		if (Distance <= Epsilon) {
+			if (Object.PathDirection > 0) {
+				if (Object.PathPointIndex + 1 >=
+					Object.PathPoints.size()) {
+					Object.PathDirection = -1;
+					Object.PathPointIndex =
+						Object.PathPoints.size() - 2;
+				} else {
+					++Object.PathPointIndex;
+				}
+			} else {
+				if (Object.PathPointIndex == 0) {
+					Object.PathDirection = 1;
+					Object.PathPointIndex = 1;
+				} else {
+					--Object.PathPointIndex;
+				}
+			}
+			continue;
+		}
+
+		const float Step = (std::min)(Remaining, Distance);
+		Object.Position.X += DeltaX / Distance * Step;
+		Object.Position.Y += DeltaY / Distance * Step;
+		Remaining -= Step;
+
+		if (Step + Epsilon >= Distance) {
+			Object.Position = Target;
+		}
+	}
+
+	Object.FrameDelta = {
+		Object.Position.X - Before.X,
+		Object.Position.Y - Before.Y
+	};
+	Object.Velocity = Object.FrameDelta;
+	return true;
+}
+
 void NativeObjectSystem::UpdateMovingPlatform(
 	NativeObjectRuntime& Object) {
 	Object.FrameDelta = {0.0f, 0.0f};
 	Object.Velocity = {0.0f, 0.0f};
 	if (!Object.Active || Object.MoveSpeed <= 0.0f) return;
+
+	if (!Object.PathPoints.empty()) {
+		UpdatePathFollower(Object);
+		return;
+	}
 
 	const float PathLength = std::sqrt(
 		Object.PathDelta.X * Object.PathDelta.X +

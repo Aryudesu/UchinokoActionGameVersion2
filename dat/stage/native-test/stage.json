@@ -654,13 +654,20 @@
         { "id": "terrain", "name": "Terrain", "role": "terrain", "zOrder": 0, "source": "moving-platform/terrain.csv", "tileSet": "native-test" },
         { "id": "foreground", "name": "Foreground", "role": "visual", "zOrder": 20, "source": "moving-platform/foreground.csv", "tileSet": "native-test" }
       ],
+      "paths": [
+        {
+          "id": "platform-zigzag",
+          "mode": "pingPong",
+          "points": [[0,0],[64,0],[64,-64],[128,-64]]
+        }
+      ],
       "objectLayers": [
         {
           "id": "objects", "name": "Moving Platform Width Test Objects", "zOrder": 10,
           "objects": [
             { "id": "platform-w1", "type": "MovingPlatform", "position": [96,288], "properties": { "widthTiles": 1 } },
             { "id": "platform-w2", "type": "MovingPlatform", "position": [160,256], "properties": { "widthTiles": 2 } },
-            { "id": "platform-w3", "type": "MovingPlatform", "position": [256,224], "properties": { "widthTiles": 3 } },
+            { "id": "platform-w3", "type": "MovingPlatform", "position": [256,224], "properties": { "widthTiles": 3, "pathId": "platform-zigzag", "speed": 2 } },
             { "id": "platform-w4", "type": "MovingPlatform", "position": [352,288], "properties": { "widthTiles": 4, "pathDelta": [96,0], "speed": 2 } },
             { "id": "platform-w5", "type": "MovingPlatform", "position": [544,256], "properties": { "widthTiles": 5, "pathDelta": [0,-96], "speed": 2 } }
           ]
