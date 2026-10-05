@@ -2056,6 +2056,22 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	}
 	WorldPosition PlatformPath;
 	float PlatformSpeed = 0.0f;
+	assert(PlatformArea->Paths.size() == 1);
+	assert(PlatformArea->Paths[0].Id == "platform-zigzag");
+	assert(PlatformArea->Paths[0].Mode == StagePathMode::PingPong);
+	assert(PlatformArea->Paths[0].Points.size() == 4);
+	assert(NearlyEqual(PlatformArea->Paths[0].Points[0].X, 0.0f));
+	assert(NearlyEqual(PlatformArea->Paths[0].Points[0].Y, 0.0f));
+	assert(NearlyEqual(PlatformArea->Paths[0].Points[1].X, 64.0f));
+	assert(NearlyEqual(PlatformArea->Paths[0].Points[2].Y, -64.0f));
+	std::string PlatformPathId;
+	assert(PlatformObjects->Objects[2].Properties.at("pathId")
+		.TryGetString(PlatformPathId));
+	assert(PlatformPathId == "platform-zigzag");
+	assert(PlatformObjects->Objects[2].Properties.at("speed")
+		.TryGetFloat(PlatformSpeed));
+	assert(NearlyEqual(PlatformSpeed, 2.0f));
+
 	assert(PlatformObjects->Objects[3].Properties.at("pathDelta")
 		.TryGetVector2(PlatformPath));
 	assert(NearlyEqual(PlatformPath.X, 96.0f));
@@ -4736,6 +4752,113 @@ void TestNativeMovingPlatformPingPongsAndReportsFrameDelta() {
 			Frame < 4 ? 2.0f : -2.0f));
 		assert(NearlyEqual(Platform->FrameDelta.Y, 0.0f));
 	}
+}
+
+void TestNativeMovingPlatformFollowsWaypointPathAndPingPongs() {
+	StageArea Area;
+	StagePath Path;
+	Path.Id = "zigzag";
+	Path.Points = {
+		{0.0f, 0.0f},
+		{4.0f, 0.0f},
+		{4.0f, -4.0f}
+	};
+	Area.Paths.push_back(Path);
+
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "waypoint-platform";
+	Spawn.TypeId = "MovingPlatform";
+	Spawn.Position = {32.0f, 96.0f};
+	Spawn.Properties["widthTiles"] =
+		StagePropertyValue::Integer(2);
+	Spawn.Properties["pathId"] =
+		StagePropertyValue::String("zigzag");
+	Spawn.Properties["speed"] =
+		StagePropertyValue::Float(3.0f);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	TileMap Map = MakeMap({{0}});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	const WorldPosition Expected[] = {
+		{35.0f, 96.0f},
+		{36.0f, 94.0f},
+		{36.0f, 93.0f},
+		{36.0f, 96.0f},
+		{33.0f, 96.0f}
+	};
+	for (const WorldPosition& Position : Expected) {
+		Objects.Update(Map, Catalog);
+		const NativeObjectRuntime* Platform =
+			Objects.Find("waypoint-platform");
+		assert(Platform != nullptr);
+		assert(NearlyEqual(Platform->Position.X, Position.X));
+		assert(NearlyEqual(Platform->Position.Y, Position.Y));
+		assert(Platform->PathId == "zigzag");
+		assert(Platform->PathPoints.size() == 3);
+	}
+
+	const NativeObjectRuntime* Platform =
+		Objects.Find("waypoint-platform");
+	assert(Platform != nullptr);
+	assert(Platform->PathDirection == -1);
+}
+
+void TestNativeMovingPlatformRejectsUnknownWaypointPath() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "unknown-path-platform";
+	Spawn.TypeId = "MovingPlatform";
+	Spawn.Properties["pathId"] =
+		StagePropertyValue::String("missing");
+	Spawn.Properties["speed"] =
+		StagePropertyValue::Float(2.0f);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	const Result<bool> Reset = Objects.Reset(Area);
+	assert(Reset.IsFailure());
+	assert(Reset.Error().find("unknown path") != std::string::npos);
+}
+
+void TestNativeMovingPlatformRejectsPathIdWithPathDelta() {
+	StageArea Area;
+	StagePath Path;
+	Path.Id = "line";
+	Path.Points = {{0.0f, 0.0f}, {32.0f, 0.0f}};
+	Area.Paths.push_back(Path);
+
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "ambiguous-platform";
+	Spawn.TypeId = "MovingPlatform";
+	Spawn.Properties["pathId"] =
+		StagePropertyValue::String("line");
+	Spawn.Properties["pathDelta"] =
+		StagePropertyValue::Vector2({32.0f, 0.0f});
+	Spawn.Properties["speed"] =
+		StagePropertyValue::Float(2.0f);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	const Result<bool> Reset = Objects.Reset(Area);
+	assert(Reset.IsFailure());
+	assert(Reset.Error().find("both pathId and pathDelta") !=
+		std::string::npos);
 }
 
 void TestNativeMovingPlatformRequiresPositiveSpeedForPath() {
@@ -9068,6 +9191,9 @@ int main(int argc, char* argv[]) {
 	TestNativeMovingPlatformRejectsWidthOutsideOneToFive();
 	TestNativeMovingPlatformOnlyLandsFromAbove();
 	TestNativeMovingPlatformPingPongsAndReportsFrameDelta();
+	TestNativeMovingPlatformFollowsWaypointPathAndPingPongs();
+	TestNativeMovingPlatformRejectsUnknownWaypointPath();
+	TestNativeMovingPlatformRejectsPathIdWithPathDelta();
 	TestNativeMovingPlatformRequiresPositiveSpeedForPath();
 	TestCharacterCanBeCarriedByMovingPlatformDelta();
 	TestCharacterCanJumpFromExternalMovingPlatformSupport();
@@ -9182,6 +9308,9 @@ int main(int argc, char* argv[]) {
 	TestNativeMovingPlatformRejectsWidthOutsideOneToFive();
 	TestNativeMovingPlatformOnlyLandsFromAbove();
 	TestNativeMovingPlatformPingPongsAndReportsFrameDelta();
+	TestNativeMovingPlatformFollowsWaypointPathAndPingPongs();
+	TestNativeMovingPlatformRejectsUnknownWaypointPath();
+	TestNativeMovingPlatformRejectsPathIdWithPathDelta();
 	TestNativeMovingPlatformRequiresPositiveSpeedForPath();
 	TestCharacterCanBeCarriedByMovingPlatformDelta();
 	TestCharacterCanJumpFromExternalMovingPlatformSupport();
