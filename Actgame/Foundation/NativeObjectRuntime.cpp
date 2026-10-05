@@ -754,7 +754,8 @@ ObjectHitBounds NativeObjectRuntime::HitBounds() const {
 
 Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 	const ObjectSpawn& Spawn,
-	int TileWidth) {
+	const StageArea& Area) {
+	const int TileWidth = Area.TileWidth;
 	NativeObjectRuntime Runtime;
 	Runtime.Id = Spawn.Id;
 	Runtime.TypeId = Spawn.TypeId;
@@ -1227,6 +1228,12 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 				Runtime.PathDelta,
 				Error,
 				Spawn.Id) ||
+			!TryReadString(
+				Spawn.Properties,
+				"pathId",
+				Runtime.PathId,
+				Error,
+				Spawn.Id) ||
 			!TryReadFloat(
 				Spawn.Properties,
 				"speed",
@@ -1247,12 +1254,34 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		const float PathLength = std::sqrt(
 			Runtime.PathDelta.X * Runtime.PathDelta.X +
 			Runtime.PathDelta.Y * Runtime.PathDelta.Y);
-		if (PathLength > 0.0f && Runtime.MoveSpeed <= 0.0f) {
+		if (!Runtime.PathId.empty() && PathLength > 0.0f) {
 			return Result<NativeObjectRuntime>::Failure(
-				"MovingPlatform speed must be positive when pathDelta is non-zero: " +
+				"MovingPlatform cannot use both pathId and pathDelta: " +
 				Spawn.Id);
 		}
-		if (PathLength <= 0.0f) {
+
+		if (!Runtime.PathId.empty()) {
+			const StagePath* Path = Area.FindPath(Runtime.PathId);
+			if (Path == nullptr) {
+				return Result<NativeObjectRuntime>::Failure(
+					"MovingPlatform references unknown path: " +
+					Spawn.Id + " -> " + Runtime.PathId);
+			}
+			Runtime.PathPoints = Path->Points;
+			Runtime.PathPointIndex = 1;
+			Runtime.PathDirection = 1;
+			if (Runtime.MoveSpeed <= 0.0f) {
+				return Result<NativeObjectRuntime>::Failure(
+					"MovingPlatform speed must be positive when pathId is set: " +
+					Spawn.Id);
+			}
+		} else if (PathLength > 0.0f) {
+			if (Runtime.MoveSpeed <= 0.0f) {
+				return Result<NativeObjectRuntime>::Failure(
+					"MovingPlatform speed must be positive when pathDelta is non-zero: " +
+					Spawn.Id);
+			}
+		} else {
 			Runtime.MoveSpeed = 0.0f;
 		}
 		Runtime.BehaviorState = 1;
@@ -1497,7 +1526,7 @@ Result<bool> NativeObjectSystem::Reset(const StageArea& Area) {
 			if (Spawn.TypeId == "PlayerSpawn") continue;
 
 			Result<NativeObjectRuntime> Built =
-				BuildRuntime(Spawn, Area.TileWidth);
+				BuildRuntime(Spawn, Area);
 			if (Built.IsFailure()) {
 				Objects_.clear();
 				return Result<bool>::Failure(Built.Error());
@@ -1530,7 +1559,12 @@ void NativeObjectSystem::ResetToSpawn(
 	Object.Direction = Object.InitialDirection;
 	Object.Velocity = {0.0f, 0.0f};
 	Object.Acceleration = {0.0f, 0.0f};
+	Object.FrameDelta = {0.0f, 0.0f};
 	Object.Grounded = false;
+	if (!Object.PathPoints.empty()) {
+		Object.PathPointIndex = 1;
+		Object.PathDirection = 1;
+	}
 
 	if (Object.TypeId == "PipeEnemy") {
 		Object.BehaviorState = PipeEnemyWaiting;
