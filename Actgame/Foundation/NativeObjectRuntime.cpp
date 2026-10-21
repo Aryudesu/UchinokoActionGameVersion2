@@ -234,6 +234,23 @@ bool TryReadInteger(
 	return true;
 }
 
+bool TryReadBoolean(
+	const StagePropertyMap& Properties,
+	const char* Name,
+	bool& Value,
+	std::string& Error,
+	const std::string& ObjectId) {
+	const auto Found = Properties.find(Name);
+	if (Found == Properties.end()) return true;
+	if (!Found->second.TryGetBoolean(Value)) {
+		Error =
+			"Object property must be boolean: " +
+			ObjectId + "." + Name;
+		return false;
+	}
+	return true;
+}
+
 bool TryReadString(
 	const StagePropertyMap& Properties,
 	const char* Name,
@@ -1216,6 +1233,7 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 
 	if (Spawn.TypeId == "MovingPlatform") {
 		int WidthTiles = MovingPlatformMinWidthTiles;
+		std::string Activation = "auto";
 		if (!TryReadInteger(
 			Spawn.Properties,
 			"widthTiles",
@@ -1232,6 +1250,18 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 				Spawn.Properties,
 				"pathId",
 				Runtime.PathId,
+				Error,
+				Spawn.Id) ||
+			!TryReadString(
+				Spawn.Properties,
+				"activation",
+				Activation,
+				Error,
+				Spawn.Id) ||
+			!TryReadBoolean(
+				Spawn.Properties,
+				"railVisible",
+				Runtime.RailVisible,
 				Error,
 				Spawn.Id) ||
 			!TryReadFloat(
@@ -1283,6 +1313,22 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 			}
 		} else {
 			Runtime.MoveSpeed = 0.0f;
+		}
+		if (Activation == "auto") {
+			Runtime.PlatformStartsOnStand = false;
+			Runtime.PlatformStarted = true;
+		} else if (Activation == "onStand") {
+			if (Runtime.PathId.empty() && PathLength <= 0.0f) {
+				return Result<NativeObjectRuntime>::Failure(
+					"MovingPlatform activation onStand requires a path: " +
+					Spawn.Id);
+			}
+			Runtime.PlatformStartsOnStand = true;
+			Runtime.PlatformStarted = false;
+		} else {
+			return Result<NativeObjectRuntime>::Failure(
+				"MovingPlatform activation must be auto or onStand: " +
+				Spawn.Id);
 		}
 		Runtime.BehaviorState = 1;
 		Runtime.BehaviorPhase = 0.0f;
@@ -1565,6 +1611,11 @@ void NativeObjectSystem::ResetToSpawn(
 		Object.PathPointIndex = 1;
 		Object.PathDirection = 1;
 	}
+	if (Object.TypeId == "MovingPlatform") {
+		Object.PlatformStarted = !Object.PlatformStartsOnStand;
+		Object.BehaviorState = 1;
+		Object.BehaviorPhase = 0.0f;
+	}
 
 	if (Object.TypeId == "PipeEnemy") {
 		Object.BehaviorState = PipeEnemyWaiting;
@@ -1789,7 +1840,8 @@ void NativeObjectSystem::UpdateMovingPlatform(
 	NativeObjectRuntime& Object) {
 	Object.FrameDelta = {0.0f, 0.0f};
 	Object.Velocity = {0.0f, 0.0f};
-	if (!Object.Active || Object.MoveSpeed <= 0.0f) return;
+	if (!Object.Active || !Object.PlatformStarted ||
+		Object.MoveSpeed <= 0.0f) return;
 
 	if (!Object.PathPoints.empty()) {
 		UpdatePathFollower(Object);
@@ -2990,6 +3042,19 @@ bool NativeObjectSystem::HasPlatformSupport(
 		}
 	}
 	return false;
+}
+
+bool NativeObjectSystem::ActivateMovingPlatformOnStand(
+	const std::string& ObjectId) {
+	NativeObjectRuntime* Object = Find(ObjectId);
+	if (Object == nullptr ||
+		!Object->Active ||
+		Object->TypeId != "MovingPlatform" ||
+		!Object->PlatformStartsOnStand) {
+		return false;
+	}
+	Object->PlatformStarted = true;
+	return true;
 }
 
 bool NativeObjectSystem::FindPlatformLanding(

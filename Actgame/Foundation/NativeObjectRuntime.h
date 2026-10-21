@@ -40,6 +40,9 @@ struct NativeObjectRuntime {
 	std::vector<WorldPosition> PathPoints;
 	std::size_t PathPointIndex = 0;
 	int PathDirection = 1;
+	bool PlatformStartsOnStand = false;
+	bool PlatformStarted = true;
+	bool RailVisible = false;
 	WorldPosition HitboxOffset;
 	WorldPosition HitboxSize;
 	int ContactDamage = 0;
@@ -113,6 +116,8 @@ public:
 		const ObjectHitBounds& ActorBounds,
 		std::string& PlatformId,
 		float Tolerance = 1.0f) const;
+	bool ActivateMovingPlatformOnStand(const std::string& ObjectId);
+
 	bool FindPlatformLanding(
 		const ObjectHitBounds& PreviousBounds,
 		const ObjectHitBounds& CurrentBounds,

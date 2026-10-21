@@ -2071,6 +2071,14 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(PlatformObjects->Objects[2].Properties.at("speed")
 		.TryGetFloat(PlatformSpeed));
 	assert(NearlyEqual(PlatformSpeed, 2.0f));
+	std::string PlatformActivation;
+	assert(PlatformObjects->Objects[2].Properties.at("activation")
+		.TryGetString(PlatformActivation));
+	assert(PlatformActivation == "onStand");
+	bool RailVisible = false;
+	assert(PlatformObjects->Objects[2].Properties.at("railVisible")
+		.TryGetBoolean(RailVisible));
+	assert(RailVisible);
 
 	assert(PlatformObjects->Objects[3].Properties.at("pathDelta")
 		.TryGetVector2(PlatformPath));
@@ -4811,6 +4819,130 @@ void TestNativeMovingPlatformFollowsWaypointPathAndPingPongs() {
 		Objects.Find("waypoint-platform");
 	assert(Platform != nullptr);
 	assert(Platform->PathDirection == -1);
+}
+
+void TestNativeMovingPlatformStartsWaypointPathOnStand() {
+	StageArea Area;
+	StagePath Path;
+	Path.Id = "rail";
+	Path.Points = {
+		{0.0f, 0.0f},
+		{8.0f, 0.0f},
+		{8.0f, -8.0f}
+	};
+	Area.Paths.push_back(Path);
+
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "triggered-platform";
+	Spawn.TypeId = "MovingPlatform";
+	Spawn.Position = {32.0f, 96.0f};
+	Spawn.Properties["widthTiles"] =
+		StagePropertyValue::Integer(1);
+	Spawn.Properties["pathId"] =
+		StagePropertyValue::String("rail");
+	Spawn.Properties["speed"] =
+		StagePropertyValue::Float(2.0f);
+	Spawn.Properties["activation"] =
+		StagePropertyValue::String("onStand");
+	Spawn.Properties["railVisible"] =
+		StagePropertyValue::Boolean(true);
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	const NativeObjectRuntime* Platform =
+		Objects.Find("triggered-platform");
+	assert(Platform != nullptr);
+	assert(Platform->PlatformStartsOnStand);
+	assert(!Platform->PlatformStarted);
+	assert(Platform->RailVisible);
+
+	TileMap Map = MakeMap({{0}});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	// HSP gizf=49相当: Playerが乗るまではpathがあっても完全に静止する。
+	for (int Frame = 0; Frame < 5; ++Frame) {
+		Objects.Update(Map, Catalog);
+		Platform = Objects.Find("triggered-platform");
+		assert(Platform != nullptr);
+		assert(NearlyEqual(Platform->Position.X, 32.0f));
+		assert(NearlyEqual(Platform->Position.Y, 96.0f));
+		assert(NearlyEqual(Platform->FrameDelta.X, 0.0f));
+		assert(NearlyEqual(Platform->FrameDelta.Y, 0.0f));
+	}
+
+	assert(Objects.ActivateMovingPlatformOnStand("triggered-platform"));
+	Platform = Objects.Find("triggered-platform");
+	assert(Platform != nullptr);
+	assert(Platform->PlatformStarted);
+
+	// HSP gizf=50相当: 起動後は同じPathFollowerで走行する。
+	Objects.Update(Map, Catalog);
+	Platform = Objects.Find("triggered-platform");
+	assert(Platform != nullptr);
+	assert(NearlyEqual(Platform->Position.X, 34.0f));
+	assert(NearlyEqual(Platform->Position.Y, 96.0f));
+	assert(NearlyEqual(Platform->FrameDelta.X, 2.0f));
+
+	// 二度目以降のstand通知はidempotent。
+	assert(Objects.ActivateMovingPlatformOnStand("triggered-platform"));
+	Objects.Update(Map, Catalog);
+	Platform = Objects.Find("triggered-platform");
+	assert(NearlyEqual(Platform->Position.X, 36.0f));
+}
+
+void TestNativeMovingPlatformRejectsInvalidActivation() {
+	StageArea Area;
+	StagePath Path;
+	Path.Id = "rail";
+	Path.Points = {{0.0f, 0.0f}, {32.0f, 0.0f}};
+	Area.Paths.push_back(Path);
+
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "bad-activation";
+	Spawn.TypeId = "MovingPlatform";
+	Spawn.Properties["pathId"] =
+		StagePropertyValue::String("rail");
+	Spawn.Properties["speed"] =
+		StagePropertyValue::Float(2.0f);
+	Spawn.Properties["activation"] =
+		StagePropertyValue::String("banana");
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	const Result<bool> Reset = Objects.Reset(Area);
+	assert(Reset.IsFailure());
+	assert(Reset.Error().find("activation must be auto or onStand") !=
+		std::string::npos);
+}
+
+void TestNativeMovingPlatformOnStandRequiresPath() {
+	StageArea Area;
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	ObjectSpawn Spawn;
+	Spawn.Id = "pathless-trigger";
+	Spawn.TypeId = "MovingPlatform";
+	Spawn.Properties["activation"] =
+		StagePropertyValue::String("onStand");
+	Layer.Objects.push_back(Spawn);
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	const Result<bool> Reset = Objects.Reset(Area);
+	assert(Reset.IsFailure());
+	assert(Reset.Error().find("onStand requires a path") !=
+		std::string::npos);
 }
 
 void TestNativeMovingPlatformRejectsUnknownWaypointPath() {
@@ -9192,6 +9324,9 @@ int main(int argc, char* argv[]) {
 	TestNativeMovingPlatformOnlyLandsFromAbove();
 	TestNativeMovingPlatformPingPongsAndReportsFrameDelta();
 	TestNativeMovingPlatformFollowsWaypointPathAndPingPongs();
+	TestNativeMovingPlatformStartsWaypointPathOnStand();
+	TestNativeMovingPlatformRejectsInvalidActivation();
+	TestNativeMovingPlatformOnStandRequiresPath();
 	TestNativeMovingPlatformRejectsUnknownWaypointPath();
 	TestNativeMovingPlatformRejectsPathIdWithPathDelta();
 	TestNativeMovingPlatformRequiresPositiveSpeedForPath();
@@ -9309,6 +9444,9 @@ int main(int argc, char* argv[]) {
 	TestNativeMovingPlatformOnlyLandsFromAbove();
 	TestNativeMovingPlatformPingPongsAndReportsFrameDelta();
 	TestNativeMovingPlatformFollowsWaypointPathAndPingPongs();
+	TestNativeMovingPlatformStartsWaypointPathOnStand();
+	TestNativeMovingPlatformRejectsInvalidActivation();
+	TestNativeMovingPlatformOnStandRequiresPath();
 	TestNativeMovingPlatformRejectsUnknownWaypointPath();
 	TestNativeMovingPlatformRejectsPathIdWithPathDelta();
 	TestNativeMovingPlatformRequiresPositiveSpeedForPath();
