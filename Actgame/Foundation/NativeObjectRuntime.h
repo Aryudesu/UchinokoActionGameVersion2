@@ -141,6 +141,8 @@ private:
 	static void ResetToSpawn(NativeObjectRuntime& Object);
 	static void UpdateMovingPlatform(
 		NativeObjectRuntime& Object);
+	static void UpdatePathEnemy(
+		NativeObjectRuntime& Object);
 	static bool UpdatePathFollower(
 		NativeObjectRuntime& Object);
 	static void UpdateWalkingEnemy(
