@@ -2044,7 +2044,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	const ObjectLayer* PlatformObjects =
 		PlatformArea->FindObjectLayer("objects");
 	assert(PlatformObjects != nullptr);
-	assert(PlatformObjects->Objects.size() == 5);
+	assert(PlatformObjects->Objects.size() == 7);
 	for (int Index = 0; Index < 5; ++Index) {
 		const ObjectSpawn& Platform =
 			PlatformObjects->Objects[static_cast<std::size_t>(Index)];
@@ -2056,7 +2056,7 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	}
 	WorldPosition PlatformPath;
 	float PlatformSpeed = 0.0f;
-	assert(PlatformArea->Paths.size() == 1);
+	assert(PlatformArea->Paths.size() == 3);
 	assert(PlatformArea->Paths[0].Id == "platform-zigzag");
 	assert(PlatformArea->Paths[0].Mode == StagePathMode::PingPong);
 	assert(PlatformArea->Paths[0].Points.size() == 4);
@@ -2094,6 +2094,27 @@ void TestNativeStageDataLoaderLoadsJsonAndCsv() {
 	assert(PlatformObjects->Objects[4].Properties.at("speed")
 		.TryGetFloat(PlatformSpeed));
 	assert(NearlyEqual(PlatformSpeed, 2.0f));
+
+	assert(PlatformObjects->Objects[5].Id == "path-enemy-16");
+	assert(PlatformObjects->Objects[5].TypeId == "PathEnemy");
+	int PathEnemyVariant = 0;
+	assert(PlatformObjects->Objects[5].Properties.at("variant")
+		.TryGetInteger(PathEnemyVariant));
+	assert(PathEnemyVariant == 1);
+	std::string PathEnemyPathId;
+	assert(PlatformObjects->Objects[5].Properties.at("pathId")
+		.TryGetString(PathEnemyPathId));
+	assert(PathEnemyPathId == "enemy-rail-upper");
+
+	assert(PlatformObjects->Objects[6].Id == "path-enemy-17");
+	assert(PlatformObjects->Objects[6].TypeId == "PathEnemy");
+	assert(PlatformObjects->Objects[6].Properties.at("variant")
+		.TryGetInteger(PathEnemyVariant));
+	assert(PathEnemyVariant == 2);
+	assert(PlatformObjects->Objects[6].Properties.at("pathId")
+		.TryGetString(PathEnemyPathId));
+	assert(PathEnemyPathId == "enemy-rail-lower");
+
 	assert(PlatformArea->Transitions.size() == 1);
 	assert(PlatformArea->Transitions[0].Id ==
 		"pipe-moving-platform-main");
@@ -4586,6 +4607,125 @@ void TestNativeJumpingEnemyRejectsUnknownVariant() {
 	assert(Reset.IsFailure());
 	assert(Reset.Error().find("variant must be 1 or 2") !=
 		std::string::npos);
+}
+
+void TestNativePathEnemyVariantsSharePathFollower() {
+	StageArea Area;
+	StagePath Path;
+	Path.Id = "enemy-path";
+	Path.Points = {
+		{0.0f, 0.0f},
+		{4.0f, 0.0f},
+		{4.0f, -4.0f}
+	};
+	Area.Paths.push_back(Path);
+
+	ObjectLayer Layer;
+	Layer.Metadata.Id = "objects";
+	for (int Variant = 1; Variant <= 2; ++Variant) {
+		ObjectSpawn Spawn;
+		Spawn.Id = Variant == 1 ? "path16" : "path17";
+		Spawn.TypeId = "PathEnemy";
+		Spawn.Position = {
+			32.0f,
+			Variant == 1 ? 96.0f : 160.0f
+		};
+		Spawn.Properties["variant"] =
+			StagePropertyValue::Integer(Variant);
+		Spawn.Properties["pathId"] =
+			StagePropertyValue::String("enemy-path");
+		Spawn.Properties["speed"] =
+			StagePropertyValue::Float(3.0f);
+		Layer.Objects.push_back(Spawn);
+	}
+	Area.ObjectLayers.push_back(Layer);
+
+	NativeObjectSystem Objects;
+	assert(Objects.Reset(Area).IsSuccess());
+	TileMap Map = MakeMap({{0}});
+	TileCatalog Catalog;
+	TileDefinition Empty;
+	Empty.Id = 0;
+	Empty.Collision = CollisionShape::None;
+	assert(Catalog.Register(Empty).IsSuccess());
+
+	Objects.Update(Map, Catalog);
+	const NativeObjectRuntime* Upper = Objects.Find("path16");
+	const NativeObjectRuntime* Lower = Objects.Find("path17");
+	assert(Upper != nullptr && Lower != nullptr);
+
+	// movement部分は16/17で完全共有。
+	assert(NearlyEqual(Upper->Position.X, 35.0f));
+	assert(NearlyEqual(Upper->Position.Y, 96.0f));
+	assert(NearlyEqual(Lower->Position.X, 35.0f));
+	assert(NearlyEqual(Lower->Position.Y, 160.0f));
+	assert(NearlyEqual(Upper->FrameDelta.X, Lower->FrameDelta.X));
+	assert(NearlyEqual(Upper->FrameDelta.Y, Lower->FrameDelta.Y));
+	assert(!Upper->Stompable);
+	assert(!Lower->Stompable);
+
+	// HSP16は敵本体より上側、17は下側へ接触領域をずらす。
+	assert(NearlyEqual(Upper->HitboxOffset.Y, -32.0f));
+	assert(NearlyEqual(Lower->HitboxOffset.Y, 32.0f));
+	assert(NearlyEqual(Upper->HitboxSize.Y, 32.0f));
+	assert(NearlyEqual(Lower->HitboxSize.Y, 32.0f));
+
+	const std::vector<NativeObjectContact> UpperContacts =
+		Objects.FindContacts({40.0f, 48.0f}, {16.0f, 32.0f}, 0.0f);
+	bool FoundUpper = false;
+	bool FoundLower = false;
+	for (const NativeObjectContact& Contact : UpperContacts) {
+		if (Contact.ObjectId == "path16") FoundUpper = true;
+		if (Contact.ObjectId == "path17") FoundLower = true;
+	}
+	assert(FoundUpper);
+	assert(!FoundLower);
+
+	const std::vector<NativeObjectContact> LowerContacts =
+		Objects.FindContacts({40.0f, 176.0f}, {16.0f, 32.0f}, 0.0f);
+	FoundUpper = false;
+	FoundLower = false;
+	for (const NativeObjectContact& Contact : LowerContacts) {
+		if (Contact.ObjectId == "path16") FoundUpper = true;
+		if (Contact.ObjectId == "path17") FoundLower = true;
+	}
+	assert(!FoundUpper);
+	assert(FoundLower);
+}
+
+void TestNativePathEnemyRejectsInvalidConfiguration() {
+	StageArea Area;
+	StagePath Path;
+	Path.Id = "enemy-path";
+	Path.Points = {{0.0f, 0.0f}, {32.0f, 0.0f}};
+	Area.Paths.push_back(Path);
+
+	auto MakeArea = [&](int Variant, float Speed, const std::string& PathId) {
+		StageArea Result = Area;
+		ObjectLayer Layer;
+		Layer.Metadata.Id = "objects";
+		ObjectSpawn Spawn;
+		Spawn.Id = "bad-path-enemy";
+		Spawn.TypeId = "PathEnemy";
+		Spawn.Properties["variant"] =
+			StagePropertyValue::Integer(Variant);
+		Spawn.Properties["pathId"] =
+			StagePropertyValue::String(PathId);
+		Spawn.Properties["speed"] =
+			StagePropertyValue::Float(Speed);
+		Layer.Objects.push_back(Spawn);
+		Result.ObjectLayers.push_back(Layer);
+		return Result;
+	};
+
+	NativeObjectSystem BadVariant;
+	assert(BadVariant.Reset(MakeArea(3, 2.0f, "enemy-path")).IsFailure());
+
+	NativeObjectSystem BadSpeed;
+	assert(BadSpeed.Reset(MakeArea(1, 0.0f, "enemy-path")).IsFailure());
+
+	NativeObjectSystem BadPath;
+	assert(BadPath.Reset(MakeArea(1, 2.0f, "missing")).IsFailure());
 }
 
 void TestNativeMovingPlatformSupportsWidthsOneToFive() {
@@ -9319,6 +9459,8 @@ int main(int argc, char* argv[]) {
 	TestNativeJumpingEnemyVariantsMatchHspJumpSpeeds();
 	TestNativeJumpingEnemyTurnsAtWallAndCanBeStomped();
 	TestNativeJumpingEnemyRejectsUnknownVariant();
+	TestNativePathEnemyVariantsSharePathFollower();
+	TestNativePathEnemyRejectsInvalidConfiguration();
 	TestNativeMovingPlatformSupportsWidthsOneToFive();
 	TestNativeMovingPlatformRejectsWidthOutsideOneToFive();
 	TestNativeMovingPlatformOnlyLandsFromAbove();
@@ -9439,6 +9581,8 @@ int main(int argc, char* argv[]) {
 	TestNativeJumpingEnemyVariantsMatchHspJumpSpeeds();
 	TestNativeJumpingEnemyTurnsAtWallAndCanBeStomped();
 	TestNativeJumpingEnemyRejectsUnknownVariant();
+	TestNativePathEnemyVariantsSharePathFollower();
+	TestNativePathEnemyRejectsInvalidConfiguration();
 	TestNativeMovingPlatformSupportsWidthsOneToFive();
 	TestNativeMovingPlatformRejectsWidthOutsideOneToFive();
 	TestNativeMovingPlatformOnlyLandsFromAbove();

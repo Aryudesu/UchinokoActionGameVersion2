@@ -113,6 +113,10 @@ constexpr int MovingPlatformMinWidthTiles = 1;
 constexpr int MovingPlatformMaxWidthTiles = 5;
 constexpr float MovingPlatformHeight = 8.0f;
 
+constexpr int PathEnemyUpperContact = 1;
+constexpr int PathEnemyLowerContact = 2;
+constexpr float PathEnemyDefaultSpeed = 2.0f;
+
 bool IsBallSlime(const NativeObjectRuntime& Object) {
 	return Object.TypeId == "BallSlime";
 }
@@ -139,7 +143,8 @@ bool UsesEnemyLifecycle(const NativeObjectRuntime& Object) {
 		Object.TypeId == "UnstompableWalker" ||
 		Object.TypeId == "BulletEnemy" ||
 		Object.TypeId == "JumpingEnemy" ||
-		Object.TypeId == "PipeEnemy";
+		Object.TypeId == "PipeEnemy" ||
+		Object.TypeId == "PathEnemy";
 }
 
 bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
@@ -155,7 +160,8 @@ bool IsEnemyCollisionParticipant(const NativeObjectRuntime& Object) {
 		Object.TypeId == "TransformingWalker" ||
 		Object.TypeId == "UnstompableWalker" ||
 		Object.TypeId == "BulletEnemy" ||
-		Object.TypeId == "JumpingEnemy") {
+		Object.TypeId == "JumpingEnemy" ||
+		Object.TypeId == "PathEnemy") {
 		return true;
 	}
 	if (Object.TypeId == "PipeEnemy") {
@@ -795,6 +801,21 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.FrameDelta = {0.0f, 0.0f};
 		Runtime.Gravity = 0.0f;
 		Runtime.MaxFallSpeed = 0.0f;
+	} else if (Spawn.TypeId == "PathEnemy") {
+		// HSP enemyf=16/17:
+		// movementは共通のguide-line追従。差はPlayer接触領域の上下だけ。
+		Runtime.ContactDamage = 1;
+		Runtime.ContactEnabled = true;
+		Runtime.Stompable = false;
+		Runtime.Direction = -1;
+		Runtime.InitialDirection = -1;
+		Runtime.Variant = PathEnemyUpperContact;
+		Runtime.MoveSpeed = PathEnemyDefaultSpeed;
+		Runtime.Gravity = 0.0f;
+		Runtime.MaxFallSpeed = 0.0f;
+		Runtime.RailVisible = false;
+		Runtime.HitboxOffset = {0.0f, -32.0f};
+		Runtime.HitboxSize = {32.0f, 32.0f};
 	} else if (Spawn.TypeId == "WalkingEnemy") {
 		// V1 WalkingEnemy1:
 		// 32x32 sprite, gap.x=8 / gap.y=1
@@ -1334,6 +1355,62 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.BehaviorPhase = 0.0f;
 	}
 
+	if (Spawn.TypeId == "PathEnemy") {
+		if (!TryReadString(
+				Spawn.Properties,
+				"pathId",
+				Runtime.PathId,
+				Error,
+				Spawn.Id) ||
+			!TryReadInteger(
+				Spawn.Properties,
+				"variant",
+				Runtime.Variant,
+				Error,
+				Spawn.Id) ||
+			!TryReadFloat(
+				Spawn.Properties,
+				"speed",
+				Runtime.MoveSpeed,
+				Error,
+				Spawn.Id) ||
+			!TryReadBoolean(
+				Spawn.Properties,
+				"railVisible",
+				Runtime.RailVisible,
+				Error,
+				Spawn.Id)) {
+			return Result<NativeObjectRuntime>::Failure(Error);
+		}
+		if (Runtime.PathId.empty()) {
+			return Result<NativeObjectRuntime>::Failure(
+				"PathEnemy pathId must not be empty: " + Spawn.Id);
+		}
+		const StagePath* Path = Area.FindPath(Runtime.PathId);
+		if (Path == nullptr) {
+			return Result<NativeObjectRuntime>::Failure(
+				"PathEnemy references unknown path: " +
+				Spawn.Id + " -> " + Runtime.PathId);
+		}
+		if (Runtime.Variant != PathEnemyUpperContact &&
+			Runtime.Variant != PathEnemyLowerContact) {
+			return Result<NativeObjectRuntime>::Failure(
+				"PathEnemy variant must be 1 or 2: " + Spawn.Id);
+		}
+		if (Runtime.MoveSpeed <= 0.0f) {
+			return Result<NativeObjectRuntime>::Failure(
+				"PathEnemy speed must be positive: " + Spawn.Id);
+		}
+
+		Runtime.PathPoints = Path->Points;
+		Runtime.PathPointIndex = 1;
+		Runtime.PathDirection = 1;
+		Runtime.HitboxOffset = Runtime.Variant == PathEnemyUpperContact
+			? WorldPosition{0.0f, -32.0f}
+			: WorldPosition{0.0f, 32.0f};
+		Runtime.HitboxSize = {32.0f, 32.0f};
+	}
+
 	if (Spawn.TypeId == "PipeEnemy") {
 		if (!TryReadFloat(
 			Spawn.Properties,
@@ -1834,6 +1911,14 @@ bool NativeObjectSystem::UpdatePathFollower(
 	};
 	Object.Velocity = Object.FrameDelta;
 	return true;
+}
+
+void NativeObjectSystem::UpdatePathEnemy(
+	NativeObjectRuntime& Object) {
+	if (!Object.Active) return;
+	Object.FrameDelta = {0.0f, 0.0f};
+	Object.Velocity = {0.0f, 0.0f};
+	UpdatePathFollower(Object);
 }
 
 void NativeObjectSystem::UpdateMovingPlatform(
@@ -2874,6 +2959,8 @@ void NativeObjectSystem::Update(
 		if (!Object.Active) continue;
 		if (Object.TypeId == "MovingPlatform") {
 			UpdateMovingPlatform(Object);
+		} else if (Object.TypeId == "PathEnemy") {
+			UpdatePathEnemy(Object);
 		} else if (Object.TypeId == "WalkingEnemy" ||
 			Object.TypeId == "TransformingWalker" ||
 			Object.TypeId == "UnstompableWalker") {
