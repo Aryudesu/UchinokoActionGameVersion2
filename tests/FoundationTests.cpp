@@ -4667,8 +4667,8 @@ void TestNativePathEnemyVariantsSharePathFollower() {
 	// HSP16は敵本体より上側、17は下側へ接触領域をずらす。
 	assert(NearlyEqual(Upper->HitboxOffset.Y, -32.0f));
 	assert(NearlyEqual(Lower->HitboxOffset.Y, 32.0f));
-	assert(NearlyEqual(Upper->HitboxSize.Y, 64.0f));
-	assert(NearlyEqual(Lower->HitboxSize.Y, 64.0f));
+	assert(NearlyEqual(Upper->HitboxSize.Y, 32.0f));
+	assert(NearlyEqual(Lower->HitboxSize.Y, 32.0f));
 
 	const std::vector<NativeObjectContact> UpperContacts =
 		Objects.FindContacts({40.0f, 48.0f}, {16.0f, 32.0f}, 0.0f);
