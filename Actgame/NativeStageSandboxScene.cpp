@@ -1200,6 +1200,40 @@ void NativeStageSandboxScene::DrawObjectLayer(
 				X + 3, Y - 18,
 				GetColor(190, 235, 255),
 				"P%d", Tiles);
+		} else if (Object->TypeId == "PathEnemy") {
+			if (Object->RailVisible && Object->PathPoints.size() >= 2) {
+				for (std::size_t Index = 1;
+					Index < Object->PathPoints.size(); ++Index) {
+					const uchinoko::WorldPosition From =
+						Object->PathPoints[Index - 1];
+					const uchinoko::WorldPosition To =
+						Object->PathPoints[Index];
+					const int FromX = ScreenX(
+						Object->InitialPosition.X + From.X + 16.0f);
+					const int FromY = ScreenY(
+						Object->InitialPosition.Y + From.Y + 16.0f);
+					const int ToX = ScreenX(
+						Object->InitialPosition.X + To.X + 16.0f);
+					const int ToY = ScreenY(
+						Object->InitialPosition.Y + To.Y + 16.0f);
+					DrawLine(
+						FromX, FromY, ToX, ToY,
+						GetColor(100, 90, 120), 4);
+					DrawLine(
+						FromX, FromY, ToX, ToY,
+						GetColor(220, 180, 245), 1);
+				}
+			}
+			DrawBox(
+				X + 4, Y + 4, X + 28, Y + 28,
+				Object->Variant == 1
+					? GetColor(230, 130, 245)
+					: GetColor(130, 180, 245),
+				FALSE);
+			DrawString(
+				X + 7, Y + 8,
+				Object->Variant == 1 ? "16" : "17",
+				GetColor(245, 225, 255));
 		} else if (Object->TypeId == "TransformingWalker") {
 			const bool Changed = Object->BehaviorState != 0;
 			DrawBox(
@@ -1457,6 +1491,16 @@ void NativeStageSandboxScene::DrawObjectLayer(
 						Object->BehaviorPhase,
 						Object->BehaviorState >= 0 ? "->" : "<-");
 				}
+			} else if (Object->TypeId == "PathEnemy") {
+				DrawFormatString(
+					X, Y + 34,
+					GetColor(230, 200, 255),
+					"%s HSP%d path=%s target=%d %s",
+					Object->Id.c_str(),
+					Object->Variant == 1 ? 16 : 17,
+					Object->PathId.c_str(),
+					static_cast<int>(Object->PathPointIndex),
+					Object->PathDirection >= 0 ? "->" : "<-");
 			} else if (Object->TypeId == "TransformingWalker") {
 				DrawFormatString(
 					X, Y + 34,
