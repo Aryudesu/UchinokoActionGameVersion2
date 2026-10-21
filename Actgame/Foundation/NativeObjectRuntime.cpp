@@ -815,7 +815,7 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.MaxFallSpeed = 0.0f;
 		Runtime.RailVisible = false;
 		Runtime.HitboxOffset = {0.0f, -32.0f};
-		Runtime.HitboxSize = {32.0f, 64.0f};
+		Runtime.HitboxSize = {32.0f, 32.0f};
 	} else if (Spawn.TypeId == "WalkingEnemy") {
 		// V1 WalkingEnemy1:
 		// 32x32 sprite, gap.x=8 / gap.y=1
@@ -1408,7 +1408,7 @@ Result<NativeObjectRuntime> NativeObjectSystem::BuildRuntime(
 		Runtime.HitboxOffset = Runtime.Variant == PathEnemyUpperContact
 			? WorldPosition{0.0f, -32.0f}
 			: WorldPosition{0.0f, 32.0f};
-		Runtime.HitboxSize = {32.0f, 64.0f};
+		Runtime.HitboxSize = {32.0f, 32.0f};
 	}
 
 	if (Spawn.TypeId == "PipeEnemy") {
