@@ -659,6 +659,16 @@
           "id": "platform-zigzag",
           "mode": "pingPong",
           "points": [[0,0],[64,0],[64,-64],[128,-64]]
+        },
+        {
+          "id": "enemy-rail-upper",
+          "mode": "pingPong",
+          "points": [[0,0],[96,0],[96,-64],[160,-64]]
+        },
+        {
+          "id": "enemy-rail-lower",
+          "mode": "pingPong",
+          "points": [[0,0],[96,0],[96,64],[160,64]]
         }
       ],
       "objectLayers": [
@@ -669,7 +679,9 @@
             { "id": "platform-w2", "type": "MovingPlatform", "position": [160,256], "properties": { "widthTiles": 2 } },
             { "id": "platform-w3", "type": "MovingPlatform", "position": [256,224], "properties": { "widthTiles": 3, "pathId": "platform-zigzag", "speed": 2, "activation": "onStand", "railVisible": true } },
             { "id": "platform-w4", "type": "MovingPlatform", "position": [352,288], "properties": { "widthTiles": 4, "pathDelta": [96,0], "speed": 2 } },
-            { "id": "platform-w5", "type": "MovingPlatform", "position": [544,256], "properties": { "widthTiles": 5, "pathDelta": [0,-96], "speed": 2 } }
+            { "id": "platform-w5", "type": "MovingPlatform", "position": [544,256], "properties": { "widthTiles": 5, "pathDelta": [0,-96], "speed": 2 } },
+            { "id": "path-enemy-16", "type": "PathEnemy", "position": [64,160], "properties": { "variant": 1, "pathId": "enemy-rail-upper", "speed": 2, "railVisible": true } },
+            { "id": "path-enemy-17", "type": "PathEnemy", "position": [64,224], "properties": { "variant": 2, "pathId": "enemy-rail-lower", "speed": 2, "railVisible": true } }
           ]
         }
       ],
